@@ -300,6 +300,11 @@ main(int argc, const char* argv[]) {
     gap1_ffs = (first_byte_time - 36);
     addn(gap1_ffs, 0xff, 0xff);
     addn(6, 0, 0xff);
+    if (flag_is_very_verbose) {
+      (void) printf("Track %d sector first sector header at %d\n",
+                    track,
+                    (gap1_ffs + 6));
+    }
     /* Sector header. */
     add(0xfe, 0xc7);
     addcopy(4, (p_in_track + 0x10));
