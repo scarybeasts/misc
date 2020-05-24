@@ -1,0 +1,453 @@
+\\ discbeast.asm
+\\ It works with discs. It's a bit of a beast.
+
+BASE = &7000
+ZP = &70
+
+ABI_INIT = (BASE + 0)
+ABI_SEEK = (BASE + 3)
+ABI_READ_TRACK = (BASE + 6)
+ABI_READ_IDS = (BASE + 9)
+ABI_READ_SECTORS = (BASE + 12)
+
+DETECTED_NOTHING = 0
+DETECTED_INTEL = 1
+DETECTED_WD = 2
+
+NMI = &0D00
+OSBYTE = &FFF4
+
+INTEL_CMD_DRIVE0 = &40
+INTEL_CMD_READ_SECTORS = &13
+INTEL_CMD_SEEK = &29
+INTEL_CMD_READ_STATUS = &2C
+INTEL_CMD_SPECIFY = &35
+INTEL_CMD_SET_PARAM = &3A
+INTEL_PARAM_SPINDOWN_LOADTIME = &0F
+INTEL_PARAM_DRVOUT = &23
+INTEL_DRVOUT_SELECT0 = &40
+INTEL_DRVOUT_LOAD_HEAD = &08
+
+WD_CMD_RESTORE = &00
+WD_CMD_SEEK = &10
+WD_CMD_READ_SECTOR_SETTLE = &84
+WD_CMD_READ_ADDRESS_SETTLE = &C4
+WD_CMD_READ_TRACK_SETTLE = &E4
+
+ORG ZP
+GUARD (ZP + 16)
+
+.var_zp_ABI_buf_1 SKIP 2
+.var_zp_wd_base SKIP 2
+.var_zp_wd_drvctrl SKIP 2
+.var_zp_wd_sd_0_lower SKIP 1
+.var_zp_wd_sd_0_upper SKIP 1
+.var_zp_drive SKIP 1
+.var_zp_side SKIP 1
+.var_zp_track SKIP 1
+.var_zp_temp SKIP 1
+
+ORG BASE
+GUARD (BASE + 1024)
+
+.discbeast_begin
+
+    \\ base + 0, init
+    JMP entry_init
+    \\ base + 3, seek
+    JMP entry_not_set
+    \\ base + 6, read track
+    JMP entry_not_set
+    \\ base + 9, read ids
+    JMP entry_not_set
+    \\ base + 12, read sectors
+    JMP entry_not_set
+
+.entry_not_set
+    BRK
+
+.entry_init
+    AND #1
+    STA var_zp_drive
+
+    LDA #0
+    STA var_zp_side
+    STA var_zp_track
+
+    \\ *FX 140,0, aka. *TAPE
+    LDA #&8C
+    LDX #0
+    LDY #0
+    JSR OSBYTE
+
+    \\ Install null NMI handler.
+    LDA #&40
+    STA NMI
+
+    \\ Set up default buffer to &6000.
+    LDA #0
+    STA var_zp_ABI_buf_1
+    LDA #&60
+    STA var_zp_ABI_buf_1 + 1
+
+    \\ Detect 8271 vs. 1770 on model B.
+    \\ On i8271, &FE84 - &FE87 all map to the same data register.
+    \\ On wd1770, &FE85 is the track register and &FE86 the sector register.
+    LDA #42
+    STA &FE85
+    LDA #43
+    STA &FE86
+
+    JSR wd_delay
+
+    LDA &FE85
+    CMP #43
+    BEQ detected_intel
+    CMP #42
+    BEQ detected_wd_fe8x
+
+    \\ Detect 1770 on Master.
+    LDA #42
+    STA &FE29
+
+    JSR wd_delay
+
+    LDA &FE29
+    CMP #42
+    BEQ detected_wd_fe2x
+
+    LDA #DETECTED_NOTHING
+    RTS
+
+.detected_intel
+    \\ Set up vectors.
+    LDA #LO(intel_seek)
+    STA ABI_SEEK + 1
+    LDA #HI(intel_seek)
+    STA ABI_SEEK + 2
+    LDA #LO(intel_read_sectors)
+    STA ABI_READ_SECTORS + 1
+    LDA #HI(intel_read_sectors)
+    STA ABI_READ_SECTORS + 2
+
+    \\ Disable automatic spindown. On my machine, the 8271 is super picky about
+    \\ starting up again after it spins down, requiring a seek to track 0??
+    \\ Also set seek time to 12ms, twice as fast as standard but still slow.
+    LDA #INTEL_CMD_SET_PARAM
+    JSR intel_do_cmd
+    LDA #INTEL_PARAM_SPINDOWN_LOADTIME
+    JSR intel_do_param
+    \\ No auto unload, head load 16ms.
+    LDA #&F8
+    JSR intel_do_param
+    JSR intel_wait_idle
+
+    \\ Spin up and load head.
+    JSR intel_set_drvout
+
+    \\ Seek to 0.
+    LDA #0
+    JSR ABI_SEEK
+
+    LDA #DETECTED_INTEL
+    RTS
+
+.detected_wd_fe8x
+    LDA #&84
+    STA var_zp_wd_base
+    LDA #&80
+    STA var_zp_wd_drvctrl
+    LDA #&09
+    STA var_zp_wd_sd_0_lower
+    LDA #&0D
+    STA var_zp_wd_sd_0_upper
+    JMP detected_wd_common
+
+.detected_wd_fe2x
+    LDA #&28
+    STA var_zp_wd_base
+    LDA #&24
+    STA var_zp_wd_drvctrl
+    LDA #&21
+    STA var_zp_wd_sd_0_lower
+    LDA #&31
+    STA var_zp_wd_sd_0_upper
+    JMP detected_wd_common
+
+.detected_wd_common
+    LDA #&FE
+    STA var_zp_wd_base + 1
+    STA var_zp_wd_drvctrl + 1
+
+    \\ Set up vectors.
+    LDA #LO(wd_seek)
+    STA ABI_SEEK + 1
+    LDA #HI(wd_seek)
+    STA ABI_SEEK + 2
+    LDA #LO(wd_read_track)
+    STA ABI_READ_TRACK + 1
+    LDA #HI(wd_read_track)
+    STA ABI_READ_TRACK + 2
+    LDA #LO(wd_read_ids)
+    STA ABI_READ_IDS + 1
+    LDA #HI(wd_read_ids)
+    STA ABI_READ_IDS + 2
+    LDA #LO(wd_read_sectors)
+    STA ABI_READ_SECTORS + 1
+    LDA #HI(wd_read_sectors)
+    STA ABI_READ_SECTORS + 2
+
+    \\ Set control register to select drive, side 0, single density.
+    LDA var_zp_drive
+    \\ Drive 0 -> 1, drive 1 -> 2.
+    CLC
+    ADC #1
+    \\ No reset.
+    ORA #&20
+    \\ Single density.
+    ORA #&08
+    LDY #0
+    STA (var_zp_wd_drvctrl),Y
+
+    \\ Seek to 0.
+    LDA #0
+    JSR ABI_SEEK
+
+    LDA #DETECTED_WD
+    RTS
+
+.intel_set_drvout
+    LDA #INTEL_CMD_SET_PARAM
+    JSR intel_do_cmd
+    LDA #INTEL_PARAM_DRVOUT
+    JSR intel_do_param
+    LDA var_zp_drive
+    CLC
+    ADC #1
+    ROR A
+    ROR A
+    ROR A
+    STA var_zp_temp
+    LDA var_zp_side
+    ASL A
+    ASL A
+    ASL A
+    ASL A
+    ASL A
+    ORA var_zp_temp
+    ORA #INTEL_DRVOUT_LOAD_HEAD
+    JSR intel_do_param
+    JSR intel_wait_idle
+    RTS
+
+.intel_seek
+    STA var_zp_track
+
+    JSR intel_wait_ready
+
+    LDA #INTEL_CMD_SEEK
+    JSR intel_do_cmd
+    LDA var_zp_track
+    JSR intel_do_param
+
+    JSR intel_wait_idle
+    RTS
+
+.intel_read_sectors
+    SEI
+
+    JSR intel_wait_ready
+
+    LDA #INTEL_CMD_READ_SECTORS
+    JSR intel_do_cmd
+    \\ Track.
+    LDA var_zp_track
+    JSR intel_do_param
+    \\ Start sector.
+    LDA #0
+    JSR intel_do_param
+    \\ 10x 256 byte sectors.
+    LDA #&2A
+    JSR intel_do_param
+
+    JSR intel_read_loop
+
+    CLI
+    RTS
+
+.intel_wait_ready
+    LDA #INTEL_CMD_READ_STATUS
+    JSR intel_do_cmd
+    JSR intel_wait_idle
+    LDA &FE81
+    \\ Check RDY0.
+    AND #&04
+    BEQ intel_wait_ready
+    RTS
+
+.intel_do_cmd
+    STA var_zp_temp
+    LDA var_zp_drive
+    CLC
+    ADC #1
+    ROR A
+    ROR A
+    ROR A
+    ORA var_zp_temp
+    STA &FE80
+  .intel_do_cmd_loop
+    LDA &FE80
+    AND #&40
+    BNE intel_do_cmd_loop
+    RTS
+
+.intel_do_param
+    STA &FE81
+  .intel_do_param_loop
+    LDA &FE80
+    AND #&20
+    BNE intel_do_param_loop
+    RTS
+
+.intel_read_loop
+    LDY #0
+  .intel_read_loop_loop
+    LDA &FE80
+    TAX
+    AND #&80
+    BEQ intel_read_loop_done
+    TXA
+    AND #4
+    BEQ intel_read_loop_loop
+    LDA &FE84
+    LDY #0
+    STA (var_zp_ABI_buf_1),Y
+    INC var_zp_ABI_buf_1
+    BNE intel_read_loop_loop
+    INC var_zp_ABI_buf_1 + 1
+    JMP intel_read_loop_loop
+  .intel_read_loop_done
+    RTS
+
+.intel_wait_idle
+    LDA &FE80
+    AND #&80
+    BNE intel_wait_idle
+    RTS
+
+.wd_seek
+    STA var_zp_track
+    CMP #0
+    BEQ wd_seek_to_0
+    \\ Desired track goes in data register.
+    LDY #3
+    STA (var_zp_wd_base),Y
+    LDA #WD_CMD_SEEK
+    JSR wd_do_command
+    JSR wd_wait_idle
+    RTS
+
+  .wd_seek_to_0
+    \\ Command 0, no flags is retore to track 0 + spin up.
+    LDA #WD_CMD_RESTORE
+    JSR wd_do_command
+    JSR wd_wait_idle
+    RTS
+
+.wd_read_track
+    SEI
+
+    \\ Read track, spin up, head settle.
+    LDA #WD_CMD_READ_TRACK_SETTLE
+    JSR wd_do_command
+
+    JSR wd_read_loop
+    CLI
+    RTS
+
+.wd_read_ids
+    SEI
+
+    LDA #WD_CMD_READ_ADDRESS_SETTLE
+    JSR wd_do_command
+
+    JSR wd_read_loop
+    CLI
+    RTS
+
+.wd_read_sectors
+    SEI
+
+    STY var_zp_temp
+    \\ Track register.
+    LDY #1
+    STA (var_zp_wd_base),Y
+    \\ Sector register.
+    INY
+    TXA
+    STA (var_zp_wd_base),Y
+    \\ Number of sectors ignored for now.
+    
+    LDA #WD_CMD_READ_SECTOR_SETTLE
+    JSR wd_do_command
+
+    JSR wd_read_loop
+
+    \\ Put back track register.
+    LDA var_zp_track
+    LDY #1
+    STA (var_zp_wd_base),Y
+
+    CLI
+    RTS
+
+.wd_do_command
+    LDY #0
+    STA (var_zp_wd_base),Y
+    JSR wd_delay
+    RTS
+
+.wd_read_loop
+    LDY #0
+  .wd_read_loop_loop
+    LDA (var_zp_wd_base),Y
+    TAX
+    AND #1
+    BEQ wd_read_loop_done
+    TXA
+    AND #2
+    BEQ wd_read_loop_loop
+    LDY #3
+    LDA (var_zp_wd_base),Y
+    LDY #0
+    STA (var_zp_ABI_buf_1),Y
+    INC var_zp_ABI_buf_1
+    BNE wd_read_loop_loop
+    INC var_zp_ABI_buf_1 + 1
+    JMP wd_read_loop_loop
+  .wd_read_loop_done
+    RTS
+
+.wd_delay
+    \\ Longest delay in the datasheet is 64us.
+    \\ Delay for a little over 64us.
+    \\ (Will be longer if the BNE crosses a page boundary!)
+    LDX #25
+  .wd_delay_loop
+    DEX
+    BNE wd_delay_loop
+    RTS
+
+.wd_wait_idle
+    LDY #0
+  .wd_wait_idle_loop
+    LDA (var_zp_wd_base),Y
+    AND #1
+    BNE wd_wait_idle_loop
+    RTS
+
+.discbeast_end
+
+SAVE "BSTASM", discbeast_begin, discbeast_end
+PUTTEXT "boot.txt", "!BOOT", 0
+PUTBASIC "discbeast.bas", "DISCBST"
