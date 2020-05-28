@@ -1,6 +1,13 @@
 MODE7:VDU129,157,131:PRINT"Disc BEAST v0.1":PRINT
-D%=&7000:Z%=&70:B%=&6000
+REM DISCBEAST base and zero page.
+D%=&7000:Z%=&70
+REM Read/write buffer.
+B%=&6000
+REM For parsed command values.
 DIM V%(3)
+REM For OSWORD.
+DIM O% 15:FOR I%=0 TO 15:?(O%+I%)=0:NEXT
+?(O%+1)=B%:?(O%+2)=B% DIV 256
 
 REPEAT
 
@@ -15,8 +22,11 @@ Q$=LEFT$(P$,J%)
 IF LEN(Q$)<>0 AND Q$<>" " THEN V%(I%)=EVAL(Q$):I%=I%+1
 P$=RIGHT$(P$,LEN(P$)-J%)
 UNTIL LEN(P$)=0
+P%=I%
 
 IF A$="INIT" THEN PROCinit
+IF A$="OWRD" THEN PROCowrd
+IF A$="DUMP" THEN PROCdump
 IF A$="SEEK" THEN PROCseek
 IF A$="RIDS" THEN PROCrids:PROCdump
 IF A$="READ" THEN PROCread:PROCdump
@@ -33,6 +43,15 @@ IF C%=0 THEN PRINT "FAIL"
 IF C%=1 THEN PRINT "OK 8271"
 IF C%=2 THEN PRINT "OK 1770"
 PRINT"DRIVE "+STR$(A%)
+?O%=A%
+ENDPROC
+
+DEF PROCowrd
+?(O%+5)=P%-1
+?(O%+6)=V%(0)
+IF P%>1 THEN FOR I%=2 TO P%:?(O%+5+I%)=V%(I%-1):NEXT
+A%=&7F:X%=O% AND &FF:Y%=O% DIV 256:CALL&FFF1:R%=?(O%+6+P%)
+PRINT "OSWORD &7F: &"+STR$~(R%)
 ENDPROC
 
 DEF PROCseek
@@ -57,8 +76,9 @@ R%=?Z%+?(Z%+1)*256
 ENDPROC
 
 DEF PROCdump
+A%=V%(0):IF A%<0 THEN A%=0
 FOR I%=0 TO 63
-PRINT" "+FNhex(?(B%+I%));
+PRINT" "+FNhex(?(B%+A%+I%));
 IF I% MOD 8=7 THEN PRINT
 NEXT
 ENDPROC
