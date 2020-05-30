@@ -1,6 +1,8 @@
 MODE7:VDU129,157,131:PRINT"Disc BEAST v0.1":PRINT
 REM DISCBEAST base and zero page.
 D%=&7000:Z%=&70
+REM UTILS base and zero page.
+U%=&7A00:W%=&50
 REM Read/write buffer.
 B%=&6000
 REM For parsed command values.
@@ -28,9 +30,9 @@ IF A$="INIT" THEN PROCinit
 IF A$="OWRD" THEN PROCowrd
 IF A$="DUMP" THEN PROCdump
 IF A$="SEEK" THEN PROCseek
-IF A$="RIDS" THEN PROCrids:V%(0)=-1:PROCdump
-IF A$="READ" THEN PROCread:V%(0)=-1:PROCdump
-IF A$="RTRK" THEN PROCrtrk:PRINT"LEN: "+STR$(R%-B%):PROCdump
+IF A$="RIDS" THEN PROCclr:PROCrids:V%(0)=-1:PROCdump
+IF A$="READ" THEN PROCclr:PROCread:V%(0)=-1:PROCdump
+IF A$="RTRK" THEN PROCclr:PROCrtrk:PRINT"LEN: "+STR$(R%-B%):V%(0)=-1:PROCdump
 
 UNTIL FALSE
 
@@ -44,6 +46,10 @@ IF C%=1 THEN PRINT "OK 8271"
 IF C%=2 THEN PRINT "OK 1770"
 PRINT"DRIVE "+STR$(A%)
 ?O%=A%
+ENDPROC
+
+DEF PROCclr
+?W%=B%:?(W%+1)=B% DIV 256:A%=0:X%=16:CALL U%+0
 ENDPROC
 
 DEF PROCowrd

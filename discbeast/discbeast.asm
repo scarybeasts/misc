@@ -449,5 +449,6 @@ GUARD (BASE + 1024)
 .discbeast_end
 
 SAVE "BSTASM", discbeast_begin, discbeast_end
+PUTFILE "DUTLASM", "DUTLASM", &7A00
 PUTTEXT "boot.txt", "!BOOT", 0
 PUTBASIC "discbeast.bas", "DISCBST"
