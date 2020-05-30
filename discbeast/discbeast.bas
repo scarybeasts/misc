@@ -10,6 +10,8 @@ DIM V%(3)
 REM For OSWORD.
 DIM O% 15:FOR I%=0 TO 15:?(O%+I%)=0:NEXT
 ?(O%+1)=B%:?(O%+2)=B% DIV 256
+REM For CRC.
+DIM C% 3
 
 REPEAT
 
@@ -31,7 +33,7 @@ IF A$="OWRD" THEN PROCowrd
 IF A$="DUMP" THEN PROCdump
 IF A$="SEEK" THEN PROCseek
 IF A$="RIDS" THEN PROCclr:PROCrids:PROCres:V%(0)=-1:PROCdump
-IF A$="READ" THEN PROCclr:PROCread:PROCres:V%(0)=-1:PROCdump
+IF A$="READ" THEN PROCclr:PROCread:PROCres:A%=Y% AND &0F:PROCcrc:V%(0)=-1:PROCdump
 IF A$="RTRK" THEN PROCclr:PROCrtrk:PRINT"LEN: "+STR$(I%-B%):V%(0)=-1:PROCdump
 
 UNTIL FALSE
@@ -40,10 +42,10 @@ DEF PROCinit
 A%=V%(0):T%=0
 IF A%<0 THEN A%=0
 IF A%>1 THEN A%=1
-C%=USR(D%+0) AND &FF
-IF C%=0 THEN PRINT"FAIL"
-IF C%=1 THEN PRINT"OK 8271"
-IF C%=2 THEN PRINT"OK 1770"
+E%=USR(D%+0) AND &FF
+IF E%=0 THEN PRINT"FAIL"
+IF E%=1 THEN PRINT"OK 8271"
+IF E%=2 THEN PRINT"OK 1770"
 PRINT"DRIVE "+STR$(A%)
 ?O%=A%
 ENDPROC
@@ -57,6 +59,26 @@ I%=R% AND &FF
 J%=(R% DIV 256) AND &FF
 PRINT"RESULT: &" + STR$~(I%);
 IF I%<>J% THEN PRINT" (&"+STR$~(J%)+")" ELSE PRINT
+ENDPROC
+
+DEF PROCcrc
+!C%=-1
+REM A% is number of 256 byte sectors.
+K%=A%
+FOR I%=1 TO K%
+?W%=C%:?(W%+1)=C% DIV 256
+?(W%+2)=B%:?(W%+3)=(B% DIV 256)+I%-1
+A%=0:CALL U%+9
+NEXT
+I%=?C% EOR &FF
+J%=?(C%+3) EOR &FF
+?C%=J%
+?(C%+3)=I%
+I%=?(C%+1) EOR &FF
+J%=?(C%+2) EOR &FF
+?(C%+1)=J%
+?(C%+2)=I%
+PRINT"CRC32 "+STR$(K%*256)+" BYTES: "+STR$~(!C%)
 ENDPROC
 
 DEF PROCowrd
