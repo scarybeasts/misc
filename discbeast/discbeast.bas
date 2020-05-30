@@ -70,8 +70,10 @@ K%=B%
 REPEAT
 ?W%=C%:?(W%+1)=C% DIV 256
 ?(W%+2)=K%:?(W%+3)=(K% DIV 256)
-IF J%>=256 THEN A%=0:J%=J%-256 ELSE A%=J%:J%=0
+IF J%>=256 THEN L%=256 ELSE L%=J%
+A%=L%:IF A%=256 THEN A%=0
 CALL U%+9
+J%=J%-L%:K%=K%+L%
 UNTIL J%=0
 
 X%=?C% EOR &FF
