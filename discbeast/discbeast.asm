@@ -46,6 +46,9 @@ GUARD (ZP + 16)
 .var_zp_side SKIP 1
 .var_zp_track SKIP 1
 .var_zp_temp SKIP 1
+.var_zp_param_1 SKIP 1
+.var_zp_param_2 SKIP 1
+.var_zp_param_3 SKIP 1
 
 ORG BASE
 GUARD (BASE + 1024)
@@ -256,18 +259,24 @@ GUARD (BASE + 1024)
 .intel_read_sectors
     SEI
 
+    STA var_zp_param_1
+    STX var_zp_param_2
+    STY var_zp_param_3
+
     JSR intel_wait_ready
 
     LDA #INTEL_CMD_READ_SECTORS
     JSR intel_do_cmd
     \\ Track.
-    LDA var_zp_track
+    LDA var_zp_param_1
     JSR intel_do_param
     \\ Start sector.
-    LDA #0
+    LDA var_zp_param_2
     JSR intel_do_param
-    \\ 10x 256 byte sectors.
-    LDA #&2A
+    \\ Number sectors.
+    LDA var_zp_param_3
+    \\ 256 byte sectors for now.
+    ORA #&20
     JSR intel_do_param
 
     JSR intel_read_loop
