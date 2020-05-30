@@ -33,7 +33,7 @@ IF A$="OWRD" THEN PROCowrd
 IF A$="DUMP" THEN PROCdump
 IF A$="SEEK" THEN PROCseek
 IF A$="RIDS" THEN PROCclr:PROCrids:PROCres:V%(0)=-1:PROCdump
-IF A$="READ" THEN PROCclr:PROCread:PROCres:A%=Y% AND &0F:PROCcrc:V%(0)=-1:PROCdump
+IF A$="READ" THEN PROCclr:PROCread:PROCres:PROCcrc:V%(0)=-1:PROCdump
 IF A$="RTRK" THEN PROCclr:PROCrtrk:PRINT"LEN: "+STR$(I%-B%):V%(0)=-1:PROCdump
 
 UNTIL FALSE
@@ -63,22 +63,26 @@ ENDPROC
 
 DEF PROCcrc
 !C%=-1
-REM A% is number of 256 byte sectors.
-K%=A%
-FOR I%=1 TO K%
+I%=?Z%+(?(Z%+1)*256)-B%
+J%=I%
+K%=B%
+
+REPEAT
 ?W%=C%:?(W%+1)=C% DIV 256
-?(W%+2)=B%:?(W%+3)=(B% DIV 256)+I%-1
-A%=0:CALL U%+9
-NEXT
-I%=?C% EOR &FF
-J%=?(C%+3) EOR &FF
-?C%=J%
-?(C%+3)=I%
-I%=?(C%+1) EOR &FF
-J%=?(C%+2) EOR &FF
-?(C%+1)=J%
-?(C%+2)=I%
-PRINT"CRC32 "+STR$(K%*256)+" BYTES: "+STR$~(!C%)
+?(W%+2)=K%:?(W%+3)=(K% DIV 256)
+IF J%>=256 THEN A%=0:J%=J%-256 ELSE A%=J%:J%=0
+CALL U%+9
+UNTIL J%=0
+
+X%=?C% EOR &FF
+Y%=?(C%+3) EOR &FF
+?C%=Y%
+?(C%+3)=X%
+X%=?(C%+1) EOR &FF
+Y%=?(C%+2) EOR &FF
+?(C%+1)=Y%
+?(C%+2)=X%
+PRINT"CRC32 "+STR$(I%)+" BYTES: "+STR$~(!C%)
 ENDPROC
 
 DEF PROCowrd

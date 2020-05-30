@@ -397,27 +397,45 @@ GUARD (BASE + 1024)
 .wd_read_sectors
     SEI
 
-    STY var_zp_temp
+    STA var_zp_param_1
+    STX var_zp_param_2
+    TYA
+    AND #&1F
+    STA var_zp_param_3
+
+  .wd_read_sector_loop
     \\ Track register.
     LDY #1
+    LDA var_zp_param_1
     STA (var_zp_wd_base),Y
     \\ Sector register.
     INY
-    TXA
+    LDA var_zp_param_2
     STA (var_zp_wd_base),Y
-    \\ Number of sectors ignored for now.
     
     LDA #WD_CMD_READ_SECTOR_SETTLE
     JSR wd_do_command
 
     JSR wd_read_loop
 
+    \\ Bail if error.
+    JSR wd_set_result_type_2_3
+    AND #&1F
+    BNE wd_read_sectors_error_out
+
+    \\ Loop across all sectors.
+    INC var_zp_param_2
+    DEC var_zp_param_3
+    BNE wd_read_sector_loop
+
+  .wd_read_sectors_error_out
     \\ Put back track register.
     LDA var_zp_track
     LDY #1
     STA (var_zp_wd_base),Y
 
     JSR wd_set_result_type_2_3
+
     CLI
     RTS
 
