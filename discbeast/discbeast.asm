@@ -254,6 +254,7 @@ GUARD (BASE + 1024)
     JSR intel_do_param
 
     JSR intel_wait_idle
+    JSR intel_set_result
     RTS
 
 .intel_read_sectors
@@ -281,6 +282,7 @@ GUARD (BASE + 1024)
 
     JSR intel_read_loop
 
+    JSR intel_set_result
     CLI
     RTS
 
@@ -344,6 +346,11 @@ GUARD (BASE + 1024)
     BNE intel_wait_idle
     RTS
 
+.intel_set_result
+    LDA &FE81
+    TAX
+    RTS
+
 .wd_seek
     STA var_zp_track
     CMP #0
@@ -354,6 +361,7 @@ GUARD (BASE + 1024)
     LDA #WD_CMD_SEEK
     JSR wd_do_command
     JSR wd_wait_idle
+    JSR wd_set_result_type_1
     RTS
 
   .wd_seek_to_0
@@ -361,6 +369,7 @@ GUARD (BASE + 1024)
     LDA #WD_CMD_RESTORE
     JSR wd_do_command
     JSR wd_wait_idle
+    JSR wd_set_result_type_1
     RTS
 
 .wd_read_track
@@ -371,6 +380,7 @@ GUARD (BASE + 1024)
     JSR wd_do_command
 
     JSR wd_read_loop
+    JSR wd_set_result_type_2_3
     CLI
     RTS
 
@@ -407,6 +417,7 @@ GUARD (BASE + 1024)
     LDY #1
     STA (var_zp_wd_base),Y
 
+    JSR wd_set_result_type_2_3
     CLI
     RTS
 
@@ -454,6 +465,47 @@ GUARD (BASE + 1024)
     AND #1
     BNE wd_wait_idle_loop
     RTS
+
+.wd_set_result_type_1
+    LDY #0
+    LDA (var_zp_wd_base),Y
+    TAX
+    \\ Always success in 8271 terms for now.
+    LDA #0
+    RTS
+
+.wd_set_result_type_2_3
+    LDY #0
+    STY var_zp_temp
+    LDA (var_zp_wd_base),Y
+    TAX
+    \\ Convert to 8271 return code equivalent.
+    AND #&10
+    BNE wd_set_result_not_found
+    TXA
+    AND #&08
+    BNE wd_set_result_crc_error
+  .wd_set_result_add_deleted
+    TXA
+    AND #&20
+    ORA var_zp_temp
+    RTS
+
+  .wd_set_result_crc_error
+    LDA #&0E
+    STA var_zp_temp
+    JMP wd_set_result_add_deleted
+  .wd_set_result_not_found
+    TXA
+    AND #&0E
+    BNE wd_set_result_sector_crc_error
+    LDA #&18
+    STA var_zp_temp
+    JMP wd_set_result_add_deleted
+  .wd_set_result_sector_crc_error
+    LDA #&0C
+    STA var_zp_temp
+    JMP wd_set_result_add_deleted
 
 .discbeast_end
 

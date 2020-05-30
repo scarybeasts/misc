@@ -30,9 +30,9 @@ IF A$="INIT" THEN PROCinit
 IF A$="OWRD" THEN PROCowrd
 IF A$="DUMP" THEN PROCdump
 IF A$="SEEK" THEN PROCseek
-IF A$="RIDS" THEN PROCclr:PROCrids:V%(0)=-1:PROCdump
-IF A$="READ" THEN PROCclr:PROCread:V%(0)=-1:PROCdump
-IF A$="RTRK" THEN PROCclr:PROCrtrk:PRINT"LEN: "+STR$(R%-B%):V%(0)=-1:PROCdump
+IF A$="RIDS" THEN PROCclr:PROCrids:PROCres:V%(0)=-1:PROCdump
+IF A$="READ" THEN PROCclr:PROCread:PROCres:V%(0)=-1:PROCdump
+IF A$="RTRK" THEN PROCclr:PROCrtrk:PRINT"LEN: "+STR$(I%-B%):V%(0)=-1:PROCdump
 
 UNTIL FALSE
 
@@ -41,9 +41,9 @@ A%=V%(0):T%=0
 IF A%<0 THEN A%=0
 IF A%>1 THEN A%=1
 C%=USR(D%+0) AND &FF
-IF C%=0 THEN PRINT "FAIL"
-IF C%=1 THEN PRINT "OK 8271"
-IF C%=2 THEN PRINT "OK 1770"
+IF C%=0 THEN PRINT"FAIL"
+IF C%=1 THEN PRINT"OK 8271"
+IF C%=2 THEN PRINT"OK 1770"
 PRINT"DRIVE "+STR$(A%)
 ?O%=A%
 ENDPROC
@@ -52,12 +52,19 @@ DEF PROCclr
 ?W%=B%:?(W%+1)=B% DIV 256:A%=0:X%=16:CALL U%+0
 ENDPROC
 
+DEF PROCres
+I%=R% AND &FF
+J%=(R% DIV 256) AND &FF
+PRINT"RESULT: &" + STR$~(I%);
+IF I%<>J% THEN PRINT" (&"+STR$~(J%)+")" ELSE PRINT
+ENDPROC
+
 DEF PROCowrd
 ?(O%+5)=P%-1
 ?(O%+6)=V%(0)
 IF P%>1 THEN FOR I%=2 TO P%:?(O%+5+I%)=V%(I%-1):NEXT
 A%=&7F:X%=O% AND &FF:Y%=O% DIV 256:CALL&FFF1:R%=?(O%+6+P%)
-PRINT "OSWORD &7F: &"+STR$~(R%)
+PRINT"OSWORD &7F: &"+STR$~(R%)
 ENDPROC
 
 DEF PROCseek
@@ -65,7 +72,7 @@ A%=V%(0):CALL D%+3:T%=A%
 ENDPROC
 
 DEF PROCrids
-?Z%=B%:?(Z%+1)=B% DIV 256:R%=USR(D%+9) AND &FF
+?Z%=B%:?(Z%+1)=B% DIV 256:R%=USR(D%+9)
 ENDPROC
 
 DEF PROCread
@@ -73,12 +80,12 @@ DEF PROCread
 A%=V%(0):IF A%=-1 THEN A%=T%
 X%=V%(1):IF X%=-1 THEN X%=0
 Y%=V%(2):IF Y%=-1 THEN Y%=&21
-R%=USR(D%+12) AND &FF
+R%=USR(D%+12)
 ENDPROC
 
 DEF PROCrtrk
-?Z%=B%:?(Z%+1)=B% DIV 256:CALL D%+6
-R%=?Z%+?(Z%+1)*256
+?Z%=B%:?(Z%+1)=B% DIV 256:R%=USR(D%+6)
+I%=?Z%+?(Z%+1)*256
 ENDPROC
 
 DEF PROCdump
