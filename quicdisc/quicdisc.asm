@@ -51,7 +51,7 @@ GUARD (ZP + 16)
 .var_zp_wd_sd_0_lower SKIP 1
 .var_zp_wd_sd_0_upper SKIP 1
 .var_zp_track SKIP 1
-.var_zp_temp SKIP 1
+.var_zp_nmi_a SKIP 1
 
 ORG BASE
 GUARD (BASE + 512)
@@ -159,9 +159,9 @@ GUARD (BASE + 512)
     STA var_zp_wd_base
     LDA #&80
     STA var_zp_wd_drvctrl
-    LDA #&09
+    LDA #&29
     STA var_zp_wd_sd_0_lower
-    LDA #&0D
+    LDA #&2D
     STA var_zp_wd_sd_0_upper
     JMP detected_wd_common
 
@@ -362,14 +362,14 @@ GUARD (BASE + 512)
     RTS
 
 .nmi_routine
-    STA var_zp_temp
+    STA var_zp_nmi_a
     LDA $FEFF
     STA $C000
     INC NMI + 6
     BNE nmi_routine_no_inc_hi
     INC NMI + 7
   .nmi_routine_no_inc_hi
-    LDA var_zp_temp
+    LDA var_zp_nmi_a
     RTI
 .nmi_routine_end
 
