@@ -41,6 +41,7 @@ INTEL_DRVOUT_LOAD_HEAD = &08
 WD_CMD_RESTORE = &00
 WD_CMD_SEEK = &10
 WD_CMD_READ_SECTOR_MUTI_SETTLE = &94
+WD_CMD_FORCE_INTERRUPT = &D0
 
 ORG ZP
 GUARD (ZP + 16)
@@ -54,7 +55,7 @@ GUARD (ZP + 16)
 .var_zp_nmi_a SKIP 1
 
 ORG BASE
-GUARD (BASE + 512)
+GUARD (BASE + 768)
 
 .quicdisc_begin
 
@@ -170,9 +171,9 @@ GUARD (BASE + 512)
     STA var_zp_wd_base
     LDA #&24
     STA var_zp_wd_drvctrl
-    LDA #&21
+    LDA #&25
     STA var_zp_wd_sd_0_lower
-    LDA #&31
+    LDA #&35
     STA var_zp_wd_sd_0_upper
     JMP detected_wd_common
 
@@ -195,11 +196,21 @@ GUARD (BASE + 512)
     LDA #HI(wd_get_status)
     STA ABI_GET_STATUS + 2
 
-    \\ Copy over and patch NMI routine.
+    \\ Copy over and patch NMI routine with data register location.
     LDA var_zp_wd_base
     CLC
     ADC #3
     JSR copy_patch_nmi_routine
+    \\ Patch in the NMI read track completion jump.
+    \\ We need to abort the multi-sector read because it is not possible to
+    \\ specify number of sectors up front.
+    LDA #LO(wd_read_track_callback)
+    STA NMI + 24
+    LDA #HI(wd_read_track_callback)
+    STA NMI + 25
+    \\ Patch the NMI read track completion callback's command register.
+    LDA var_zp_wd_base
+    STA wd_read_track_callback_patch_wd_cmd + 1
 
     \\ Seek to 0.
     LDA #0
@@ -349,26 +360,47 @@ GUARD (BASE + 512)
     BNE wd_delay_loop
     RTS
 
+.wd_read_track_callback
+    \\ NMI context. Can only trash A.
+    LDA #WD_CMD_FORCE_INTERRUPT
+    \\ Modified by init.
+  .wd_read_track_callback_patch_wd_cmd
+    STA &FEFF
+    \\ NOTE, should really be enforcing a 32us delay to make sure the forced
+    \\ interrupt sticks.
+    LDA var_zp_nmi_a
+    RTI
+
 .wait_command_finish
     JSR ABI_GET_STATUS
     BNE wait_command_finish
     RTS
 
 .reset_buf_ptr
-    LDX var_zp_buf_ptr
-    STX NMI + 6
-    LDX var_zp_buf_ptr + 1
-    STX NMI + 7
+    TAY
+    LDA var_zp_buf_ptr
+    STA NMI + 6
+    LDA var_zp_buf_ptr + 1
+    STA NMI + 7
+    CLC
+    ADC #10
+    STA NMI + 20
+    TYA
     RTS
 
 .nmi_routine
     STA var_zp_nmi_a
-    LDA $FEFF
-    STA $C000
+    LDA &FEFF
+    STA &C000
     INC NMI + 6
-    BNE nmi_routine_no_inc_hi
+    BNE nmi_routine_out
     INC NMI + 7
-  .nmi_routine_no_inc_hi
+    LDA NMI + 7
+    CMP #&FF
+    BNE nmi_routine_out
+    \\ Read track bytes all delivered. Patchable jump.
+    JMP nmi_routine_out
+  .nmi_routine_out
     LDA var_zp_nmi_a
     RTI
 .nmi_routine_end
