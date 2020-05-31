@@ -2,11 +2,13 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 static double k_bbc_volume_factor = -0.1;
-static int k_haircut = 0;
-static int k_exp_scale = 0;
 static int k_flip = 0;
+
+static int s_haircut = 32;
+static int s_exp_scale = 1;
 
 static uint8_t s_u8_to_bbc4[256];
 static uint8_t s_bbc_volumes[16];
@@ -26,7 +28,7 @@ build_volume_table() {
   s_bbc_volumes[15] = 0;
 
   bbc_vol = 0;
-  if (k_exp_scale) {
+  if (s_exp_scale) {
     next_vol_change = ((s_bbc_volumes[0] + s_bbc_volumes[1]) / 2);
   } else {
     next_vol_change = 0xf8;
@@ -37,7 +39,7 @@ build_volume_table() {
     if ((i == next_vol_change) && (bbc_vol < 15)) {
       bbc_vol++;
       if (bbc_vol < 15) {
-        if (k_exp_scale) {
+        if (s_exp_scale) {
           next_vol_change =
               ((s_bbc_volumes[bbc_vol] + s_bbc_volumes[(bbc_vol + 1)]) / 2);
         } else {
@@ -79,6 +81,20 @@ main(int argc, const char* argv[]) {
   size_t len;
   size_t i;
 
+  for (i = 0; i < argc; ++i) {
+    const char* p_arg = argv[i];
+    const char* p_next_arg = NULL;
+    if (i != (argc - 1)) {
+      p_next_arg = argv[i + 1];
+    }
+    if (!strcmp(p_arg, "-l")) {
+      s_exp_scale = 0;
+    } else if (!strcmp(p_arg, "-h") && (p_next_arg != NULL)) {
+      s_haircut = atoi(p_next_arg);
+      ++i;
+    }
+  }
+
   build_volume_table();
 
   /* Yes, yes, lack of error checking! */
@@ -99,9 +115,9 @@ main(int argc, const char* argv[]) {
     uint8_t merged;
     uint8_t byte1 = p_in_buf[i];
     uint8_t byte2 = p_in_buf[i + 1];
-    if (k_haircut) {
-      byte1 = byte_haircut(byte1, k_haircut);
-      byte2 = byte_haircut(byte2, k_haircut);
+    if (s_haircut) {
+      byte1 = byte_haircut(byte1, s_haircut);
+      byte2 = byte_haircut(byte2, s_haircut);
     }
     val1 = s_u8_to_bbc4[byte1];
     val2 = s_u8_to_bbc4[byte2];
