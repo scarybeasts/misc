@@ -147,7 +147,15 @@ ORG BASE
     JSR sound_write_slow
     LDA #&9F
     JSR sound_write_slow
-    \\ Period to 1 on tone channel 0.
+    \\ Period to 1 on tone channels (1, 2, 3)
+    LDA #&C1
+    JSR sound_write_slow
+    LDA #0
+    JSR sound_write_slow
+    LDA #&A1
+    JSR sound_write_slow
+    LDA #0
+    JSR sound_write_slow
     LDA #&81
     JSR sound_write_slow
     LDA #0
@@ -157,10 +165,10 @@ ORG BASE
     \\ Leaving the sound write gate open has been know to lead to SN state
     \\ corruption, but in our limited case of only ever changing the volume on
     \\ a single channel, it works.
-    LDA #&9F
-    STA &FE4F
-    LDA #0
-    STA &FE40
+    \\LDA #&9F
+    \\STA &FE4F
+    \\LDA #0
+    \\STA &FE40
 
     \\ Set up USER VIA timer.
     \\ Continuous T1.
@@ -199,7 +207,8 @@ ORG BASE
     STA &FE6D
     LDA var_zp_byte1
     ORA #&90
-    STA &FE4F
+    \\STA &FE4F
+    JSR sound_write_slow
 
     LDX var_zp_dot_x
     INC var_zp_dot_x
@@ -329,7 +338,8 @@ ORG BASE
     STA &FE6D
     LDA var_zp_byte2
     ORA #&90
-    STA &FE4F
+    \\STA &FE4F
+    JSR sound_write_slow
 
     LDX var_zp_dot_x
     LDA DOT_Y_HISTORY_PAGE, X
