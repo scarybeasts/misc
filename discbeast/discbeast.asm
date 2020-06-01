@@ -21,6 +21,7 @@ IRQ1V = &0204
 
 INTEL_CMD_DRIVE0 = &40
 INTEL_CMD_READ_SECTORS = &13
+INTEL_CMD_READ_IDS = &1B
 INTEL_CMD_SEEK = &29
 INTEL_CMD_READ_STATUS = &2C
 INTEL_CMD_SPECIFY = &35
@@ -138,6 +139,10 @@ GUARD (BASE + 1024)
     STA ABI_SEEK + 1
     LDA #HI(intel_seek)
     STA ABI_SEEK + 2
+    LDA #LO(intel_read_ids)
+    STA ABI_READ_IDS + 1
+    LDA #HI(intel_read_ids)
+    STA ABI_READ_IDS + 2
     LDA #LO(intel_read_sectors)
     STA ABI_READ_SECTORS + 1
     LDA #HI(intel_read_sectors)
@@ -275,6 +280,36 @@ GUARD (BASE + 1024)
     JSR intel_set_result
     RTS
 
+.intel_read_ids
+    JSR timer_enter
+
+    JSR intel_wait_ready
+
+    JSR intel_wait_no_index_pulse
+    JSR intel_wait_index_pulse
+    JSR timer_start
+
+    LDA #INTEL_CMD_READ_IDS
+    JSR intel_do_cmd
+    \\ Track.
+    LDA var_zp_track
+    JSR intel_do_param
+    \\ Always zero.
+    LDA #0
+    JSR intel_do_param
+    \\ Number, 0 is max == 32.
+    LDA #0
+    JSR intel_do_param
+
+    JSR intel_read_loop
+
+    JSR timer_stop
+
+    JSR timer_exit
+
+    JSR intel_set_result
+    RTS
+
 .intel_read_sectors
     SEI
 
@@ -309,7 +344,6 @@ GUARD (BASE + 1024)
 
     JSR intel_wait_ready
 
-    JSR timer_zero
     JSR intel_wait_no_index_pulse
     JSR intel_wait_index_pulse
     JSR timer_start
@@ -509,7 +543,6 @@ GUARD (BASE + 1024)
     JSR wd_do_command
     JSR wd_wait_idle
 
-    JSR timer_zero
     JSR wd_wait_no_index_pulse
     JSR wd_wait_index_pulse
     JSR timer_start
@@ -665,6 +698,11 @@ GUARD (BASE + 1024)
     STA IRQ1V
     LDA #HI(timer_irq)
     STA IRQ1V + 1
+
+    LDA #0
+    STA var_zp_timer
+    STA var_zp_timer + 1
+
     CLI
     RTS
 
@@ -679,12 +717,6 @@ GUARD (BASE + 1024)
     LDA var_zp_IRQ1V + 1
     STA IRQ1V + 1
     CLI
-    RTS
-
-.timer_zero
-    LDA #0
-    STA var_zp_timer
-    STA var_zp_timer + 1
     RTS
 
 .timer_start
