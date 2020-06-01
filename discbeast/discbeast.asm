@@ -9,6 +9,7 @@ ABI_SEEK = (BASE + 3)
 ABI_READ_TRACK = (BASE + 6)
 ABI_READ_IDS = (BASE + 9)
 ABI_READ_SECTORS = (BASE + 12)
+ABI_TIME_DRIVE = (BASE + 15)
 
 DETECTED_NOTHING = 0
 DETECTED_INTEL = 1
@@ -16,6 +17,7 @@ DETECTED_WD = 2
 
 NMI = &0D00
 OSBYTE = &FFF4
+IRQ1V = &0204
 
 INTEL_CMD_DRIVE0 = &40
 INTEL_CMD_READ_SECTORS = &13
@@ -35,7 +37,7 @@ WD_CMD_READ_ADDRESS_SETTLE = &C4
 WD_CMD_READ_TRACK_SETTLE = &E4
 
 ORG ZP
-GUARD (ZP + 16)
+GUARD (ZP + 32)
 
 .var_zp_ABI_buf_1 SKIP 2
 .var_zp_wd_base SKIP 2
@@ -49,6 +51,9 @@ GUARD (ZP + 16)
 .var_zp_param_1 SKIP 1
 .var_zp_param_2 SKIP 1
 .var_zp_param_3 SKIP 1
+.var_zp_timer SKIP 2
+.var_zp_system_VIA_IER SKIP 1
+.var_zp_IRQ1V SKIP 2
 
 ORG BASE
 GUARD (BASE + 1024)
@@ -64,6 +69,8 @@ GUARD (BASE + 1024)
     \\ base + 9, read ids
     JMP entry_not_set
     \\ base + 12, read sectors
+    JMP entry_not_set
+    \\ base + 15, time drive
     JMP entry_not_set
 
 .entry_not_set
@@ -86,6 +93,9 @@ GUARD (BASE + 1024)
     \\ Install null NMI handler.
     LDA #&40
     STA NMI
+
+    \\ Set up timing.
+    JSR timer_stop
 
     \\ Set up default buffer to &6000.
     LDA #0
@@ -132,6 +142,10 @@ GUARD (BASE + 1024)
     STA ABI_READ_SECTORS + 1
     LDA #HI(intel_read_sectors)
     STA ABI_READ_SECTORS + 2
+    LDA #LO(intel_time_drive)
+    STA ABI_TIME_DRIVE + 1
+    LDA #HI(intel_time_drive)
+    STA ABI_TIME_DRIVE + 2
 
     \\ Disable automatic spindown. On my machine, the 8271 is super picky about
     \\ starting up again after it spins down, requiring a seek to track 0??
@@ -199,6 +213,10 @@ GUARD (BASE + 1024)
     STA ABI_READ_SECTORS + 1
     LDA #HI(wd_read_sectors)
     STA ABI_READ_SECTORS + 2
+    LDA #LO(wd_time_drive)
+    STA ABI_TIME_DRIVE + 1
+    LDA #HI(wd_time_drive)
+    STA ABI_TIME_DRIVE + 2
 
     \\ Set control register to select drive, side 0, single density.
     LDA var_zp_drive
@@ -286,6 +304,27 @@ GUARD (BASE + 1024)
     CLI
     RTS
 
+.intel_time_drive
+    JSR timer_enter
+
+    JSR intel_wait_ready
+
+    JSR timer_zero
+    JSR intel_wait_no_index_pulse
+    JSR intel_wait_index_pulse
+    JSR timer_start
+    JSR intel_wait_no_index_pulse
+    JSR intel_wait_index_pulse
+    JSR timer_stop
+
+    LDA var_zp_timer
+    STA var_zp_ABI_buf_1
+    LDA var_zp_timer + 1
+    STA var_zp_ABI_buf_1 + 1
+
+    JSR timer_exit
+    RTS
+
 .intel_wait_ready
     LDA #INTEL_CMD_READ_STATUS
     JSR intel_do_cmd
@@ -294,6 +333,24 @@ GUARD (BASE + 1024)
     \\ Check RDY0.
     AND #&04
     BEQ intel_wait_ready
+    RTS
+
+.intel_wait_no_index_pulse
+    LDA #INTEL_CMD_READ_STATUS
+    JSR intel_do_cmd
+    JSR intel_wait_idle
+    LDA &FE81
+    AND #&10
+    BEQ intel_wait_no_index_pulse
+    RTS
+
+.intel_wait_index_pulse
+    LDA #INTEL_CMD_READ_STATUS
+    JSR intel_do_cmd
+    JSR intel_wait_idle
+    LDA &FE81
+    AND #&10
+    BNE intel_wait_index_pulse
     RTS
 
 .intel_do_cmd
@@ -439,6 +496,35 @@ GUARD (BASE + 1024)
     CLI
     RTS
 
+.wd_time_drive
+    JSR timer_enter
+
+    JSR wd_wait_motor_off
+    \\ Seek to current track.
+    LDY #1
+    LDA (var_zp_wd_base),Y
+    LDY #3
+    STA (var_zp_wd_base),Y
+    LDA #WD_CMD_SEEK
+    JSR wd_do_command
+    JSR wd_wait_idle
+
+    JSR timer_zero
+    JSR wd_wait_no_index_pulse
+    JSR wd_wait_index_pulse
+    JSR timer_start
+    JSR wd_wait_no_index_pulse
+    JSR wd_wait_index_pulse
+    JSR timer_stop
+
+    LDA var_zp_timer
+    STA var_zp_ABI_buf_1
+    LDA var_zp_timer + 1
+    STA var_zp_ABI_buf_1 + 1
+
+    JSR timer_exit
+    RTS
+
 .wd_do_command
     LDY #0
     STA (var_zp_wd_base),Y
@@ -484,6 +570,30 @@ GUARD (BASE + 1024)
     BNE wd_wait_idle_loop
     RTS
 
+.wd_wait_motor_off
+    LDY #0
+  .wd_wait_motor_off_loop
+    LDA (var_zp_wd_base),Y
+    AND #&80
+    BNE wd_wait_motor_off_loop
+    RTS
+
+.wd_wait_no_index_pulse
+    LDY #0
+  .wd_wait_no_index_pulse_loop
+    LDA (var_zp_wd_base),Y
+    AND #&02
+    BNE wd_wait_no_index_pulse_loop
+    RTS
+
+.wd_wait_index_pulse
+    LDY #0
+  .wd_wait_index_pulse_loop
+    LDA (var_zp_wd_base),Y
+    AND #&02
+    BEQ wd_wait_index_pulse_loop
+    RTS
+
 .wd_set_result_type_1
     LDY #0
     LDA (var_zp_wd_base),Y
@@ -524,6 +634,88 @@ GUARD (BASE + 1024)
     LDA #&0C
     STA var_zp_temp
     JMP wd_set_result_add_deleted
+
+.timer_irq
+    \\ Clear IRQ.
+    LDA #&40
+    STA &FE6D
+    \\ Increment 16-bit timer.
+    INC var_zp_timer
+    BEQ timer_irq_do_inc_hi
+    LDA &FC
+    RTI
+  .timer_irq_do_inc_hi
+    INC var_zp_timer + 1
+    LDA &FC
+    RTI
+
+.timer_enter
+    SEI
+    \\ System VIA IRQs off.
+    LDA &FE4E
+    STA var_zp_system_VIA_IER
+    LDA #&7F
+    STA &FE4E
+    \\ Replace IRQ1V
+    LDA IRQ1V
+    STA var_zp_IRQ1V
+    LDA IRQ1V + 1
+    STA var_zp_IRQ1V + 1
+    LDA #LO(timer_irq)
+    STA IRQ1V
+    LDA #HI(timer_irq)
+    STA IRQ1V + 1
+    CLI
+    RTS
+
+.timer_exit
+    SEI
+    \\ Restore system VIA IER.
+    LDA var_zp_system_VIA_IER
+    STA &FE4E
+    \\ Restore IRQ1V.
+    LDA var_zp_IRQ1V
+    STA IRQ1V
+    LDA var_zp_IRQ1V + 1
+    STA IRQ1V + 1
+    CLI
+    RTS
+
+.timer_zero
+    LDA #0
+    STA var_zp_timer
+    STA var_zp_timer + 1
+    RTS
+
+.timer_start
+    \\ Start 64 us timer.
+    LDA #0
+    STA &FE65
+    \\ Continuous T1.
+    LDA #&40
+    STA &FE6B
+    \\ T1 IRQ active.
+    LDA #(&80 + &40)
+    STA &FE6E
+    RTS
+
+.timer_stop
+    \\ Just disable the timer IRQ.
+    LDA #&7F
+    STA &FE6E
+    \\ T1 counter to 0.
+    LDA #0
+    STA &FE64
+    STA &FE65
+    \\ One shot T1.
+    STA &FE6B
+    \\ Prepare T1 for quick 64us start.
+    LDA #&3E
+    STA &FE64
+    \\ One shot will now have shot, clear IFR.
+    LDA #&7F
+    STA &FE4D
+    RTS
 
 .discbeast_end
 

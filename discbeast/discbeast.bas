@@ -35,6 +35,7 @@ IF A$="SEEK" THEN PROCseek
 IF A$="RIDS" THEN PROCclr:PROCrids:PROCres:V%(0)=-1:PROCdump
 IF A$="READ" THEN PROCclr:PROCread:PROCres:PROCcrc:V%(0)=-1:PROCdump
 IF A$="RTRK" THEN PROCclr:PROCrtrk:PRINT"LEN: "+STR$(I%-B%):V%(0)=-1:PROCdump
+IF A$="TIME" THEN PROCtime:I%=?Z%+?(Z%+1)*256:PRINT"DRIVE SPEED: "+STR$(I%)
 
 UNTIL FALSE
 
@@ -114,6 +115,10 @@ ENDPROC
 DEF PROCrtrk
 ?Z%=B%:?(Z%+1)=B% DIV 256:R%=USR(D%+6)
 I%=?Z%+?(Z%+1)*256
+ENDPROC
+
+DEF PROCtime
+?Z%=B%:?(Z%+1)=B%:CALL D%+15
 ENDPROC
 
 DEF PROCdump
