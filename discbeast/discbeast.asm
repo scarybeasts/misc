@@ -34,7 +34,7 @@ INTEL_DRVOUT_LOAD_HEAD = &08
 WD_CMD_RESTORE = &00
 WD_CMD_SEEK = &10
 WD_CMD_READ_SECTOR_SETTLE = &84
-WD_CMD_READ_ADDRESS_SETTLE = &C4
+WD_CMD_READ_ADDRESS = &C0
 WD_CMD_READ_TRACK_SETTLE = &E4
 
 ORG ZP
@@ -57,7 +57,7 @@ GUARD (ZP + 32)
 .var_zp_IRQ1V SKIP 2
 
 ORG BASE
-GUARD (BASE + 1024)
+GUARD (BASE + 2048)
 
 .discbeast_begin
 
@@ -464,7 +464,7 @@ GUARD (BASE + 1024)
     RTS
 
 .wd_read_track
-    SEI
+    JSR timer_enter
 
     \\ Read track, spin up, head settle.
     LDA #WD_CMD_READ_TRACK_SETTLE
@@ -472,17 +472,32 @@ GUARD (BASE + 1024)
 
     JSR wd_read_loop
     JSR wd_set_result_type_2_3
-    CLI
+
+    JSR timer_exit
     RTS
 
 .wd_read_ids
-    SEI
+    JSR timer_enter
 
-    LDA #WD_CMD_READ_ADDRESS_SETTLE
+    LDA #32
+    STA var_zp_param_1
+
+    JSR wd_do_spin_up_idle
+    JSR wd_wait_no_index_pulse
+    JSR wd_wait_index_pulse
+
+  .wd_read_ids_loop
+    LDA #WD_CMD_READ_ADDRESS
     JSR wd_do_command
 
     JSR wd_read_loop
-    CLI
+
+    DEC var_zp_param_1
+    BNE wd_read_ids_loop
+
+    JSR timer_exit
+
+    JSR wd_set_result_type_2_3
     RTS
 
 .wd_read_sectors
@@ -533,15 +548,7 @@ GUARD (BASE + 1024)
 .wd_time_drive
     JSR timer_enter
 
-    JSR wd_wait_motor_off
-    \\ Seek to current track.
-    LDY #1
-    LDA (var_zp_wd_base),Y
-    LDY #3
-    STA (var_zp_wd_base),Y
-    LDA #WD_CMD_SEEK
-    JSR wd_do_command
-    JSR wd_wait_idle
+    JSR wd_do_spin_up_idle
 
     JSR wd_wait_no_index_pulse
     JSR wd_wait_index_pulse
@@ -583,6 +590,18 @@ GUARD (BASE + 1024)
     INC var_zp_ABI_buf_1 + 1
     JMP wd_read_loop_loop
   .wd_read_loop_done
+    RTS
+
+.wd_do_spin_up_idle
+    JSR wd_wait_motor_off
+    \\ Seek to current track.
+    LDY #1
+    LDA (var_zp_wd_base),Y
+    LDY #3
+    STA (var_zp_wd_base),Y
+    LDA #WD_CMD_SEEK
+    JSR wd_do_command
+    JSR wd_wait_idle
     RTS
 
 .wd_delay
