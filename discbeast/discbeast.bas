@@ -3,8 +3,8 @@ REM DISCBEAST base and zero page.
 D%=&7000:Z%=&70
 REM UTILS base and zero page.
 U%=&7A00:W%=&50
-REM Read/write buffer.
-B%=&6000
+REM Read/write buffer. 4k plus a bit for timing.
+B%=&5000
 REM For parsed command values.
 DIM V%(3)
 REM For OSWORD.
@@ -28,14 +28,15 @@ P$=RIGHT$(P$,LEN(P$)-J%)
 UNTIL LEN(P$)=0
 P%=I%
 
+PROCbufs
 IF A$="INIT" THEN PROCinit
 IF A$="OWRD" THEN PROCowrd
 IF A$="DUMP" THEN PROCdump
 IF A$="SEEK" THEN PROCseek
 IF A$="RIDS" THEN PROCclr:PROCrids:PROCres:V%(0)=-1:PROCdump
 IF A$="READ" THEN PROCclr:PROCread:PROCres:PROCcrc:V%(0)=-1:PROCdump
-IF A$="RTRK" THEN PROCclr:PROCrtrk:PRINT"LEN: "+STR$(I%-B%):V%(0)=-1:PROCdump
-IF A$="TIME" THEN PROCtime:I%=?Z%+?(Z%+1)*256:PRINT"DRIVE SPEED: "+STR$(I%)
+IF A$="RTRK" THEN PROCclr:PROCrtrk:PRINT"LEN: "+STR$(S%):V%(0)=-1:PROCdump
+IF A$="TIME" THEN PROCtime:PRINT"DRIVE SPEED: "+STR$(S%)
 
 UNTIL FALSE
 
@@ -96,29 +97,35 @@ A%=&7F:X%=O% AND &FF:Y%=O% DIV 256:CALL&FFF1:R%=?(O%+6+P%)
 PRINT"OSWORD &7F: &"+STR$~(R%)
 ENDPROC
 
+DEF PROCbufs
+I%=B% DIV 256:?Z%=B%:?(Z%+1)=I%:?(Z%+2)=B%:?(Z%+3)=I%+16
+ENDPROC
+
 DEF PROCseek
 A%=V%(0):CALL D%+3:T%=A%
 ENDPROC
 
 DEF PROCrids
-?Z%=B%:?(Z%+1)=B% DIV 256:R%=USR(D%+9)
+R%=USR(D%+9)
 ENDPROC
 
 DEF PROCread
-?Z%=B%:?(Z%+1)=B% DIV 256
 A%=V%(0):IF A%=-1 THEN A%=T%
 X%=V%(1):IF X%=-1 THEN X%=0
 Y%=V%(2):IF Y%=-1 THEN Y%=&21
 R%=USR(D%+12)
 ENDPROC
 
+DEF PROCgets:S%=?Z%+?(Z%+1)*256:ENDPROC
+
 DEF PROCrtrk
-?Z%=B%:?(Z%+1)=B% DIV 256:R%=USR(D%+6)
-I%=?Z%+?(Z%+1)*256
+R%=USR(D%+6)
+PROCgets:S%=S%-B%
 ENDPROC
 
 DEF PROCtime
-?Z%=B%:?(Z%+1)=B%:CALL D%+15
+CALL D%+15
+PROCgets
 ENDPROC
 
 DEF PROCdump

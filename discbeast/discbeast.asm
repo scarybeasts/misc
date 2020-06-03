@@ -41,6 +41,7 @@ ORG ZP
 GUARD (ZP + 32)
 
 .var_zp_ABI_buf_1 SKIP 2
+.var_zp_ABI_buf_2 SKIP 2
 .var_zp_wd_base SKIP 2
 .var_zp_wd_drvctrl SKIP 2
 .var_zp_wd_sd_0_lower SKIP 1
@@ -55,6 +56,8 @@ GUARD (ZP + 32)
 .var_zp_timer SKIP 2
 .var_zp_system_VIA_IER SKIP 1
 .var_zp_IRQ1V SKIP 2
+.var_zp_byte_counter SKIP 1
+.var_zp_byte_counter_reload SKIP 1
 
 ORG BASE
 GUARD (BASE + 2048)
@@ -287,7 +290,14 @@ GUARD (BASE + 2048)
 
     JSR intel_wait_no_index_pulse
     JSR intel_wait_index_pulse
+
     JSR timer_start
+
+    LDA #&FF
+    STA var_zp_byte_counter
+    \\ 4 bytes per ID on the 8271.
+    LDA #&FC
+    STA var_zp_byte_counter_reload
 
     LDA #INTEL_CMD_READ_IDS
     JSR intel_do_cmd
@@ -375,7 +385,7 @@ GUARD (BASE + 2048)
     JSR intel_wait_idle
     LDA &FE81
     AND #&10
-    BEQ intel_wait_no_index_pulse
+    BNE intel_wait_no_index_pulse
     RTS
 
 .intel_wait_index_pulse
@@ -384,7 +394,7 @@ GUARD (BASE + 2048)
     JSR intel_wait_idle
     LDA &FE81
     AND #&10
-    BNE intel_wait_index_pulse
+    BEQ intel_wait_index_pulse
     RTS
 
 .intel_do_cmd
@@ -415,15 +425,28 @@ GUARD (BASE + 2048)
     LDY #0
   .intel_read_loop_loop
     LDA &FE80
-    TAX
-    AND #&80
-    BEQ intel_read_loop_done
-    TXA
-    AND #4
+    ASL A
+    BCC intel_read_loop_done
+    AND #8
     BEQ intel_read_loop_loop
+    \\ We got a data byte.
     LDA &FE84
-    LDY #0
     STA (var_zp_ABI_buf_1),Y
+    INC var_zp_byte_counter
+    BNE intel_read_loop_no_byte_counter
+    \\ Byte counter hit. Capture timing.
+    SEI
+    LDA var_zp_timer
+    STA (var_zp_ABI_buf_2),Y
+    LDA var_zp_timer + 1
+    CLI
+    INC var_zp_ABI_buf_2
+    STA (var_zp_ABI_buf_2),Y
+    INC var_zp_ABI_buf_2
+    \\ Reset byte counter.
+    LDA var_zp_byte_counter_reload
+    STA var_zp_byte_counter
+  .intel_read_loop_no_byte_counter
     INC var_zp_ABI_buf_1
     BNE intel_read_loop_loop
     INC var_zp_ABI_buf_1 + 1
@@ -486,6 +509,14 @@ GUARD (BASE + 2048)
     JSR wd_wait_no_index_pulse
     JSR wd_wait_index_pulse
 
+    JSR timer_start
+
+    LDA #&FF
+    STA var_zp_byte_counter
+    \\ 6 bytes per ID on the 1770.
+    LDA #&FA
+    STA var_zp_byte_counter_reload
+
   .wd_read_ids_loop
     LDA #WD_CMD_READ_ADDRESS
     JSR wd_do_command
@@ -495,6 +526,7 @@ GUARD (BASE + 2048)
     DEC var_zp_param_1
     BNE wd_read_ids_loop
 
+    JSR timer_stop
     JSR timer_exit
 
     JSR wd_set_result_type_2_3
@@ -575,16 +607,30 @@ GUARD (BASE + 2048)
     LDY #0
   .wd_read_loop_loop
     LDA (var_zp_wd_base),Y
-    TAX
-    AND #1
-    BEQ wd_read_loop_done
-    TXA
-    AND #2
-    BEQ wd_read_loop_loop
+    LSR A
+    BCC wd_read_loop_done
+    LSR A
+    BCC wd_read_loop_loop
+    \\ We got a data byte.
     LDY #3
     LDA (var_zp_wd_base),Y
     LDY #0
     STA (var_zp_ABI_buf_1),Y
+    INC var_zp_byte_counter
+    BNE wd_read_loop_no_byte_counter
+    \\ Byte counter hit. Capture timing.
+    SEI
+    LDA var_zp_timer
+    STA (var_zp_ABI_buf_2),Y
+    LDA var_zp_timer + 1
+    CLI
+    INC var_zp_ABI_buf_2
+    STA (var_zp_ABI_buf_2),Y
+    INC var_zp_ABI_buf_2
+    \\ Reset byte counter.
+    LDA var_zp_byte_counter_reload
+    STA var_zp_byte_counter
+  .wd_read_loop_no_byte_counter
     INC var_zp_ABI_buf_1
     BNE wd_read_loop_loop
     INC var_zp_ABI_buf_1 + 1
@@ -721,6 +767,8 @@ GUARD (BASE + 2048)
     LDA #0
     STA var_zp_timer
     STA var_zp_timer + 1
+    STA var_zp_byte_counter
+    STA var_zp_byte_counter_reload
 
     CLI
     RTS
