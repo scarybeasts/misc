@@ -1,6 +1,6 @@
 MODE7:VDU129,157,131:PRINT"Disc BEAST v0.1":PRINT
-REM DISCBEAST base and zero page.
-D%=&7000:Z%=&70
+REM DISCBEAST code and zero page.
+D%=&7100:Z%=&70
 REM UTILS base and zero page.
 U%=&7A00:W%=&50
 REM Read/write buffer. 4k plus a page for timing.
@@ -160,7 +160,7 @@ FOR T%=0 TO 0
 PRINT"TRACK " + STR$(T%)
 V%(0)=T%:PROCseek:PROCclr
 PROCbufs(&10,&90):PROCrids:J%=S%
-IF R%=&18 THEN NEXT
+IF R%=&18 THEN END
 PRINT"RTRK"
 PROCbufs(&100,&D0):PROCrtrk
 FOR I%=0 TO J%-1

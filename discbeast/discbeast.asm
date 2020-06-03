@@ -1,7 +1,8 @@
 \\ discbeast.asm
 \\ It works with discs. It's a bit of a beast.
 
-BASE = &7000
+SCRATCH = &7000
+BASE = &7100
 ZP = &70
 
 ABI_INIT = (BASE + 0)
@@ -36,6 +37,8 @@ WD_CMD_SEEK = &10
 WD_CMD_READ_SECTOR_SETTLE = &84
 WD_CMD_READ_ADDRESS = &C0
 WD_CMD_READ_TRACK_SETTLE = &E4
+
+WD_STATUS_BIT_NOT_FOUND = &10
 
 ORG ZP
 GUARD (ZP + 32)
@@ -547,10 +550,20 @@ GUARD (BASE + 2048)
 .wd_read_ids
     JSR timer_enter
 
-    \\ NOTE: not 32 because currently only 20 "fit" in a 128 byte output on
-    \\ account of them being 6 bytes long on the 1770.
-    LDA #20
+    LDA #32
     STA var_zp_param_1
+    \\ Use param_2 and param_3 to point to the scratch space.
+    \\ We read 6-byte style 1770 IDs to the scratch space and the pick the
+    \\ first 4 bytes of each.
+    LDA var_zp_ABI_buf_1
+    STA var_zp_param_2
+    LDA var_zp_ABI_buf_1 + 1
+    STA var_zp_param_3
+    LDA #LO(SCRATCH)
+    STA var_zp_ABI_buf_1
+    LDA #HI(SCRATCH)
+    STA var_zp_ABI_buf_1 + 1
+    JSR clear_scratch
 
     JSR wd_do_spin_up_idle
     JSR wd_wait_no_index_pulse
@@ -570,10 +583,55 @@ GUARD (BASE + 2048)
 
     JSR wd_read_loop
 
+    \\ Bail loop if nothing found.
+    JSR wd_set_result_type_2_3
+    TXA
+    AND #WD_STATUS_BIT_NOT_FOUND
+    BNE wd_read_ids_loop_done
+
     DEC var_zp_param_1
     BNE wd_read_ids_loop
 
+  .wd_read_ids_loop_done
     JSR timer_stop
+
+    \\ Copy 6-byte style IDs to 4-byte style IDs.
+    LDA var_zp_param_2
+    STA var_zp_ABI_buf_1
+    LDA var_zp_param_3
+    STA var_zp_ABI_buf_1 + 1
+    LDX #0
+    LDY #0
+  .wd_copy_ids_loop
+    LDA SCRATCH,X
+    STA (var_zp_ABI_buf_1),Y
+    INX
+    INY
+    LDA SCRATCH,X
+    STA (var_zp_ABI_buf_1),Y
+    INX
+    INY
+    LDA SCRATCH,X
+    STA (var_zp_ABI_buf_1),Y
+    INX
+    INY
+    LDA SCRATCH,X
+    STA (var_zp_ABI_buf_1),Y
+    INX
+    INY
+    INX
+    INX
+    CPY #128
+    BNE wd_copy_ids_loop
+
+    LDA var_zp_ABI_buf_1
+    CLC
+    ADC #128
+    STA var_zp_ABI_buf_1
+    LDA var_zp_ABI_buf_1 + 1
+    ADC #0
+    STA var_zp_ABI_buf_1 + 1
+
     JSR timer_exit
 
     JSR wd_set_result_type_2_3
@@ -861,6 +919,15 @@ GUARD (BASE + 2048)
     \\ One shot will now have shot, clear IFR.
     LDA #&7F
     STA &FE4D
+    RTS
+
+.clear_scratch
+    LDA #0
+    LDX #0
+  .clear_scratch_loop
+    STA SCRATCH,X
+    DEX
+    BNE clear_scratch_loop
     RTS
 
 .discbeast_end
