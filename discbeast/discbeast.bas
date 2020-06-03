@@ -3,7 +3,7 @@ REM DISCBEAST base and zero page.
 D%=&7000:Z%=&70
 REM UTILS base and zero page.
 U%=&7A00:W%=&50
-REM Read/write buffer. 4k plus a bit for timing.
+REM Read/write buffer. 4k plus a page for timing.
 B%=&5000
 REM For parsed command values.
 DIM V%(3)
@@ -28,15 +28,16 @@ P$=RIGHT$(P$,LEN(P$)-J%)
 UNTIL LEN(P$)=0
 P%=I%
 
-PROCbufs
+PROCbufs(0,4096)
 IF A$="INIT" THEN PROCinit
 IF A$="OWRD" THEN PROCowrd
 IF A$="DUMP" THEN PROCdump
 IF A$="SEEK" THEN PROCseek
-IF A$="RIDS" THEN PROCclr:PROCrids:PROCres:V%(0)=-1:PROCdump
+IF A$="RIDS" THEN PROCclr:PROCrids:PROCres:PRINT"SECTOR HEADERS: "+STR$(S%):V%(0)=-1:PROCdump
 IF A$="READ" THEN PROCclr:PROCread:PROCres:PROCcrc:V%(0)=-1:PROCdump
 IF A$="RTRK" THEN PROCclr:PROCrtrk:PRINT"LEN: "+STR$(S%):V%(0)=-1:PROCdump
 IF A$="TIME" THEN PROCtime:PRINT"DRIVE SPEED: "+STR$(FNg16(Z%+4))
+IF A$="HFEG" THEN PROChfeg
 
 UNTIL FALSE
 
@@ -53,7 +54,7 @@ PRINT"DRIVE "+STR$(A%)+" SPEED "+STR$(FNg16(Z%+4))
 ENDPROC
 
 DEF PROCclr
-?W%=B%:?(W%+1)=B% DIV 256:A%=0:X%=16:CALL U%+0
+?W%=B%:?(W%+1)=B% DIV 256:A%=0:X%=17:CALL U%+0
 ENDPROC
 
 DEF PROCres
@@ -97,8 +98,9 @@ A%=&7F:X%=O% AND &FF:Y%=O% DIV 256:CALL&FFF1:R%=?(O%+6+P%)
 PRINT"OSWORD &7F: &"+STR$~(R%)
 ENDPROC
 
-DEF PROCbufs
-I%=B% DIV 256:?Z%=B%:?(Z%+1)=I%:?(Z%+2)=B%:?(Z%+3)=I%+16
+DEF PROCbufs(A%,X%)
+Y%=B%+A%:?Z%=Y%:?(Z%+1)=Y% DIV 256
+Y%=B%+X%:?(Z%+2)=Y%:?(Z%+3)=Y% DIV 256
 ENDPROC
 
 DEF PROCseek
@@ -106,16 +108,16 @@ A%=V%(0):CALL D%+3:T%=A%
 ENDPROC
 
 DEF PROCrids
+L%=FNg16(Z%+2)
 R%=USR(D%+9)
-I%=R% AND &FF
-IF I%<>0 THEN ENDPROC
-I%=0
+S%=R% AND &FF
+IF S%<>0 THEN ENDPROC
+S%=0
 J%=FNg16(Z%+4)
 REPEAT
-K%=FNg16(B%+&1000+I%*2)
-IF K%<J% THEN I%=I%+1
+K%=FNg16(L%+S%*2)
+IF K%<J% THEN S%=S%+1
 UNTIL K%>=J%
-PRINT"SECTOR HEADERS: "+STR$(I%)
 ENDPROC
 
 DEF PROCread
@@ -142,6 +144,23 @@ A%=V%(0):IF A%<0 THEN A%=0
 FOR I%=0 TO 63
 PRINT" "+FNhex(?(B%+A%+I%));
 IF I% MOD 8=7 THEN PRINT
+NEXT
+ENDPROC
+
+DEF PROChfeg
+VDU132,157,134:PRINT"HFE Grab v0.1":PRINT
+IF E%<>2 THEN PRINT"1770 ONLY":ENDPROC
+FOR T%=0 TO 0
+PRINT"TRACK " + STR$(T%)
+V%(0)=T%:PROCseek:PROCclr
+PROCbufs(&10,&90):PROCrids:J%=S%
+IF (R% AND &FF)=&18 THEN NEXT
+PRINT"RTRK"
+PROCbufs(&100,&D0):PROCrtrk
+FOR I%=0 TO J%-1
+K%=FNg16(B%+&90+I%*2)
+PRINT ~K%;:PRINT ~?(B%+&100+K%-1)
+NEXT
 NEXT
 ENDPROC
 

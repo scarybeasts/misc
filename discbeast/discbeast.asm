@@ -547,7 +547,9 @@ GUARD (BASE + 2048)
 .wd_read_ids
     JSR timer_enter
 
-    LDA #32
+    \\ NOTE: not 32 because currently only 20 "fit" in a 128 byte output on
+    \\ account of them being 6 bytes long on the 1770.
+    LDA #20
     STA var_zp_param_1
 
     JSR wd_do_spin_up_idle
