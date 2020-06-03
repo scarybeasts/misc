@@ -42,6 +42,7 @@ GUARD (ZP + 32)
 
 .var_zp_ABI_buf_1 SKIP 2
 .var_zp_ABI_buf_2 SKIP 2
+.var_zp_ABI_drive_speed SKIP 2
 .var_zp_wd_base SKIP 2
 .var_zp_wd_drvctrl SKIP 2
 .var_zp_wd_sd_0_lower SKIP 1
@@ -87,6 +88,8 @@ GUARD (BASE + 2048)
     LDA #0
     STA var_zp_side
     STA var_zp_track
+    STA var_zp_ABI_drive_speed
+    STA var_zp_ABI_drive_speed + 1
 
     \\ *FX 140,0, aka. *TAPE
     LDA #&8C
@@ -136,6 +139,17 @@ GUARD (BASE + 2048)
     LDA #DETECTED_NOTHING
     RTS
 
+.detected_common
+    \\ Seek to 0.
+    LDA #0
+    JSR ABI_SEEK
+
+    \\ Time the drive.
+    JSR ABI_TIME_DRIVE
+
+    LDA var_zp_param_1
+    RTS
+
 .detected_intel
     \\ Set up vectors.
     LDA #LO(intel_seek)
@@ -170,12 +184,9 @@ GUARD (BASE + 2048)
     \\ Spin up and load head.
     JSR intel_set_drvout
 
-    \\ Seek to 0.
-    LDA #0
-    JSR ABI_SEEK
-
     LDA #DETECTED_INTEL
-    RTS
+    STA var_zp_param_1
+    JMP detected_common
 
 .detected_wd_fe8x
     LDA #&84
@@ -238,12 +249,9 @@ GUARD (BASE + 2048)
     LDY #0
     STA (var_zp_wd_drvctrl),Y
 
-    \\ Seek to 0.
-    LDA #0
-    JSR ABI_SEEK
-
     LDA #DETECTED_WD
-    RTS
+    STA var_zp_param_1
+    JMP detected_common
 
 .intel_set_drvout
     LDA #INTEL_CMD_SET_PARAM
@@ -315,6 +323,43 @@ GUARD (BASE + 2048)
 
     JSR timer_stop
 
+    \\ We started the timer on the index pulse, and the Intel read ids command
+    \\ will start on the _next_ index pulse so to get correct timings we need
+    \\ to subtract one revolutions worth of timing.
+    \\ Back up to buffer start.
+    LDA var_zp_ABI_buf_2
+    SEC
+    SBC #64
+    STA var_zp_ABI_buf_2
+    LDA var_zp_ABI_buf_2 + 1
+    SBC #0
+    STA var_zp_ABI_buf_2 + 1
+    \\ Iterate the 32 entries and subtract.
+    LDX #32
+    LDY #0
+  .intel_read_ids_subtract_loop
+    LDA (var_zp_ABI_buf_2),Y
+    SEC
+    SBC var_zp_ABI_drive_speed
+    STA (var_zp_ABI_buf_2),Y
+    INY
+    LDA (var_zp_ABI_buf_2),Y
+    SBC var_zp_ABI_drive_speed + 1
+    STA (var_zp_ABI_buf_2),Y
+    INY
+
+    DEX
+    BNE intel_read_ids_subtract_loop
+
+    \\ Advance buffer back to end.
+    LDA var_zp_ABI_buf_2
+    CLC
+    ADC #64
+    STA var_zp_ABI_buf_2
+    LDA var_zp_ABI_buf_2 + 1
+    ADC #0
+    STA var_zp_ABI_buf_2 + 1
+
     JSR timer_exit
 
     JSR intel_set_result
@@ -362,9 +407,9 @@ GUARD (BASE + 2048)
     JSR timer_stop
 
     LDA var_zp_timer
-    STA var_zp_ABI_buf_1
+    STA var_zp_ABI_drive_speed
     LDA var_zp_timer + 1
-    STA var_zp_ABI_buf_1 + 1
+    STA var_zp_ABI_drive_speed + 1
 
     JSR timer_exit
     RTS
@@ -590,9 +635,9 @@ GUARD (BASE + 2048)
     JSR timer_stop
 
     LDA var_zp_timer
-    STA var_zp_ABI_buf_1
+    STA var_zp_ABI_drive_speed
     LDA var_zp_timer + 1
-    STA var_zp_ABI_buf_1 + 1
+    STA var_zp_ABI_drive_speed + 1
 
     JSR timer_exit
     RTS
