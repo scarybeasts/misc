@@ -60,7 +60,6 @@ GUARD (ZP + 32)
 .var_zp_timer SKIP 2
 .var_zp_system_VIA_IER SKIP 1
 .var_zp_IRQ1V SKIP 2
-.var_zp_byte_counter SKIP 1
 .var_zp_byte_counter_reload SKIP 1
 
 ORG BASE
@@ -217,6 +216,12 @@ GUARD (BASE + 2048)
     LDA #&FE
     STA var_zp_wd_base + 1
     STA var_zp_wd_drvctrl + 1
+    \\ Patch read loop, self modifying.
+    LDA var_zp_wd_base
+    STA wd_read_loop_patch_status_register + 1
+    CLC
+    ADC #3
+    STA wd_read_loop_patch_data_register + 1
 
     \\ Set up vectors.
     LDA #LO(wd_seek)
@@ -304,8 +309,6 @@ GUARD (BASE + 2048)
 
     JSR timer_start
 
-    LDA #&FF
-    STA var_zp_byte_counter
     \\ 4 bytes per ID on the 8271.
     LDA #&FC
     STA var_zp_byte_counter_reload
@@ -470,6 +473,8 @@ GUARD (BASE + 2048)
     RTS
 
 .intel_read_loop
+    \\ X is the byte counter for how often we log a timing sample.
+    LDX #&FF
     LDY #0
   .intel_read_loop_loop
     LDA &FE80
@@ -481,7 +486,7 @@ GUARD (BASE + 2048)
   .intel_read_loop_got_byte
     LDA &FE84
     STA (var_zp_ABI_buf_1),Y
-    INC var_zp_byte_counter
+    INX
     BNE intel_read_loop_no_byte_counter
     \\ Byte counter hit. Capture timing.
     SEI
@@ -493,8 +498,7 @@ GUARD (BASE + 2048)
     STA (var_zp_ABI_buf_2),Y
     INC var_zp_ABI_buf_2
     \\ Reset byte counter.
-    LDA var_zp_byte_counter_reload
-    STA var_zp_byte_counter
+    LDX var_zp_byte_counter_reload
   .intel_read_loop_no_byte_counter
     INC var_zp_ABI_buf_1
     BNE intel_read_loop_loop
@@ -572,8 +576,6 @@ GUARD (BASE + 2048)
 
     JSR timer_start
 
-    LDA #&FF
-    STA var_zp_byte_counter
     \\ 6 bytes per ID on the 1770.
     LDA #&FA
     STA var_zp_byte_counter_reload
@@ -710,20 +712,21 @@ GUARD (BASE + 2048)
     RTS
 
 .wd_read_loop
+    LDX #&FF
     LDY #0
   .wd_read_loop_loop
-    LDA (var_zp_wd_base),Y
+  .wd_read_loop_patch_status_register
+    LDA &FEFF
     LSR A
     AND #1
     BNE wd_read_loop_got_byte
     BCC wd_read_loop_done
     JMP wd_read_loop_loop
   .wd_read_loop_got_byte
-    LDY #3
-    LDA (var_zp_wd_base),Y
-    LDY #0
+  .wd_read_loop_patch_data_register
+    LDA &FEFF
     STA (var_zp_ABI_buf_1),Y
-    INC var_zp_byte_counter
+    INX
     BNE wd_read_loop_no_byte_counter
     \\ Byte counter hit. Capture timing.
     SEI
@@ -735,8 +738,7 @@ GUARD (BASE + 2048)
     STA (var_zp_ABI_buf_2),Y
     INC var_zp_ABI_buf_2
     \\ Reset byte counter.
-    LDA var_zp_byte_counter_reload
-    STA var_zp_byte_counter
+    LDX var_zp_byte_counter_reload
   .wd_read_loop_no_byte_counter
     INC var_zp_ABI_buf_1
     BNE wd_read_loop_loop
@@ -874,7 +876,6 @@ GUARD (BASE + 2048)
     LDA #0
     STA var_zp_timer
     STA var_zp_timer + 1
-    STA var_zp_byte_counter
     STA var_zp_byte_counter_reload
 
     CLI
