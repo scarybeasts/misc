@@ -372,11 +372,11 @@ GUARD (BASE + 2048)
     RTS
 
 .intel_read_sectors
-    JSR timer_enter
-
     STA var_zp_param_1
     STX var_zp_param_2
     STY var_zp_param_3
+
+    JSR timer_enter
 
     JSR intel_wait_ready
 
@@ -643,13 +643,13 @@ GUARD (BASE + 2048)
     RTS
 
 .wd_read_sectors
-    JSR timer_enter
-
     STA var_zp_param_1
     STX var_zp_param_2
     TYA
     AND #&1F
     STA var_zp_param_3
+
+    JSR timer_enter
 
   .wd_read_sector_loop
     \\ Track register.
