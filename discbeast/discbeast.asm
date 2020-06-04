@@ -372,7 +372,7 @@ GUARD (BASE + 2048)
     RTS
 
 .intel_read_sectors
-    SEI
+    JSR timer_enter
 
     STA var_zp_param_1
     STX var_zp_param_2
@@ -396,8 +396,9 @@ GUARD (BASE + 2048)
 
     JSR intel_read_loop
 
+    JSR timer_exit
+
     JSR intel_set_result
-    CLI
     RTS
 
 .intel_time_drive
@@ -547,9 +548,10 @@ GUARD (BASE + 2048)
     JSR wd_do_command
 
     JSR wd_read_loop
-    JSR wd_set_result_type_2_3
 
     JSR timer_exit
+
+    JSR wd_set_result_type_2_3
     RTS
 
 .wd_read_ids
@@ -641,7 +643,7 @@ GUARD (BASE + 2048)
     RTS
 
 .wd_read_sectors
-    SEI
+    JSR timer_enter
 
     STA var_zp_param_1
     STX var_zp_param_2
@@ -680,9 +682,9 @@ GUARD (BASE + 2048)
     LDY #1
     STA (var_zp_wd_base),Y
 
-    JSR wd_set_result_type_2_3
+    JSR timer_exit
 
-    CLI
+    JSR wd_set_result_type_2_3
     RTS
 
 .wd_time_drive
