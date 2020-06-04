@@ -9,9 +9,13 @@ ZP = &50
 \\ (ZP+0 ZP+1)=destination buffer
 ABI_STORE = (BASE + 0)
 ABI_COPY = (BASE + 3)
+\\ A=number of bytes to add (0==256)
+\\ X=CRC16 hi byte
+\\ Y=CRC16 lo byte
+\\ (ZP+2 ZP+3)=source byte buffer
 ABI_CRC16 = (BASE + 6)
 \\ A=number of bytes to add (0==256)
-\\ (ZP+0 ZP+1)=4 byte CRC32 buffer
+\\ (ZP+0 ZP+1)=4 byte CRC32 buffer, big endian
 \\ (ZP+2 ZP+3)=source byte buffer
 ABI_CRC32 = (BASE + 9)
 
@@ -23,6 +27,8 @@ GUARD (ZP + 32)
 .var_zp_temp SKIP 1
 .var_zp_temp_2 SKIP 1
 .var_zp_temp_3 SKIP 1
+.var_zp_temp_4 SKIP 1
+.var_zp_temp_5 SKIP 1
 
 ORG BASE
 GUARD (BASE + &0200)
@@ -32,7 +38,8 @@ GUARD (BASE + &0200)
     \\ base + &00, store
     JMP entry_store
     NOP:NOP:NOP
-    NOP:NOP:NOP
+    \\ base + &06, CRC16
+    JMP entry_crc16
     \\ base + &09, CRC32
     JMP entry_crc32
 
@@ -47,6 +54,45 @@ GUARD (BASE + &0200)
     BNE store_loop
     RTS
 
+.entry_crc16
+    STA var_zp_temp
+    STX var_zp_temp_2
+    STY var_zp_temp_3
+    LDY #0
+  .entry_crc16_byte_loop
+    LDA (var_zp_ABI_buf_2),Y
+    STA var_zp_temp_4
+    LDX #8
+  .entry_crc16_bit_loop
+    LDA var_zp_temp_4
+    EOR var_zp_temp_2
+    STA var_zp_temp_5
+    CLC
+    ROL var_zp_temp_3
+    ROL var_zp_temp_2
+    LDA var_zp_temp_5
+    BPL entry_crc16_no_eor
+    LDA var_zp_temp_2
+    EOR #&10
+    STA var_zp_temp_2
+    LDA var_zp_temp_3
+    EOR #&21
+    STA var_zp_temp_3
+  .entry_crc16_no_eor
+    ASL var_zp_temp_4
+    DEX
+    BNE entry_crc16_bit_loop
+
+    INC var_zp_ABI_buf_2
+    BNE entry_crc16_no_hi_inc
+    INC var_zp_ABI_buf_2 + 1
+  .entry_crc16_no_hi_inc
+    DEC var_zp_temp
+    BNE entry_crc16_byte_loop
+
+    LDX var_zp_temp_2
+    LDY var_zp_temp_3
+    RTS
 
 .entry_crc32
     STA var_zp_temp

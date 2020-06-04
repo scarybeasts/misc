@@ -37,6 +37,7 @@ IF A$="RIDS" THEN PROCclr:PROCrids:PROCres:PRINT"SECTOR HEADERS: "+STR$(S%):V%(0
 IF A$="READ" THEN PROCclr:PROCread:PROCres:PROCcrc:V%(0)=-1:PROCdump
 IF A$="RTRK" THEN PROCclr:PROCrtrk:PRINT"LEN: "+STR$(S%):V%(0)=-1:PROCdump
 IF A$="TIME" THEN PROCtime:PRINT"DRIVE SPEED: "+STR$(FNg16(Z%+4))
+IF A$="DTRK" THEN PROCdtrk
 IF A$="HFEG" THEN PROChfeg
 
 UNTIL FALSE
@@ -64,19 +65,32 @@ PRINT"RESULT: &" + STR$~(I%);
 IF I%<>J% THEN PRINT" (&"+STR$~(J%)+")" ELSE PRINT
 ENDPROC
 
+DEF PROCcrc16(I%,J%)
+?(W%+2)=I%:?(W%+3)=I% DIV 256
+X%=&FF:Y%=&FF
+
+REPEAT
+IF J%>=256 THEN L%=256 ELSE L%=J%
+A%=L%:IF A%=256 THEN A%=0
+R%=USR(U%+6):X%=(R% AND &FF00) DIV &100:Y%=(R% AND &FF0000) DIV &10000
+J%=J%-L%:K%=K%+L%
+UNTIL J%=0
+R%=X%*256+Y%
+ENDPROC
+
 DEF PROCcrc
 !C%=-1
 I%=FNg16(Z%)-B%
+PRINT I%
 J%=I%
-K%=B%
+?(W%+2)=B%:?(W%+3)=B% DIV 256
 
 REPEAT
 ?W%=C%:?(W%+1)=C% DIV 256
-?(W%+2)=K%:?(W%+3)=(K% DIV 256)
 IF J%>=256 THEN L%=256 ELSE L%=J%
 A%=L%:IF A%=256 THEN A%=0
 CALL U%+9
-J%=J%-L%:K%=K%+L%
+J%=J%-L%
 UNTIL J%=0
 
 X%=?C% EOR &FF
@@ -158,20 +172,26 @@ IF I% MOD 8=7 THEN PRINT
 NEXT
 ENDPROC
 
+DEF PROCdtrk
+PROCgtrk
+PRINT"TRACK "+STR$(T%)+" "+STR$(?(B%+5))+" SECTORS"
+ENDPROC
+
 DEF PROChfeg
 VDU132,157,134:PRINT"HFE Grab v0.1":PRINT
-IF E%<>2 THEN PRINT"1770 ONLY":ENDPROC
 FOR T%=0 TO 40
 PRINT"TRACK " + STR$(T%)
-V%(0)=T%:PROCseek:PROCclr
-?B%=E%:?(B%+1)=T%:?(B%+2)=?(Z%+4):?(B%+3)=?(Z%+5)
-PROCbufs(&20,&A0):PROCrids:?(B%+4)=R%
-IF R%<>&18 THEN ?(B%+5)=S%:J%=S%:PROChfeg2
+V%(0)=T%:PROCseek:PROCgtrk
 PRINT"SECTORS: "+STR$(?(B%+5))
 NEXT
 ENDPROC
 
-DEF PROChfeg2
+DEF PROCgtrk
+IF E%<>2 THEN PRINT"1770 ONLY":ENDPROC
+PROCclr:?B%=E%:?(B%+1)=T%:?(B%+2)=?(Z%+4):?(B%+3)=?(Z%+5)
+PROCbufs(&20,&A0):PROCrids:?(B%+4)=R%
+IF R%=&18 THEN ENDPROC
+?(B%+5)=S%:J%=S%
 PRINT"RTRK"
 PROCbufs(&200,&180):PROCrtrk:?(B%+6)=S%:?(B%+7)=S% DIV 256
 A%=0
