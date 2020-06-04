@@ -161,25 +161,35 @@ ENDPROC
 DEF PROChfeg
 VDU132,157,134:PRINT"HFE Grab v0.1":PRINT
 IF E%<>2 THEN PRINT"1770 ONLY":ENDPROC
-FOR T%=0 TO 0
+FOR T%=0 TO 40
 PRINT"TRACK " + STR$(T%)
 V%(0)=T%:PROCseek:PROCclr
 ?B%=E%:?(B%+1)=T%:?(B%+2)=?(Z%+4):?(B%+3)=?(Z%+5)
 PROCbufs(&20,&A0):PROCrids:?(B%+4)=R%
-IF R%<>&18 THEN PROChfeg2
+IF R%<>&18 THEN ?(B%+5)=S%:J%=S%:PROChfeg2
+PRINT"SECTORS: "+STR$(?(B%+5))
 NEXT
 ENDPROC
 
 DEF PROChfeg2
-?(B%+5)=S%:J%=S%
 PRINT"RTRK"
 PROCbufs(&200,&180):PROCrtrk:?(B%+6)=S%:?(B%+7)=S% DIV 256
 A%=0
+REM Find sectors in raw track read.
 FOR I%=0 TO J%-1
-K%=FNg16(B%+&A0+I%*2)-1
-L%=B%+&200+K%
-PRINT K%;:PRINT ~?L%
+X%=FNg16(Z%+4)
+X%=(3125/X%)*(FNg16(B%+&A0+I%*2)-1)
+Y%=!(B%+&20+I%*4)
+FOR K%=-2 TO 2
+L%=B%+&200+X%+K%
+IF (?L%=&FE OR ?L%=&CE) AND !(L%+1)=Y% THEN A%=A%+1:X%=X%+K%:?(B%+&100+I%*2)=X%:?(B%+&101+I%*2)=X% DIV 256:K%=2
 NEXT
+FOR K%=14 TO 30
+L%=B%+&200+X%+K%
+IF ?L%=&FB OR ?L%=&CB OR ?L%=&F8 OR ?L%=&C8 THEN A%=A%+1:X%=X%+K%:?(B%+&140+I%*2)=X%:?(B%+&141+I%*2)=X% DIV 256:K%=30
+NEXT
+NEXT
+IF A%<>J%*2 THEN PRINT"RTRK MISSING SECTORS"
 ENDPROC
 
 DEF FNhex(A%)
