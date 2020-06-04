@@ -426,8 +426,15 @@ GUARD (BASE + 2048)
     JSR intel_do_cmd
     JSR intel_wait_idle
     LDA &FE81
+    LDX var_zp_drive
+    BNE intel_wait_ready_drive_1
     \\ Check RDY0.
     AND #&04
+    BEQ intel_wait_ready
+    RTS
+  .intel_wait_ready_drive_1
+    \\ Check RDY0.
+    AND #&40
     BEQ intel_wait_ready
     RTS
 
