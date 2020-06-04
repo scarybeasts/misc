@@ -474,10 +474,11 @@ GUARD (BASE + 2048)
   .intel_read_loop_loop
     LDA &FE80
     ASL A
-    BCC intel_read_loop_done
     AND #8
-    BEQ intel_read_loop_loop
-    \\ We got a data byte.
+    BNE intel_read_loop_got_byte
+    BCC intel_read_loop_done
+    JMP intel_read_loop_loop
+  .intel_read_loop_got_byte
     LDA &FE84
     STA (var_zp_ABI_buf_1),Y
     INC var_zp_byte_counter
@@ -713,10 +714,11 @@ GUARD (BASE + 2048)
   .wd_read_loop_loop
     LDA (var_zp_wd_base),Y
     LSR A
+    AND #1
+    BNE wd_read_loop_got_byte
     BCC wd_read_loop_done
-    LSR A
-    BCC wd_read_loop_loop
-    \\ We got a data byte.
+    JMP wd_read_loop_loop
+  .wd_read_loop_got_byte
     LDY #3
     LDA (var_zp_wd_base),Y
     LDY #0
