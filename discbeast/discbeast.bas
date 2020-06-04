@@ -1,6 +1,6 @@
 MODE7:VDU129,157,131:PRINT"Disc BEAST v0.1":PRINT
 REM DISCBEAST code and zero page.
-D%=&7100:Z%=&70
+D%=&7000+&100:Z%=&70
 REM UTILS base and zero page.
 U%=&7A00:W%=&50
 REM Read/write buffer. 4k plus a page for timing.
@@ -37,7 +37,6 @@ IF A$="RIDS" THEN PROCclr:PROCrids:PROCres:PRINT"SECTOR HEADERS: "+STR$(S%):V%(0
 IF A$="READ" THEN PROCclr:PROCread:PROCres:PROCcrc:V%(0)=-1:PROCdump
 IF A$="RTRK" THEN PROCclr:PROCrtrk:PRINT"LEN: "+STR$(S%):V%(0)=-1:PROCdump
 IF A$="TIME" THEN PROCtime:PRINT"DRIVE SPEED: "+STR$(FNg16(Z%+4))
-IF A$="TCRC" THEN PROCtcrc
 IF A$="HFEG" THEN PROChfeg
 
 UNTIL FALSE
@@ -109,15 +108,27 @@ A%=V%(0):CALL D%+3:T%=A%
 ENDPROC
 
 DEF PROCrids
-L%=FNg16(Z%+2)
+K%=FNg16(Z%+2)
 R%=USR(D%+9) AND &FF
 IF R%<>0 THEN ENDPROC
 S%=0
+REM Drive speed.
 J%=FNg16(Z%+4)
-REPEAT
-K%=FNg16(L%+S%*2)
-IF K%<J% THEN S%=S%+1
-UNTIL K%>=J%
+REM Sectors in one rev.
+FOR I%=0 TO 31
+L%=FNg16(K%+I%*2)
+IF L%<J% THEN S%=S%+1
+NEXT
+REM Timing based sector sizes.
+FOR I%=0 TO S%-1
+IF I%=S%-1 THEN L%=J% ELSE L%=FNg16(K%+(I%+1)*2)
+L%=L%-FNg16(K%+I%*2)
+A%=3
+IF L%<1024 THEN A%=2
+IF L%<512 THEN A%=1
+IF L%<256 THEN A%=0
+?(K%+64+I%)=A%
+NEXT
 ENDPROC
 
 DEF PROCread
@@ -147,26 +158,27 @@ IF I% MOD 8=7 THEN PRINT
 NEXT
 ENDPROC
 
-DEF PROCtcrc
-!C%=0
-PROCclr:PROCbufs(0,&100):PROCrids
-IF R%<>0 THEN ENDPROC
-ENDPROC
-
 DEF PROChfeg
 VDU132,157,134:PRINT"HFE Grab v0.1":PRINT
 IF E%<>2 THEN PRINT"1770 ONLY":ENDPROC
 FOR T%=0 TO 0
 PRINT"TRACK " + STR$(T%)
 V%(0)=T%:PROCseek:PROCclr
-PROCbufs(&10,&90):PROCrids:J%=S%
-IF R%=&18 THEN END
-PRINT"RTRK"
-PROCbufs(&100,&D0):PROCrtrk
-FOR I%=0 TO J%-1
-K%=FNg16(B%+&90+I%*2)
-PRINT ~K%;:PRINT ~?(B%+&100+K%-1)
+?B%=E%:?(B%+1)=T%:?(B%+2)=?(Z%+4):?(B%+3)=?(Z%+5)
+PROCbufs(&20,&A0):PROCrids:?(B%+4)=R%
+IF R%<>&18 THEN PROChfeg2
 NEXT
+ENDPROC
+
+DEF PROChfeg2
+?(B%+5)=S%:J%=S%
+PRINT"RTRK"
+PROCbufs(&200,&180):PROCrtrk:?(B%+6)=S%:?(B%+7)=S% DIV 256
+A%=0
+FOR I%=0 TO J%-1
+K%=FNg16(B%+&A0+I%*2)-1
+L%=B%+&200+K%
+PRINT K%;:PRINT ~?L%
 NEXT
 ENDPROC
 
