@@ -150,6 +150,8 @@ GUARD (BASE + 2048)
 
     \\ Time the drive.
     JSR ABI_TIME_DRIVE
+    STA var_zp_ABI_drive_speed
+    STX var_zp_ABI_drive_speed + 1
 
     LDA var_zp_param_1
     RTS
@@ -450,12 +452,10 @@ GUARD (BASE + 2048)
     JSR intel_wait_index_pulse
     JSR timer_stop
 
-    LDA var_zp_timer
-    STA var_zp_ABI_drive_speed
-    LDA var_zp_timer + 1
-    STA var_zp_ABI_drive_speed + 1
-
     JSR timer_exit
+
+    LDA var_zp_timer
+    LDX var_zp_timer + 1
     RTS
 
 .intel_wait_ready
@@ -743,12 +743,10 @@ GUARD (BASE + 2048)
     JSR wd_wait_index_pulse
     JSR timer_stop
 
-    LDA var_zp_timer
-    STA var_zp_ABI_drive_speed
-    LDA var_zp_timer + 1
-    STA var_zp_ABI_drive_speed + 1
-
     JSR timer_exit
+
+    LDA var_zp_timer
+    LDX var_zp_timer + 1
     RTS
 
 .wd_do_command
