@@ -58,6 +58,11 @@ GUARD (BASE + &0200)
 .entry_crc16
     STX var_zp_temp_2
     STY var_zp_temp_3
+    LDA var_zp_ABI_length
+    BNE entry_crc16_not_zero
+    LDA var_zp_ABI_length + 1
+    BEQ entry_crc16_done
+  .entry_crc16_not_zero
     LDY #0
   .entry_crc16_byte_loop
     LDA (var_zp_ABI_buf_2),Y
@@ -98,6 +103,11 @@ GUARD (BASE + &0200)
     RTS
 
 .entry_crc32
+    LDA var_zp_ABI_length
+    BNE entry_crc32_not_zero
+    LDA var_zp_ABI_length + 1
+    BEQ entry_crc32_done
+  .entry_crc32_not_zero
   .entry_crc32_byte_loop
     LDY #0
     LDA (var_zp_ABI_buf_2),Y
