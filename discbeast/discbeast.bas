@@ -11,7 +11,7 @@ REM For OSWORD.
 DIM O% 15:FOR I%=0 TO 15:?(O%+I%)=0:NEXT
 ?(O%+1)=B%:?(O%+2)=B% DIV 256
 REM For CRC.
-DIM C% 3
+DIM C% 7
 
 REPEAT
 
@@ -34,7 +34,7 @@ IF A$="OWRD" THEN PROCowrd
 IF A$="DUMP" THEN PROCdump
 IF A$="SEEK" THEN PROCseek
 IF A$="RIDS" THEN PROCclr:PROCrids:PROCres:PRINT"SECTOR HEADERS: "+STR$(S%):V%(0)=-1:PROCdump
-IF A$="READ" THEN PROCclr:PROCread:PROCres:PROCcrc32:V%(0)=-1:PROCdump
+IF A$="READ" THEN PROCclr:PROCread:PROCres:L%=FNg16(Z%)-B%:!C%=-1:PROCcrca32(B%,L%,C%):PROCcrcf32(C%):PRINT"CRC32 "+STR$(L%)+" BYTES: "+STR$~(!C%):V%(0)=-1:PROCdump
 IF A$="RTRK" THEN PROCclr:PROCrtrk:PRINT"LEN: "+STR$(S%):V%(0)=-1:PROCdump
 IF A$="TIME" THEN PROCtime:PRINT"DRIVE SPEED: "+STR$(R%)
 IF A$="DTRK" THEN PROCdtrk
@@ -74,24 +74,21 @@ R%=USR(U%+6):X%=(R% AND &FF00) DIV &100:Y%=(R% AND &FF0000) DIV &10000
 R%=X%*256+Y%
 ENDPROC
 
-DEF PROCcrc32
-!C%=-1
-A%=FNg16(Z%)-B%
-?W%=C%:?(W%+1)=C% DIV 256
-?(W%+2)=B%:?(W%+3)=B% DIV 256
-A%=-A%
-?(W%+4)=A%:?(W%+5)=(A% AND &FF00) DIV 256
+DEF PROCcrca32(A%,X%,Y%)
+?W%=Y%:?(W%+1)=Y% DIV 256
+?(W%+2)=A%:?(W%+3)=A% DIV 256
+X%=-X%
+?(W%+4)=X%:?(W%+5)=(X% AND &FF00) DIV 256
 CALL U%+9
+ENDPROC
 
-X%=?C% EOR &FF
-Y%=?(C%+3) EOR &FF
-?C%=Y%
-?(C%+3)=X%
-X%=?(C%+1) EOR &FF
-Y%=?(C%+2) EOR &FF
-?(C%+1)=Y%
-?(C%+2)=X%
-PRINT"CRC32 "+STR$(-A%)+" BYTES: "+STR$~(!C%)
+DEF PROCcrcf32(A%)
+X%=!A% EOR &FFFFFFFF
+Y%=(X% AND &FF)*&1000000
+Y%=Y%+(X% AND &FF00)*&100
+Y%=Y%+(X% AND &FF0000) DIV &100
+Y%=Y%+X% DIV &1000000
+!A%=Y%
 ENDPROC
 
 DEF PROCowrd
