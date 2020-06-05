@@ -34,7 +34,7 @@ IF A$="OWRD" THEN PROCowrd
 IF A$="DUMP" THEN PROCdump
 IF A$="SEEK" THEN PROCseek
 IF A$="RIDS" THEN PROCclr:PROCrids:PROCres:PRINT"SECTOR HEADERS: "+STR$(S%):V%(0)=-1:PROCdump
-IF A$="READ" THEN PROCclr:PROCread:PROCres:PROCcrc:V%(0)=-1:PROCdump
+IF A$="READ" THEN PROCclr:PROCread:PROCres:PROCcrc32:V%(0)=-1:PROCdump
 IF A$="RTRK" THEN PROCclr:PROCrtrk:PRINT"LEN: "+STR$(S%):V%(0)=-1:PROCdump
 IF A$="TIME" THEN PROCtime:PRINT"DRIVE SPEED: "+STR$(FNg16(Z%+4))
 IF A$="DTRK" THEN PROCdtrk
@@ -65,33 +65,23 @@ PRINT"RESULT: &" + STR$~(I%);
 IF I%<>J% THEN PRINT" (&"+STR$~(J%)+")" ELSE PRINT
 ENDPROC
 
-DEF PROCcrc16(I%,J%)
-?(W%+2)=I%:?(W%+3)=I% DIV 256
+DEF PROCcrc16(A%,X%)
+?(W%+2)=A%:?(W%+3)=A% DIV 256
+X%=-X%
+?(W%+4)=X%:?(W%+5)=(X% AND &FF00) DIV 256
 X%=&FF:Y%=&FF
-
-REPEAT
-IF J%>=256 THEN L%=256 ELSE L%=J%
-A%=L%:IF A%=256 THEN A%=0
 R%=USR(U%+6):X%=(R% AND &FF00) DIV &100:Y%=(R% AND &FF0000) DIV &10000
-J%=J%-L%:K%=K%+L%
-UNTIL J%=0
 R%=X%*256+Y%
 ENDPROC
 
-DEF PROCcrc
+DEF PROCcrc32
 !C%=-1
-I%=FNg16(Z%)-B%
-PRINT I%
-J%=I%
-?(W%+2)=B%:?(W%+3)=B% DIV 256
-
-REPEAT
+A%=FNg16(Z%)-B%
 ?W%=C%:?(W%+1)=C% DIV 256
-IF J%>=256 THEN L%=256 ELSE L%=J%
-A%=L%:IF A%=256 THEN A%=0
+?(W%+2)=B%:?(W%+3)=B% DIV 256
+A%=-A%
+?(W%+4)=A%:?(W%+5)=(A% AND &FF00) DIV 256
 CALL U%+9
-J%=J%-L%
-UNTIL J%=0
 
 X%=?C% EOR &FF
 Y%=?(C%+3) EOR &FF
@@ -101,7 +91,7 @@ X%=?(C%+1) EOR &FF
 Y%=?(C%+2) EOR &FF
 ?(C%+1)=Y%
 ?(C%+2)=X%
-PRINT"CRC32 "+STR$(I%)+" BYTES: "+STR$~(!C%)
+PRINT"CRC32 "+STR$(-A%)+" BYTES: "+STR$~(!C%)
 ENDPROC
 
 DEF PROCowrd
@@ -137,7 +127,8 @@ REM Timing based sector sizes.
 FOR I%=0 TO S%-1
 IF I%=S%-1 THEN L%=J% ELSE L%=FNg16(K%+(I%+1)*2)
 L%=L%-FNg16(K%+I%*2)
-A%=3
+A%=4
+IF L%<2048 THEN A%=3
 IF L%<1024 THEN A%=2
 IF L%<512 THEN A%=1
 IF L%<256 THEN A%=0
@@ -180,7 +171,14 @@ ENDPROC
 
 DEF PROCdtrk
 PROCgtrk
-PRINT"TRACK "+STR$(T%)+" "+STR$(?(B%+5))+" SECTORS"
+J%=?(B%+5)
+PRINT"TRACK "+STR$(T%)+" "+STR$(J%)+" SECTORS, LEN "+STR$(FNg16(B%+6))
+IF J%=0 THEN ENDPROC
+FOR I%=0 TO J%-1
+IF FNcrcerr(I%) THEN VDU129:PRINT"SECTOR "+STR$(I%)+" CRC ERROR"
+IF FNsizem(I%) THEN VDU131:PRINT"SECTOR "+STR$(I%)+" SIZE MISMATCH"
+IF FNidtrk(I%)<>T% THEN VDU134:PRINT"SECTOR "+STR$(I%)+" TRACK MISMATCH"
+NEXT
 ENDPROC
 
 DEF PROChfeg
@@ -198,11 +196,10 @@ PROCclr:?B%=E%:?(B%+1)=T%:?(B%+2)=?(Z%+4):?(B%+3)=?(Z%+5)
 PROCbufs(&20,&A0):PROCrids:?(B%+4)=R%
 IF R%=&18 THEN ENDPROC
 ?(B%+5)=S%:J%=S%
-PRINT"RTRK"
 PROCbufs(&200,&180):PROCrtrk:?(B%+6)=S%:?(B%+7)=S% DIV 256
-A%=0
 REM Find sectors in raw track read.
 FOR I%=0 TO J%-1
+A%=0
 X%=FNg16(Z%+4)
 X%=(3125/X%)*(FNg16(B%+&A0+I%*2)-1)
 Y%=!(B%+&20+I%*4)
@@ -214,8 +211,12 @@ FOR K%=14 TO 30
 L%=B%+&200+X%+K%
 IF ?L%=&FB OR ?L%=&CB OR ?L%=&F8 OR ?L%=&C8 THEN A%=A%+1:X%=X%+K%:?(B%+&140+I%*2)=X%:?(B%+&141+I%*2)=X% DIV 256:K%=30
 NEXT
+IF A%<>2 THEN PRINT"RTRK MISSING SECTOR":END
+K%=B%+&E0+I%
+M%=FNssize(?K%)
+IF ?K%<>FNidsiz(I%) THEN ?K%=(?K%)+&40
+PROCcrc16(L%,M%+1):L%=L%+M%+1:S%=?L%*256+?(L%+1):IF R%<>S% THEN ?K%=(?K%)+&80
 NEXT
-IF A%<>J%*2 THEN PRINT"RTRK MISSING SECTORS"
 ENDPROC
 
 DEF FNhex(A%)
@@ -224,3 +225,15 @@ IF LEN(A$)=1 THEN A$="0"+A$
 =A$
 
 DEF FNg16(A%):=?A%+?(A%+1)*256
+
+DEF FNssize(A%)
+A%=A% AND 7
+IF A%=1 THEN =256
+IF A%=2 THEN =512
+IF A%=3 THEN =1024
+IF A%=4 THEN =2048
+=128
+DEF FNcrcerr(A%):=?(B%+&E0+A%) AND &80
+DEF FNsizem(A%):=?(B%+&E0+A%) AND &40
+DEF FNidtrk(A%):=?(B%+&20+A%*4)
+DEF FNidsiz(A%):=?(B%+&20+A%*4+3)

@@ -1,0 +1,27 @@
+The HFE Grab v0.2 format.
+
+Each track is emitted as a 4096 byte chunk, compromised as follows:
+
+ &00 -  &1F: "header".
+ &00       : 1 if captured with 8271, 2 if captured with 1770
+ &01       : physical track number
+ &02, &03  : drive speed
+ &04       : 8271-style return code from reading sector IDs; &00 ok &18 no track
+ &05       : number sectors found
+ &06, &07  : track length if known
+
+ &20 -  &9F: up to 32 sector IDs, 4 bytes each
+
+ &A0 -  &DF: up to 32 sector header timings
+
+ &E0 -  &FF: up to 32 physical sector flags
+             sizes (0 = 128, 1 = 256, ...)
+             bad CRC (+0x80)
+             track mismatch (+0x40)
+
+&100 - &13F: up to 32 byte indexes for sector ID markers
+&140 - &17F: up to 32 byte indexes for sector data markers
+
+&180 - &1FF: track byte timings, every 128 bytes
+
+&200+      : track bytes
