@@ -28,6 +28,8 @@ INTEL_CMD_READ_STATUS = &2C
 INTEL_CMD_SPECIFY = &35
 INTEL_CMD_SET_PARAM = &3A
 INTEL_PARAM_SPINDOWN_LOADTIME = &0F
+INTEL_PARAM_TRACK_DRIVE_0 = &12
+INTEL_PARAM_TRACK_DRIVE_1 = &1A
 INTEL_PARAM_DRVOUT = &23
 INTEL_DRVOUT_SELECT0 = &40
 INTEL_DRVOUT_LOAD_HEAD = &08
@@ -261,11 +263,19 @@ GUARD (BASE + 2048)
     STA var_zp_param_1
     JMP detected_common
 
-.intel_set_drvout
+.intel_set_param
+    \\ A=param, X=value.
+    TAY
     LDA #INTEL_CMD_SET_PARAM
     JSR intel_do_cmd
-    LDA #INTEL_PARAM_DRVOUT
+    TYA
     JSR intel_do_param
+    TXA
+    JSR intel_do_param
+    JSR intel_wait_idle
+    RTS
+
+.intel_set_drvout
     LDA var_zp_drive
     CLC
     ADC #1
@@ -281,8 +291,29 @@ GUARD (BASE + 2048)
     ASL A
     ORA var_zp_temp
     ORA #INTEL_DRVOUT_LOAD_HEAD
-    JSR intel_do_param
-    JSR intel_wait_idle
+    TAX
+    LDA #INTEL_PARAM_DRVOUT
+    JSR intel_set_param
+    RTS
+
+.intel_set_track
+    LDA #INTEL_PARAM_TRACK_DRIVE_0
+    LDX var_zp_drive
+    BEQ intel_set_track_not_drive_1
+    LDA #INTEL_PARAM_TRACK_DRIVE_1
+  .intel_set_track_not_drive_1
+    LDX var_zp_param_1
+    JSR intel_set_param
+    RTS
+
+.intel_unset_track
+    LDA #INTEL_PARAM_TRACK_DRIVE_0
+    LDX var_zp_drive
+    BEQ intel_set_track_not_drive_1
+    LDA #INTEL_PARAM_TRACK_DRIVE_1
+  .intel_unset_track_not_drive_1
+    LDX var_zp_track
+    JSR intel_set_param
     RTS
 
 .intel_seek
@@ -380,6 +411,8 @@ GUARD (BASE + 2048)
 
     JSR intel_wait_ready
 
+    JSR intel_set_track
+
     LDA #INTEL_CMD_READ_SECTORS
     JSR intel_do_cmd
     \\ Track.
@@ -390,15 +423,19 @@ GUARD (BASE + 2048)
     JSR intel_do_param
     \\ Number sectors.
     LDA var_zp_param_3
-    \\ 256 byte sectors for now.
-    ORA #&20
     JSR intel_do_param
 
     JSR intel_read_loop
+    JSR intel_set_result
+    STA var_zp_param_1
+    STX var_zp_param_2
+
+    JSR intel_unset_track
 
     JSR timer_exit
 
-    JSR intel_set_result
+    LDA var_zp_param_1
+    LDX var_zp_param_2
     RTS
 
 .intel_time_drive
