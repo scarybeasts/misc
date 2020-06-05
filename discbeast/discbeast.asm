@@ -415,6 +415,9 @@ GUARD (BASE + 2048)
 
     JSR intel_set_track
 
+    JSR intel_wait_no_index_pulse
+    JSR intel_wait_index_pulse
+
     LDA #INTEL_CMD_READ_SECTORS
     JSR intel_do_cmd
     \\ Track.
@@ -695,6 +698,10 @@ GUARD (BASE + 2048)
 
     JSR timer_enter
 
+    JSR wd_do_spin_up_idle
+    JSR wd_wait_no_index_pulse
+    JSR wd_wait_index_pulse
+
   .wd_read_sector_loop
     \\ Track register.
     LDY #1
@@ -704,7 +711,7 @@ GUARD (BASE + 2048)
     INY
     LDA var_zp_param_2
     STA (var_zp_wd_base),Y
-    
+
     LDA #WD_CMD_READ_SECTOR_SETTLE
     JSR wd_do_command
 
