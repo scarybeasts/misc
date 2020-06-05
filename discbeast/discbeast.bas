@@ -38,6 +38,7 @@ IF A$="READ" THEN PROCclr:PROCread:PROCres:L%=FNg16(Z%)-B%:!C%=-1:PROCcrca32(B%,
 IF A$="RTRK" THEN PROCclr:PROCrtrk:PRINT"LEN: "+STR$(S%):V%(0)=-1:PROCdump
 IF A$="TIME" THEN PROCtime:PRINT"DRIVE SPEED: "+STR$(R%)
 IF A$="DTRK" THEN PROCdtrk
+IF A$="DCRC" THEN PROCdcrc
 IF A$="HFEG" THEN PROChfeg
 
 UNTIL FALSE
@@ -84,11 +85,10 @@ ENDPROC
 
 DEF PROCcrcf32(A%)
 X%=!A% EOR &FFFFFFFF
-Y%=(X% AND &FF)*&1000000
-Y%=Y%+(X% AND &FF00)*&100
-Y%=Y%+(X% AND &FF0000) DIV &100
-Y%=Y%+X% DIV &1000000
-!A%=Y%
+?A%=X% DIV &1000000
+?(A%+1)=X% DIV &10000
+?(A%+2)=X% DIV &100
+?(A%+3)=X%
 ENDPROC
 
 DEF PROCowrd
@@ -105,7 +105,9 @@ Y%=B%+X%:?(Z%+2)=Y%:?(Z%+3)=Y% DIV 256
 ENDPROC
 
 DEF PROCseek
-A%=V%(0):CALL D%+3:T%=A%
+A%=V%(0)
+IF A%=-1 THEN A%=0
+CALL D%+3:T%=A%
 ENDPROC
 
 DEF PROCrids
@@ -174,11 +176,44 @@ IF FNcrcerr(I%) THEN VDU129:PRINT"SECTOR "+STR$(I%)+" CRC ERROR"
 IF FNsizem(I%) THEN VDU131:PRINT"SECTOR "+STR$(I%)+" SIZE MISMATCH"
 IF FNidtrk(I%)<>T% THEN VDU134:PRINT"SECTOR "+STR$(I%)+" TRACK MISMATCH"
 NEXT
+PROCtcrc
+PRINT "TRACK CRC32 "+STR$~(!C%)
+ENDPROC
+
+DEF PROCtcrc
+!C%=-1
+J%=?(B%+5)
+IF J%=0 THEN ENDPROC
+FOR I%=0 TO J%-1
+K%=1
+IF FNcrcerr(I%) THEN K%=0
+IF FNidtrk(I%)=0 AND T%<>0 THEN K%=0
+REM Not sure 8271 can read &FF
+IF FNidtrk(I%)=&FF THEN K%=0
+L%=FNssize(FNrsiz(I%))+1
+M%=FNsaddr(I%)
+IF K%=1 THEN PROCcrca32(M%,L%,C%)
+NEXT
+PROCcrcf32(C%)
+ENDPROC
+
+DEF PROCdcrc
+!(C%+4)=-1
+V%(1)=V%(0)
+IF V%(1)=-1 THEN V%(1)=40
+FOR T%=0 TO V%(1)
+PRINT"TRACK "+STR$(T%)+" ";
+V%(0)=T%:PROCseek:PROCgtrk:PROCtcrc:PROCcrca32(C%,4,C%+4)
+PRINT"CRC32 "+STR$~(!C%)
+NEXT
+PROCcrcf32(C%+4)
+VDU130:PRINT "DISC CRC32 "+STR$~(!(C%+4))
 ENDPROC
 
 DEF PROChfeg
-VDU132,157,134:PRINT"HFE Grab v0.1":PRINT
-FOR T%=0 TO 40
+VDU132,157,134:PRINT"HFE Grab v0.2":PRINT
+IF V%(0)=-1 THEN V%(0)=40
+FOR T%=0 TO V%(0)
 PRINT"TRACK " + STR$(T%)
 V%(0)=T%:PROCseek:PROCgtrk
 PRINT"SECTORS: "+STR$(?(B%+5))
@@ -232,3 +267,5 @@ DEF FNcrcerr(A%):=?(B%+&E0+A%) AND &80
 DEF FNsizem(A%):=?(B%+&E0+A%) AND &40
 DEF FNidtrk(A%):=?(B%+&20+A%*4)
 DEF FNidsiz(A%):=?(B%+&20+A%*4+3)
+DEF FNrsiz(A%):=?(B%+&E0+A%) AND 7
+DEF FNsaddr(A%):=B%+&200+?(B%+&140+A%*2)+?(B%+&141+A%*2)*256
