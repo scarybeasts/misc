@@ -48,7 +48,7 @@ DEF PROCinit
 A%=V%(0):T%=0
 IF A%<0 THEN A%=0
 IF A%>1 THEN A%=1
-E%=USR(D%+0) AND &FF
+E%=USR(D%) AND &FF
 IF E%=0 THEN PRINT"FAIL":END
 IF E%=1 THEN PRINT"OK 8271"
 IF E%=2 THEN PRINT"OK 1770"
@@ -56,15 +56,20 @@ PRINT"DRIVE "+STR$(A%)+" SPEED "+STR$(FNdrvspd)
 ?O%=A%
 ENDPROC
 
-DEF PROCclr
-?W%=B%:?(W%+1)=B% DIV 256:A%=0:X%=17:CALL U%+0
-ENDPROC
+DEF PROCclr:PROCstor(B%,0,4096+256):ENDPROC
 
 DEF PROCres
 I%=R% AND &FF
 J%=(R% DIV 256) AND &FF
 PRINT"RESULT: &" + STR$~(I%);
 IF I%<>J% THEN PRINT" (&"+STR$~(J%)+")" ELSE PRINT
+ENDPROC
+
+DEF PROCstor(A%,X%,Y%)
+?W%=A%:?(W%+1)=A% DIV 256:A%=X%
+Y%=-Y%
+?(W%+4)=Y%:?(W%+5)=(Y% AND &FF00) DIV 256
+CALL U%
 ENDPROC
 
 DEF PROCcopy(A%,X%,Y%)
@@ -269,6 +274,7 @@ PROCbufs(&200,&180):PROCrtrk:?(B%+6)=S%:?(B%+7)=S% DIV 256
 ENDPROC
 
 DEF PROCg8271
+PROCstor(B%+&200,&FF,3125)
 K%=0
 FOR I%=0 TO J%-1
 REM Write in sector header.

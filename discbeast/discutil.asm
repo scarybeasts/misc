@@ -5,8 +5,8 @@ BASE = &7A00
 ZP = &50
 
 \\ A=byte to store
-\\ X=number of pages
 \\ (ZP+0 ZP+1)=destination buffer
+\\ (ZP+3 ZP+4)=length, negated
 ABI_STORE = (BASE + 0)
 \\ (ZP+0 ZP+1)=destination buffer
 \\ (ZP+2 ZP+3)=destination buffer
@@ -49,19 +49,31 @@ GUARD (BASE + &0200)
     JMP entry_crc32
 
 .entry_store
+    TAY
+    LDA var_zp_ABI_length
+    ORA var_zp_ABI_length + 1
+    BEQ entry_store_done
+    TYA
     LDY #0
-  .store_loop
+  .entry_store_loop
     STA (var_zp_ABI_buf_1),Y
     INC var_zp_ABI_buf_1
-    BNE store_loop
+    BNE entry_store_no_inc_hi_1
     INC var_zp_ABI_buf_1 + 1
-    DEX
-    BNE store_loop
+  .entry_store_no_inc_hi_1
+    INC var_zp_ABI_length
+    BNE entry_store_loop
+    INC var_zp_ABI_length + 1
+    BNE entry_store_loop
+  .entry_store_done
     RTS
 
 .entry_copy
+    LDA var_zp_ABI_length
+    ORA var_zp_ABI_length + 1
+    BEQ entry_copy_done
     LDY #0
-  .copy_loop
+  .entry_copy_loop
     LDA (var_zp_ABI_buf_2),Y
     STA (var_zp_ABI_buf_1),Y
     INC var_zp_ABI_buf_2
@@ -73,9 +85,10 @@ GUARD (BASE + &0200)
     INC var_zp_ABI_buf_1 + 1
   .entry_copy_no_inc_hi_2
     INC var_zp_ABI_length
-    BNE copy_loop
+    BNE entry_copy_loop
     INC var_zp_ABI_length + 1
-    BNE copy_loop
+    BNE entry_copy_loop
+  .entry_copy_done
     RTS
 
 .entry_crc16

@@ -322,7 +322,7 @@ GUARD (BASE + 2048)
 .intel_unset_track
     LDA #INTEL_PARAM_TRACK_DRIVE_0
     LDX var_zp_drive
-    BEQ intel_set_track_not_drive_1
+    BEQ intel_unset_track_not_drive_1
     LDA #INTEL_PARAM_TRACK_DRIVE_1
   .intel_unset_track_not_drive_1
     LDX var_zp_track
