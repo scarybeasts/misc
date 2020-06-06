@@ -52,7 +52,7 @@ E%=USR(D%+0) AND &FF
 IF E%=0 THEN PRINT"FAIL":END
 IF E%=1 THEN PRINT"OK 8271"
 IF E%=2 THEN PRINT"OK 1770"
-PRINT"DRIVE "+STR$(A%)+" SPEED "+STR$(FNg16(Z%+4))
+PRINT"DRIVE "+STR$(A%)+" SPEED "+STR$(FNdrvspd)
 ?O%=A%
 ENDPROC
 
@@ -96,7 +96,7 @@ DEF PROCowrd
 ?(O%+5)=P%-1
 ?(O%+6)=V%(0)
 IF P%>1 THEN FOR I%=2 TO P%:?(O%+5+I%)=V%(I%-1):NEXT
-A%=&7F:X%=O% AND &FF:Y%=O% DIV 256:CALL&FFF1:R%=?(O%+6+P%)
+A%=&7F:X%=O%:Y%=O% DIV 256:CALL&FFF1:R%=?(O%+6+P%)
 PRINT"OSWORD &7F: &"+STR$~(R%)
 ENDPROC
 
@@ -113,11 +113,10 @@ ENDPROC
 
 DEF PROCrids
 K%=FNg16(Z%+2)
-R%=USR(D%+9) AND &FF
-IF R%<>0 THEN ENDPROC
+R%=USR(D%+9)
+IF (R% AND &FF)<>0 THEN ENDPROC
 S%=0
-REM Drive speed.
-J%=FNg16(Z%+4)
+J%=FNdrvspd
 REM Sectors in one rev.
 FOR I%=0 TO 31
 L%=FNg16(K%+I%*2)
@@ -137,19 +136,20 @@ NEXT
 ENDPROC
 
 DEF PROCread
-A%=V%(0):IF A%=-1 THEN A%=T%
 X%=V%(1):IF X%=-1 THEN X%=0
 Y%=V%(2):IF Y%=-1 THEN Y%=1
-I%=V%(3):IF I%=-1 THEN I%=256
-IF I%=256 THEN Y%=Y%+&20
-IF I%=512 THEN Y%=Y%+&40
-IF I%=1024 THEN Y%=Y%+&60
-IF I%=2048 THEN Y%=Y%+&80
-IF I%=4096 THEN Y%=Y%+&A0
+A%=V%(3):IF A%=-1 THEN A%=256
+IF A%=256 THEN Y%=Y%+&20
+IF A%=512 THEN Y%=Y%+&40
+IF A%=1024 THEN Y%=Y%+&60
+IF A%=2048 THEN Y%=Y%+&80
+IF A%=4096 THEN Y%=Y%+&A0
+A%=V%(0):IF A%=-1 THEN A%=T%
 R%=USR(D%+12)
 ENDPROC
 
 DEF PROCrtrk
+IF E%<>2 THEN PRINT"RTRK 1770 ONLY":ENDPROC
 S%=FNg16(Z%)
 R%=USR(D%+6)
 S%=FNg16(Z%)-S%
@@ -227,18 +227,19 @@ IF A%=-1 THEN A%=0
 ENDPROC
 
 DEF PROCgtrk
-IF E%<>2 THEN PRINT"1770 ONLY":ENDPROC
 PROCclr:?B%=E%:?(B%+1)=T%:?(B%+2)=?(Z%+4):?(B%+3)=?(Z%+5)
 PROCbufs(&20,&A0):PROCrids:?(B%+4)=R%
 IF R%=&18 THEN ENDPROC
 ?(B%+5)=S%:J%=S%
-PROCbufs(&200,&180):PROCrtrk:?(B%+6)=S%:?(B%+7)=S% DIV 256
+
+IF E%=1 THEN PROCg8271 ELSE PROCg1770
+
 REM Find sectors in raw track read.
 FOR I%=0 TO J%-1
-A%=0
-X%=FNg16(Z%+4)
-X%=(3125/X%)*(FNg16(B%+&A0+I%*2)-1)
+X%=FNdrvspd
+X%=(3125/X%)*(FNstime(I%)-1)
 Y%=!(B%+&20+I%*4)
+A%=0
 FOR K%=-2 TO 2
 L%=B%+&200+X%+K%
 IF (?L%=&FE OR ?L%=&CE) AND !(L%+1)=Y% THEN A%=A%+1:X%=X%+K%:?(B%+&100+I%*2)=X%:?(B%+&101+I%*2)=X% DIV 256:K%=2
@@ -250,8 +251,31 @@ NEXT
 IF A%<>2 THEN PRINT"RTRK MISSING SECTOR":END
 K%=B%+&E0+I%
 M%=FNssize(?K%)
+REM Tag size / CRC mismatches.
 IF ?K%<>FNidsiz(I%) THEN ?K%=(?K%)+&40
 PROCcrc16(L%,M%+1):L%=L%+M%+1:S%=?L%*256+?(L%+1):IF R%<>S% THEN ?K%=(?K%)+&80
+NEXT
+ENDPROC
+
+DEF PROCg1770
+PROCbufs(&200,&180):PROCrtrk:?(B%+6)=S%:?(B%+7)=S% DIV 256
+ENDPROC
+
+DEF PROCg8271
+K%=0
+FOR I%=0 TO J%-1
+REM Write in sector header.
+L%=FNstime(I%)-1
+M%=(3125/FNdrvspd)*L%
+M%=B%+&200+M%
+?M%=&FE:!(M%+1)=!(B%+&20+I%*4)
+M%=M%+7+17
+PROCstrt(K%):K%=L%
+PROCbufs(-&1000,-&100)
+V%(0)=FNidtrk(I%):V%(1)=FNidsec(I%):V%(2)=1:V%(3)=2048:PROCread:R%=R% AND &FF
+IF R%=&18 THEN PRINT"SECTOR READ FAILED":END
+REM Copy in sector data.
+IF R% AND &20 THEN ?M%=&F8 ELSE ?M%=&FB
 NEXT
 ENDPROC
 
@@ -272,6 +296,10 @@ IF A%=4 THEN =2048
 DEF FNcrcerr(A%):=?(B%+&E0+A%) AND &80
 DEF FNsizem(A%):=?(B%+&E0+A%) AND &40
 DEF FNidtrk(A%):=?(B%+&20+A%*4)
+DEF FNidsec(A%):=?(B%+&20+A%*4+2)
 DEF FNidsiz(A%):=?(B%+&20+A%*4+3)
 DEF FNrsiz(A%):=?(B%+&E0+A%) AND 7
 DEF FNsaddr(A%):=B%+&200+?(B%+&140+A%*2)+?(B%+&141+A%*2)*256
+DEF FNstime(A%):=FNg16(B%+&A0+A%*2)
+
+DEF FNdrvspd:=FNg16(Z%+4)
