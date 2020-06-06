@@ -8,6 +8,9 @@ ZP = &50
 \\ X=number of pages
 \\ (ZP+0 ZP+1)=destination buffer
 ABI_STORE = (BASE + 0)
+\\ (ZP+0 ZP+1)=destination buffer
+\\ (ZP+2 ZP+3)=destination buffer
+\\ (ZP+3 ZP+4)=length, negated
 ABI_COPY = (BASE + 3)
 \\ X=CRC16 hi byte
 \\ Y=CRC16 lo byte
@@ -38,7 +41,8 @@ GUARD (BASE + &0200)
 
     \\ base + &00, store
     JMP entry_store
-    NOP:NOP:NOP
+    \\ base + &03, copy
+    JMP entry_copy
     \\ base + &06, CRC16
     JMP entry_crc16
     \\ base + &09, CRC32
@@ -53,6 +57,25 @@ GUARD (BASE + &0200)
     INC var_zp_ABI_buf_1 + 1
     DEX
     BNE store_loop
+    RTS
+
+.entry_copy
+    LDY #0
+  .copy_loop
+    LDA (var_zp_ABI_buf_2),Y
+    STA (var_zp_ABI_buf_1),Y
+    INC var_zp_ABI_buf_2
+    BNE entry_copy_no_inc_hi_1
+    INC var_zp_ABI_buf_2 + 1
+  .entry_copy_no_inc_hi_1
+    INC var_zp_ABI_buf_1
+    BNE entry_copy_no_inc_hi_2
+    INC var_zp_ABI_buf_1 + 1
+  .entry_copy_no_inc_hi_2
+    INC var_zp_ABI_length
+    BNE copy_loop
+    INC var_zp_ABI_length + 1
+    BNE copy_loop
     RTS
 
 .entry_crc16

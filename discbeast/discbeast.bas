@@ -67,6 +67,14 @@ PRINT"RESULT: &" + STR$~(I%);
 IF I%<>J% THEN PRINT" (&"+STR$~(J%)+")" ELSE PRINT
 ENDPROC
 
+DEF PROCcopy(A%,X%,Y%)
+?W%=A%:?(W%+1)=A% DIV 256
+?(W%+2)=X%:?(W%+3)=X% DIV 256
+Y%=-Y%
+?(W%+4)=Y%:?(W%+5)=(Y% AND &FF00) DIV 256
+CALL U%+3
+ENDPROC
+
 DEF PROCcrc16(A%,X%)
 ?(W%+2)=A%:?(W%+3)=A% DIV 256
 X%=-X%
@@ -236,8 +244,7 @@ IF E%=1 THEN PROCg8271 ELSE PROCg1770
 
 REM Find sectors in raw track read.
 FOR I%=0 TO J%-1
-X%=FNdrvspd
-X%=(3125/X%)*(FNstime(I%)-1)
+X%=FNcstime(I%)-1
 Y%=!(B%+&20+I%*4)
 A%=0
 FOR K%=-2 TO 2
@@ -265,17 +272,19 @@ DEF PROCg8271
 K%=0
 FOR I%=0 TO J%-1
 REM Write in sector header.
-L%=FNstime(I%)-1
-M%=(3125/FNdrvspd)*L%
-M%=B%+&200+M%
+M%=B%+&200+FNcstime(I%)-1
 ?M%=&FE:!(M%+1)=!(B%+&20+I%*4)
 M%=M%+7+17
-PROCstrt(K%):K%=L%
-PROCbufs(-&1000,-&100)
+PROCstrt(K%):K%=FNstime(I%)
+PROCbufs(-&1000,-&200)
 V%(0)=FNidtrk(I%):V%(1)=FNidsec(I%):V%(2)=1:V%(3)=2048:PROCread:R%=R% AND &FF
 IF R%=&18 THEN PRINT"SECTOR READ FAILED":END
 REM Copy in sector data.
 IF R% AND &20 THEN ?M%=&F8 ELSE ?M%=&FB
+M%=M%+1
+IF I%=J%-1 THEN L%=3328 ELSE L%=FNcstime(I%+1)
+L%=L%-(M%-B%-&200)
+PROCcopy(M%,B%-&1000,L%)
 NEXT
 ENDPROC
 
@@ -301,5 +310,6 @@ DEF FNidsiz(A%):=?(B%+&20+A%*4+3)
 DEF FNrsiz(A%):=?(B%+&E0+A%) AND 7
 DEF FNsaddr(A%):=B%+&200+?(B%+&140+A%*2)+?(B%+&141+A%*2)*256
 DEF FNstime(A%):=FNg16(B%+&A0+A%*2)
+DEF FNcstime(A%):A%=FNstime(A%):=(3125/FNdrvspd)*A%
 
 DEF FNdrvspd:=FNg16(Z%+4)
