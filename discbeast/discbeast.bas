@@ -6,7 +6,7 @@ U%=&7A00:W%=&50
 REM Read/write buffer. 4k plus a page for timing.
 B%=&5000
 REM For parsed command values.
-DIM V%(3)
+DIM V%(5)
 REM For OSWORD.
 DIM O% 15:FOR I%=0 TO 15:?(O%+I%)=0:NEXT
 ?(O%+1)=B%:?(O%+2)=B% DIV 256
@@ -17,7 +17,7 @@ REPEAT
 
 INPUT A$:IF LEN(A$)<4 THEN A$="????"
 P$=MID$(A$,5):A$=LEFT$(A$,4)
-FOR I%=0 TO 3:V%(I%)=-1:NEXT
+FOR I%=0 TO 5:V%(I%)=-1:NEXT
 
 I%=0
 REPEAT
@@ -40,6 +40,7 @@ IF A$="TIME" THEN PROCtime:PRINT"DRIVE SPEED: "+STR$(R%)
 IF A$="DTRK" THEN PROCdtrk
 IF A$="DCRC" THEN PROCdcrc
 IF A$="HFEG" THEN PROChfeg
+IF A$="STRT" THEN PROCstrt(V%(0))
 
 UNTIL FALSE
 
@@ -218,6 +219,11 @@ PRINT"TRACK " + STR$(T%)
 V%(0)=T%:PROCseek:PROCgtrk
 PRINT"SECTORS: "+STR$(?(B%+5))
 NEXT
+ENDPROC
+
+DEF PROCstrt(A%)
+IF A%=-1 THEN A%=0
+?(Z%+6)=A%:?(Z%+7)=A% DIV 256
 ENDPROC
 
 DEF PROCgtrk

@@ -45,9 +45,16 @@ WD_STATUS_BIT_NOT_FOUND = &10
 ORG ZP
 GUARD (ZP + 32)
 
+\\ 0
 .var_zp_ABI_buf_1 SKIP 2
+\\ 2
 .var_zp_ABI_buf_2 SKIP 2
+\\ 4
 .var_zp_ABI_drive_speed SKIP 2
+\\ 6
+.var_zp_ABI_start SKIP 2
+\\ 8
+.var_zp_ABI_stop SKIP 2
 .var_zp_wd_base SKIP 2
 .var_zp_wd_drvctrl SKIP 2
 .var_zp_wd_sd_0_lower SKIP 1
@@ -94,6 +101,10 @@ GUARD (BASE + 2048)
     STA var_zp_track
     STA var_zp_ABI_drive_speed
     STA var_zp_ABI_drive_speed + 1
+    STA var_zp_ABI_start
+    STA var_zp_ABI_start + 1
+    STA var_zp_ABI_stop
+    STA var_zp_ABI_stop + 1
 
     \\ *FX 140,0, aka. *TAPE
     LDA #&8C
@@ -417,6 +428,7 @@ GUARD (BASE + 2048)
 
     JSR intel_wait_no_index_pulse
     JSR intel_wait_index_pulse
+    JSR timer_start
 
     LDA #INTEL_CMD_READ_SECTORS
     JSR intel_do_cmd
@@ -434,6 +446,8 @@ GUARD (BASE + 2048)
     JSR intel_set_result
     STA var_zp_param_1
     STX var_zp_param_2
+
+    JSR timer_stop
 
     JSR intel_unset_track
 
@@ -701,6 +715,7 @@ GUARD (BASE + 2048)
     JSR wd_do_spin_up_idle
     JSR wd_wait_no_index_pulse
     JSR wd_wait_index_pulse
+    JSR timer_start
 
   .wd_read_sector_loop
     \\ Track register.
@@ -728,6 +743,8 @@ GUARD (BASE + 2048)
     BNE wd_read_sector_loop
 
   .wd_read_sectors_error_out
+    JSR timer_stop
+
     \\ Put back track register.
     LDA var_zp_track
     LDY #1
@@ -955,6 +972,18 @@ GUARD (BASE + 2048)
     \\ T1 IRQ active.
     LDA #(&80 + &40)
     STA &FE6E
+    LDA var_zp_ABI_start
+    ORA var_zp_ABI_start + 1
+    BNE timer_wait_after_start
+    RTS
+  .timer_wait_after_start
+    LDX var_zp_ABI_start
+    LDY var_zp_ABI_start + 1
+  .timer_wait_after_start_loop
+    CPX var_zp_timer
+    BNE timer_wait_after_start_loop
+    CPY var_zp_timer + 1
+    BNE timer_wait_after_start_loop
     RTS
 
 .timer_stop
