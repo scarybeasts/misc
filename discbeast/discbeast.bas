@@ -226,11 +226,32 @@ ENDPROC
 
 DEF PROChfeg
 VDU132,157,134:PRINT"HFE Grab v0.2":PRINT
-IF V%(0)=-1 THEN V%(0)=40
-FOR T%=0 TO V%(0)
-PRINT"TRACK " + STR$(T%)
+V%(1)=V%(0)
+IF V%(1)=-1 THEN V%(1)=40
+FOR T%=0 TO V%(1)
+IF (T% MOD 10)=0 THEN PRINT:PRINT STR$(T%)+" ";
+IF T%=0 THEN PRINT" ";
 V%(0)=T%:PROCseek:PROCgtrk
-PRINT"SECTORS: "+STR$(?(B%+5))
+REM Display character and color.
+I%=2:J%=32:K%=255
+A%=?(B%+5)
+IF A%<10 THEN J%=48+K%
+IF A%>10 THEN J%=43
+L%=?(B%+4)
+IF L%=&18 THEN I%=4:J%=33
+IF A%>0 THEN PROChfegs
+VDU128+I%:VDU K%:VDU J%
+NEXT
+PRINT
+ENDPROC
+
+DEF PROChfegs
+FOR X%=0 TO A%-1
+IF FNidtrk(X%)<>T% THEN I%=7
+IF FNidtrk(X%)=0 AND T%<>0 THEN I%=6
+IF FNsizem(X%) THEN I%=3
+IF FNcrcerr(X%) THEN I%=1
+IF ?FNsaddr(X%)=&F8 THEN K%=68
 NEXT
 ENDPROC
 
