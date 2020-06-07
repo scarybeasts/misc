@@ -290,22 +290,28 @@ REM Find sectors in raw track read.
 FOR I%=0 TO J%-1
 X%=FNcstime(I%)-1
 Y%=!(B%+&20+I%*4)
-A%=0
+N%=0
 FOR K%=-2 TO 2
 L%=B%+&200+X%+K%
-IF (?L%=&FE OR ?L%=&CE) AND !(L%+1)=Y% THEN A%=A%+1:X%=X%+K%:?(B%+&100+I%*2)=X%:?(B%+&101+I%*2)=X% DIV 256:K%=2
+IF (?L%=&FE OR ?L%=&CE) AND !(L%+1)=Y% THEN N%=N%+1:X%=X%+K%:?(B%+&100+I%*2)=X%:?(B%+&101+I%*2)=X% DIV 256:PROCsfix:K%=2
 NEXT
 FOR K%=14 TO 30
 L%=B%+&200+X%+K%
-IF ?L%=&FB OR ?L%=&CB OR ?L%=&F8 OR ?L%=&C8 THEN A%=A%+1:X%=X%+K%:?(B%+&140+I%*2)=X%:?(B%+&141+I%*2)=X% DIV 256:K%=30
+IF ?L%=&FB OR ?L%=&CB OR ?L%=&F8 OR ?L%=&C8 THEN N%=N%+1:X%=X%+K%:?(B%+&140+I%*2)=X%:?(B%+&141+I%*2)=X% DIV 256:PROCsfix:K%=30
 NEXT
-IF A%<>2 THEN PRINT"RTRK MISSING SECTOR":END
+IF N%<>2 THEN PRINT"RTRK MISSING SECTOR":END
 K%=B%+&E0+I%
 M%=FNssize(?K%)
 REM Tag size / CRC mismatches.
 IF ?K%<>FNidsiz(I%) THEN ?K%=(?K%)+&40
 PROCcrc16(L%,M%+1):L%=L%+M%+1:S%=?L%*256+?(L%+1):IF R%<>S% THEN ?K%=(?K%)+&80
 NEXT
+ENDPROC
+
+DEF PROCsfix
+?L%=?L% OR &F0
+IF ?(L%-1)=0 AND ?(L%-2)=0 THEN ENDPROC
+FOR A%=1 TO 6:?(L%-A%)=0:NEXT
 ENDPROC
 
 DEF PROCg1770

@@ -640,6 +640,11 @@ GUARD (BASE + 2048)
     LDY #0
     STA (var_zp_wd_drvctrl),Y
 
+    \\ Restore track register -- there's only one for both drives.
+    LDA var_zp_track
+    LDY #1
+    STA (var_zp_wd_base),Y
+
     RTS
 
 .wd_seek
@@ -779,13 +784,14 @@ GUARD (BASE + 2048)
     JSR wd_wait_index_pulse
     JSR timer_start
 
-  .wd_read_sector_loop
     \\ Track register.
     LDY #1
     LDA var_zp_param_1
     STA (var_zp_wd_base),Y
+
+  .wd_read_sector_loop
     \\ Sector register.
-    INY
+    LDY #2
     LDA var_zp_param_2
     STA (var_zp_wd_base),Y
 
