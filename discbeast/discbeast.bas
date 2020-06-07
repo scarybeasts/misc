@@ -3,8 +3,8 @@ REM DISCBEAST code and zero page.
 D%=&7000+&100:Z%=&70
 REM UTILS base and zero page.
 U%=&7A00:W%=&50
-REM Read/write buffer. 4k x2.
-B%=&5000
+REM Read/write buffers. 4k x3.
+B%=&4000
 REM For parsed command values.
 DIM V%(7)
 REM For OSWORD.
@@ -28,7 +28,7 @@ P$=RIGHT$(P$,LEN(P$)-J%)
 UNTIL LEN(P$)=0
 P%=I%
 
-PROCbufs(0,4096)
+PROCbufs(B%,B%+4096)
 IF A$="INIT" THEN PROCsetup
 IF A$="OWRD" THEN PROCowrd
 IF A$="DUMP" THEN PROCdump
@@ -115,10 +115,7 @@ A%=&7F:X%=O%:Y%=O% DIV 256:CALL&FFF1:R%=?(O%+6+P%)
 PRINT"OSWORD &7F: &"+STR$~(R%)
 ENDPROC
 
-DEF PROCbufs(A%,X%)
-Y%=B%+A%:?Z%=Y%:?(Z%+1)=Y% DIV 256
-Y%=B%+X%:?(Z%+2)=Y%:?(Z%+3)=Y% DIV 256
-ENDPROC
+DEF PROCbufs(A%,X%):?Z%=A%:?(Z%+1)=A% DIV 256:?(Z%+2)=X%:?(Z%+3)=X% DIV 256:ENDPROC
 
 DEF PROCseek
 A%=V%(0)
@@ -255,7 +252,7 @@ VDU128+I%:VDU K%:VDU J%
 PROCsave:PROCreinit
 NEXT
 PRINT:PROCpcrc
-B%=&5000
+B%=&4000
 ENDPROC
 
 DEF PROChfegs
@@ -283,7 +280,7 @@ ENDPROC
 
 DEF PROCgtrk
 PROCclr:?B%=E%:?(B%+1)=T%:?(B%+2)=?(Z%+4):?(B%+3)=?(Z%+5)
-PROCbufs(&20,&A0):PROCrids:?(B%+4)=R%
+PROCbufs(B%+&20,B%+&A0):PROCrids:?(B%+4)=R%
 IF (R% AND &FF)=&18 THEN ENDPROC
 ?(B%+5)=S%:J%=S%
 
@@ -312,19 +309,20 @@ NEXT
 ENDPROC
 
 DEF PROCg1770
-PROCbufs(&200,&180):PROCrtrk:?(B%+6)=S%:?(B%+7)=S% DIV 256
+PROCbufs(B%+&200,B%+&180):PROCrtrk:?(B%+6)=S%:?(B%+7)=S% DIV 256
 ENDPROC
 
 DEF PROCg8271
 PROCstor(B%+&200,&FF,3125)
 K%=0
 FOR I%=0 TO J%-1
-REM Write in sector header.
+REM Write in sector header and CRC.
 M%=B%+&200+FNcstime(I%)-1
 ?M%=&FE:!(M%+1)=!(B%+&20+I%*4)
+PROCcrc16(M%,5):?(M%+5)=R% DIV 256:?(M%+6)=R%
 M%=M%+7+17
 V%(0)=K%:PROCstrt:K%=FNstime(I%)
-PROCbufs(-&1000,-&200)
+PROCbufs(&4000,&4800)
 V%(0)=FNidtrk(I%):V%(1)=FNidsec(I%):V%(2)=1:V%(3)=2048:PROCread:R%=R% AND &FF
 IF R%=&18 THEN PRINT"SECTOR READ FAILED":END
 REM Copy in sector data.
@@ -332,7 +330,7 @@ IF R% AND &20 THEN ?M%=&F8 ELSE ?M%=&FB
 M%=M%+1
 IF I%=J%-1 THEN L%=3328 ELSE L%=FNcstime(I%+1)
 L%=L%-(M%-B%-&200)
-PROCcopy(M%,B%-&1000,L%)
+PROCcopy(M%,&4000,L%)
 NEXT
 ENDPROC
 
