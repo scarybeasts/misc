@@ -196,7 +196,7 @@ ENDPROC
 DEF PROCtcrc
 !C%=-1
 J%=?(B%+5)
-IF J%=0 THEN ENDPROC
+IF J%=0 THEN !C%=0:ENDPROC
 FOR I%=0 TO J%-1
 K%=1
 IF FNcrcerr(I%) THEN K%=0
@@ -210,21 +210,25 @@ NEXT
 PROCcrcf32(C%)
 ENDPROC
 
+DEF PROCtrk:V%(0)=T%:PROCseek:PROCgtrk:PROCtcrc:PROCcrca32(C%,4,C%+4):ENDPROC
+
+DEF PROCpcrc:PROCcrcf32(C%+4):VDU130:PRINT "DISC CRC32 "+STR$~(!(C%+4)):ENDPROC
+
 DEF PROCdcrc
 !(C%+4)=-1
 V%(1)=V%(0)
 IF V%(1)=-1 THEN V%(1)=40
 FOR T%=0 TO V%(1)
 PRINT"TRACK "+STR$(T%)+" ";
-V%(0)=T%:PROCseek:PROCgtrk:PROCtcrc:PROCcrca32(C%,4,C%+4)
+PROCtrk
 PRINT"CRC32 "+STR$~(!C%)
 NEXT
-PROCcrcf32(C%+4)
-VDU130:PRINT "DISC CRC32 "+STR$~(!(C%+4))
+PROCpcrc
 ENDPROC
 
 DEF PROChfeg
 VDU132,157,134:PRINT"HFE Grab v0.2":PRINT
+!(C%+4)=-1
 V%(2)=V%(1)
 V%(1)=V%(0)
 IF V%(1)=-1 THEN V%(1)=0
@@ -232,7 +236,7 @@ IF V%(2)=-1 THEN V%(2)=40
 FOR T%=V%(1) TO V%(2)
 IF (T% MOD 10)=0 THEN PRINT:PRINT STR$(T%)+" ";
 IF T%=0 THEN PRINT" ";
-V%(0)=T%:PROCseek:PROCgtrk
+PROCtrk
 REM Display character and color.
 I%=2:J%=32:K%=255
 A%=?(B%+5)
@@ -243,7 +247,7 @@ IF L%=&18 THEN I%=4:J%=33
 IF A%>0 THEN PROChfegs
 VDU128+I%:VDU K%:VDU J%
 NEXT
-PRINT
+PRINT:PROCpcrc
 ENDPROC
 
 DEF PROChfegs
