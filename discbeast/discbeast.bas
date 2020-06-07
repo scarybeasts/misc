@@ -133,7 +133,7 @@ J%=FNdrvspd
 REM Sectors in one rev.
 FOR I%=0 TO 31
 L%=FNg16(K%+I%*2)
-IF L%<J% THEN S%=S%+1
+IF L%<J% THEN S%=S%+1 ELSE I%=31
 NEXT
 REM Timing based sector sizes.
 FOR I%=0 TO S%-1
@@ -226,16 +226,18 @@ ENDPROC
 
 DEF PROChfeg
 VDU132,157,134:PRINT"HFE Grab v0.2":PRINT
+V%(2)=V%(1)
 V%(1)=V%(0)
-IF V%(1)=-1 THEN V%(1)=40
-FOR T%=0 TO V%(1)
+IF V%(1)=-1 THEN V%(1)=0
+IF V%(2)=-1 THEN V%(2)=40
+FOR T%=V%(1) TO V%(2)
 IF (T% MOD 10)=0 THEN PRINT:PRINT STR$(T%)+" ";
 IF T%=0 THEN PRINT" ";
 V%(0)=T%:PROCseek:PROCgtrk
 REM Display character and color.
 I%=2:J%=32:K%=255
 A%=?(B%+5)
-IF A%<10 THEN J%=48+K%
+IF A%<10 THEN J%=48+A%
 IF A%>10 THEN J%=43
 L%=?(B%+4)
 IF L%=&18 THEN I%=4:J%=33
@@ -263,7 +265,7 @@ ENDPROC
 DEF PROCgtrk
 PROCclr:?B%=E%:?(B%+1)=T%:?(B%+2)=?(Z%+4):?(B%+3)=?(Z%+5)
 PROCbufs(&20,&A0):PROCrids:?(B%+4)=R%
-IF R%=&18 THEN ENDPROC
+IF (R% AND &FF)=&18 THEN ENDPROC
 ?(B%+5)=S%:J%=S%
 
 IF E%=1 THEN PROCg8271 ELSE PROCg1770
