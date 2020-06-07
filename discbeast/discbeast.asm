@@ -57,10 +57,10 @@ GUARD (ZP + 32)
 .var_zp_ABI_stop SKIP 2
 .var_zp_wd_base SKIP 2
 .var_zp_wd_drvctrl SKIP 2
-.var_zp_wd_sd_0_lower SKIP 1
-.var_zp_wd_sd_0_upper SKIP 1
 .var_zp_drive SKIP 1
 .var_zp_side SKIP 1
+.var_zp_drive_side_bits SKIP 1
+.var_zp_drive_bits SKIP 1
 .var_zp_track SKIP 1
 .var_zp_temp SKIP 1
 .var_zp_param_1 SKIP 1
@@ -93,11 +93,15 @@ GUARD (BASE + 2048)
     BRK
 
 .entry_init
+    TAX
     AND #1
     STA var_zp_drive
+    TXA
+    AND #2
+    LSR A
+    STA var_zp_side
 
     LDA #0
-    STA var_zp_side
     STA var_zp_track
     STA var_zp_ABI_drive_speed
     STA var_zp_ABI_drive_speed + 1
@@ -154,19 +158,6 @@ GUARD (BASE + 2048)
     LDA #DETECTED_NOTHING
     RTS
 
-.detected_common
-    \\ Seek to 0.
-    LDA #0
-    JSR ABI_SEEK
-
-    \\ Time the drive.
-    JSR ABI_TIME_DRIVE
-    STA var_zp_ABI_drive_speed
-    STX var_zp_ABI_drive_speed + 1
-
-    LDA var_zp_param_1
-    RTS
-
 .detected_intel
     \\ Set up vectors.
     LDA #LO(intel_seek)
@@ -185,6 +176,24 @@ GUARD (BASE + 2048)
     STA ABI_TIME_DRIVE + 1
     LDA #HI(intel_time_drive)
     STA ABI_TIME_DRIVE + 2
+
+    \\ Calculate values for drive out parameter and command select bits.
+    LDA var_zp_drive
+    CLC
+    ADC #1
+    ROR A
+    ROR A
+    ROR A
+    STA var_zp_drive_bits
+    LDA var_zp_side
+    ASL A
+    ASL A
+    ASL A
+    ASL A
+    ASL A
+    ORA var_zp_drive_bits
+    ORA #INTEL_DRVOUT_LOAD_HEAD
+    STA var_zp_drive_side_bits
 
     \\ Disable automatic spindown. On my machine, the 8271 is super picky about
     \\ starting up again after it spins down, requiring a seek to track 0??
@@ -210,10 +219,14 @@ GUARD (BASE + 2048)
     STA var_zp_wd_base
     LDA #&80
     STA var_zp_wd_drvctrl
-    LDA #&09
-    STA var_zp_wd_sd_0_lower
-    LDA #&0D
-    STA var_zp_wd_sd_0_upper
+    LDA #0
+    LDX var_zp_side
+    BEQ detected_wd_fe8x_not_side_1
+    LDA #&04
+  .detected_wd_fe8x_not_side_1
+    \\ No reset, single density.
+    ORA #&28
+    STA var_zp_drive_side_bits
     JMP detected_wd_common
 
 .detected_wd_fe2x
@@ -221,10 +234,14 @@ GUARD (BASE + 2048)
     STA var_zp_wd_base
     LDA #&24
     STA var_zp_wd_drvctrl
-    LDA #&21
-    STA var_zp_wd_sd_0_lower
-    LDA #&31
-    STA var_zp_wd_sd_0_upper
+    LDA #0
+    LDX var_zp_side
+    BEQ detected_wd_fe2x_not_side_1
+    LDA #&10
+  .detected_wd_fe2x_not_side_1
+    \\ Single density, no reset.
+    ORA #&24
+    STA var_zp_drive_side_bits
     JMP detected_wd_common
 
 .detected_wd_common
@@ -260,21 +277,32 @@ GUARD (BASE + 2048)
     LDA #HI(wd_time_drive)
     STA ABI_TIME_DRIVE + 2
 
-    \\ Set control register to select drive, side 0, single density.
+    \\ Set control register. Drive 0 vs. 1 select is common to both variants.
     LDA var_zp_drive
     \\ Drive 0 -> 1, drive 1 -> 2.
     CLC
     ADC #1
-    \\ No reset.
-    ORA #&20
-    \\ Single density.
-    ORA #&08
+    \\ Add in reset, density and side.
+    ORA var_zp_drive_side_bits
     LDY #0
     STA (var_zp_wd_drvctrl),Y
 
     LDA #DETECTED_WD
     STA var_zp_param_1
     JMP detected_common
+
+.detected_common
+    \\ Seek to 0.
+    LDA #0
+    JSR ABI_SEEK
+
+    \\ Time the drive.
+    JSR ABI_TIME_DRIVE
+    STA var_zp_ABI_drive_speed
+    STX var_zp_ABI_drive_speed + 1
+
+    LDA var_zp_param_1
+    RTS
 
 .intel_set_param
     \\ A=param, X=value.
@@ -289,23 +317,8 @@ GUARD (BASE + 2048)
     RTS
 
 .intel_set_drvout
-    LDA var_zp_drive
-    CLC
-    ADC #1
-    ROR A
-    ROR A
-    ROR A
-    STA var_zp_temp
-    LDA var_zp_side
-    ASL A
-    ASL A
-    ASL A
-    ASL A
-    ASL A
-    ORA var_zp_temp
-    ORA #INTEL_DRVOUT_LOAD_HEAD
-    TAX
     LDA #INTEL_PARAM_DRVOUT
+    LDX var_zp_drive_side_bits
     JSR intel_set_param
     RTS
 
@@ -511,14 +524,7 @@ GUARD (BASE + 2048)
     RTS
 
 .intel_do_cmd
-    STA var_zp_temp
-    LDA var_zp_drive
-    CLC
-    ADC #1
-    ROR A
-    ROR A
-    ROR A
-    ORA var_zp_temp
+    ORA var_zp_drive_bits
     STA &FE80
   .intel_do_cmd_loop
     LDA &FE80
