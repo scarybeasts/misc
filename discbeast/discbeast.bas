@@ -3,10 +3,10 @@ REM DISCBEAST code and zero page.
 D%=&7000+&100:Z%=&70
 REM UTILS base and zero page.
 U%=&7A00:W%=&50
-REM Read/write buffer. 4k plus a page for timing.
+REM Read/write buffer. 4k x2.
 B%=&5000
 REM For parsed command values.
-DIM V%(5)
+DIM V%(7)
 REM For OSWORD.
 DIM O% 15:FOR I%=0 TO 15:?(O%+I%)=0:NEXT
 ?(O%+1)=B%:?(O%+2)=B% DIV 256
@@ -29,33 +29,36 @@ UNTIL LEN(P$)=0
 P%=I%
 
 PROCbufs(0,4096)
-IF A$="INIT" THEN PROCinit
+IF A$="INIT" THEN PROCinit:PROCpinit:V%(0)=0:PROCseek:PROCtime:PRINT"DRIVE "+STR$(G%)+" SPEED: "+STR$(FNdrvspd)
 IF A$="OWRD" THEN PROCowrd
 IF A$="DUMP" THEN PROCdump
 IF A$="SEEK" THEN PROCseek
 IF A$="RIDS" THEN PROCclr:PROCrids:PROCres:PRINT"SECTOR HEADERS: "+STR$(S%):V%(0)=-1:PROCdump
 IF A$="READ" THEN PROCclr:PROCread:PROCres:L%=FNg16(Z%)-B%:!C%=-1:PROCcrca32(B%,L%,C%):PROCcrcf32(C%):PRINT"CRC32 "+STR$(L%)+" BYTES: "+STR$~(!C%):V%(0)=-1:PROCdump
 IF A$="RTRK" THEN PROCclr:PROCrtrk:PRINT"LEN: "+STR$(S%):V%(0)=-1:PROCdump
-IF A$="TIME" THEN PROCtime:PRINT"DRIVE SPEED: "+STR$(R%)
+IF A$="TIME" THEN PROCtime:PRINT"DRIVE SPEED: "+STR$(FNdrvspd)
 IF A$="DTRK" THEN PROCdtrk
 IF A$="DCRC" THEN PROCdcrc
 IF A$="HFEG" THEN PROChfeg
-IF A$="STRT" THEN PROCstrt(V%(0))
+IF A$="STRT" THEN PROCstrt
 
 UNTIL FALSE
 
 DEF PROCinit
-A%=V%(0):T%=0
+A%=V%(0)
 IF A%<0 THEN A%=0
 E%=USR(D%) AND &FF
-IF E%=0 THEN PRINT"FAIL":END
-IF E%=1 THEN PRINT"OK 8271"
-IF E%=2 THEN PRINT"OK 1770"
-PRINT"DRIVE "+STR$(A%)+" SPEED "+STR$(FNdrvspd)
+G%=A%
 ?O%=A%
 ENDPROC
 
-DEF PROCclr:PROCstor(B%,0,4096+256):ENDPROC
+DEF PROCpinit
+IF E%=0 THEN PRINT"FAIL":END
+IF E%=1 THEN PRINT"OK 8271"
+IF E%=2 THEN PRINT"OK 1770"
+ENDPROC
+
+DEF PROCclr:PROCstor(B%,0,4096):ENDPROC
 
 DEF PROCres
 I%=R% AND &FF
@@ -167,9 +170,7 @@ R%=USR(D%+6)
 S%=FNg16(Z%)-S%
 ENDPROC
 
-DEF PROCtime
-R%=USR(D%+15) AND &FFFF
-ENDPROC
+DEF PROCtime:CALL D%+15:ENDPROC
 
 DEF PROCdump
 A%=V%(0):IF A%<0 THEN A%=0
@@ -216,9 +217,9 @@ DEF PROCpcrc:PROCcrcf32(C%+4):VDU130:PRINT "DISC CRC32 "+STR$~(!(C%+4)):ENDPROC
 
 DEF PROCdcrc
 !(C%+4)=-1
-V%(1)=V%(0)
-IF V%(1)=-1 THEN V%(1)=40
-FOR T%=0 TO V%(1)
+V%(7)=V%(0)
+IF V%(7)=-1 THEN V%(7)=40
+FOR T%=0 TO V%(7)
 PRINT"TRACK "+STR$(T%)+" ";
 PROCtrk
 PRINT"CRC32 "+STR$~(!C%)
@@ -227,15 +228,20 @@ PROCpcrc
 ENDPROC
 
 DEF PROChfeg
-VDU132,157,134:PRINT"HFE Grab v0.2":PRINT
+PRINT:VDU132,157,134:PRINT"HFE Grab v0.2"
 !(C%+4)=-1
-V%(2)=V%(1)
-V%(1)=V%(0)
-IF V%(1)=-1 THEN V%(1)=0
-IF V%(2)=-1 THEN V%(2)=40
-FOR T%=V%(1) TO V%(2)
+PROCstor(B%,0,8192)
+V%(5)=V%(2)
+V%(6)=V%(0)
+V%(7)=V%(1)
+IF V%(6)=-1 THEN V%(6)=0:V%(7)=40
+IF V%(7)=-1 THEN V%(7)=V%(6):V%(6)=0
+PRINT"TRACKS "+STR$(V%(6))+" TO "+STR$(V%(7))
+IF V%(5)<>0 THEN PRINT"SAVING TO DRIVE 1"
+FOR T%=V%(6) TO V%(7)
 IF (T% MOD 10)=0 THEN PRINT:PRINT STR$(T%)+" ";
 IF T%=0 THEN PRINT" ";
+IF T% AND 1 THEN B%=&6000 ELSE B%=&5000
 PROCtrk
 REM Display character and color.
 I%=2:J%=32:K%=255
@@ -246,8 +252,10 @@ L%=?(B%+4)
 IF L%=&18 THEN I%=4:J%=33
 IF A%>0 THEN PROChfegs
 VDU128+I%:VDU K%:VDU J%
+PROCsave
 NEXT
 PRINT:PROCpcrc
+B%=&5000
 ENDPROC
 
 DEF PROChfegs
@@ -260,7 +268,16 @@ IF ?FNsaddr(X%)=&F8 THEN K%=68
 NEXT
 ENDPROC
 
-DEF PROCstrt(A%)
+DEF PROCsave
+IF V%(5)=0 THEN ENDPROC
+IF (T% AND 1)=0 AND T%<>V%(7) THEN ENDPROC
+OSCLI("DISC"):OSCLI("DR.1")
+OSCLI("SAVE TRKS"+STR$(T% AND &FE)+" 5000 +2000")
+V%(0)=G%:PROCinit
+ENDPROC
+
+DEF PROCstrt
+A%=V%(0)
 IF A%=-1 THEN A%=0
 ?(Z%+6)=A%:?(Z%+7)=A% DIV 256
 ENDPROC
@@ -307,7 +324,7 @@ REM Write in sector header.
 M%=B%+&200+FNcstime(I%)-1
 ?M%=&FE:!(M%+1)=!(B%+&20+I%*4)
 M%=M%+7+17
-PROCstrt(K%):K%=FNstime(I%)
+V%(0)=K%:PROCstrt:K%=FNstime(I%)
 PROCbufs(-&1000,-&200)
 V%(0)=FNidtrk(I%):V%(1)=FNidsec(I%):V%(2)=1:V%(3)=2048:PROCread:R%=R% AND &FF
 IF R%=&18 THEN PRINT"SECTOR READ FAILED":END

@@ -292,15 +292,6 @@ GUARD (BASE + 2048)
     JMP detected_common
 
 .detected_common
-    \\ Seek to 0.
-    LDA #0
-    JSR ABI_SEEK
-
-    \\ Time the drive.
-    JSR ABI_TIME_DRIVE
-    STA var_zp_ABI_drive_speed
-    STX var_zp_ABI_drive_speed + 1
-
     LDA var_zp_param_1
     RTS
 
@@ -485,7 +476,9 @@ GUARD (BASE + 2048)
     JSR timer_exit
 
     LDA var_zp_timer
-    LDX var_zp_timer + 1
+    STA var_zp_ABI_drive_speed
+    LDA var_zp_timer + 1
+    STA var_zp_ABI_drive_speed + 1
     RTS
 
 .intel_wait_ready
@@ -776,7 +769,9 @@ GUARD (BASE + 2048)
     JSR timer_exit
 
     LDA var_zp_timer
-    LDX var_zp_timer + 1
+    STA var_zp_ABI_drive_speed
+    LDA var_zp_timer + 1
+    STA var_zp_ABI_drive_speed + 1
     RTS
 
 .wd_do_command
