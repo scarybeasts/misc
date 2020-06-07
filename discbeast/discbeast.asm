@@ -5,12 +5,14 @@ SCRATCH = &7000
 BASE = &7100
 ZP = &70
 
-ABI_INIT = (BASE + 0)
-ABI_SEEK = (BASE + 3)
-ABI_READ_TRACK = (BASE + 6)
-ABI_READ_IDS = (BASE + 9)
-ABI_READ_SECTORS = (BASE + 12)
-ABI_TIME_DRIVE = (BASE + 15)
+ABI_SETUP = (BASE + 0)
+ABI_REINIT = (BASE + 3)
+ABI_LOAD = (BASE + 6)
+ABI_SEEK = (BASE + 9)
+ABI_READ_TRACK = (BASE + 12)
+ABI_READ_IDS = (BASE + 15)
+ABI_READ_SECTORS = (BASE + 18)
+ABI_TIME_DRIVE = (BASE + 21)
 
 DETECTED_NOTHING = 0
 DETECTED_INTEL = 1
@@ -27,8 +29,14 @@ INTEL_CMD_SEEK = &29
 INTEL_CMD_READ_STATUS = &2C
 INTEL_CMD_SPECIFY = &35
 INTEL_CMD_SET_PARAM = &3A
+INTEL_PARAM_STEP_RATE = &0D
+INTEL_PARAM_SETTLE_TIME = &0E
 INTEL_PARAM_SPINDOWN_LOADTIME = &0F
+INTEL_PARAM_BAD_TRACK_1_DRIVE_0 = &10
+INTEL_PARAM_BAD_TRACK_2_DRIVE_0 = &11
 INTEL_PARAM_TRACK_DRIVE_0 = &12
+INTEL_PARAM_BAD_TRACK_1_DRIVE_1 = &18
+INTEL_PARAM_BAD_TRACK_2_DRIVE_1 = &19
 INTEL_PARAM_TRACK_DRIVE_1 = &1A
 INTEL_PARAM_DRVOUT = &23
 INTEL_DRVOUT_SELECT0 = &40
@@ -76,23 +84,27 @@ GUARD (BASE + 2048)
 
 .discbeast_begin
 
-    \\ base + 0, init
-    JMP entry_init
-    \\ base + 3, seek
+    \\ base + 0, setup
+    JMP entry_setup
+    \\ base + 3, reinit
+    JMP entry_reinit
+    \\ base + 6, load
     JMP entry_not_set
-    \\ base + 6, read track
+    \\ base + 9, seek
     JMP entry_not_set
-    \\ base + 9, read ids
+    \\ base + 12, read track
     JMP entry_not_set
-    \\ base + 12, read sectors
+    \\ base + 15, read ids
     JMP entry_not_set
-    \\ base + 15, time drive
+    \\ base + 18, read sectors
+    JMP entry_not_set
+    \\ base + 21, time drive
     JMP entry_not_set
 
 .entry_not_set
     BRK
 
-.entry_init
+.entry_setup
     TAX
     AND #1
     STA var_zp_drive
@@ -110,23 +122,16 @@ GUARD (BASE + 2048)
     STA var_zp_ABI_stop
     STA var_zp_ABI_stop + 1
 
-    \\ *FX 140,0, aka. *TAPE
-    LDA #&8C
-    LDX #0
-    LDY #0
-    JSR OSBYTE
-
-    \\ Install null NMI handler.
-    LDA #&40
-    STA NMI
+    \\ Try and make DFS safe.
+    JSR disable_dfs
 
     \\ Set up timing.
     JSR timer_stop
 
-    \\ Set up default buffer to &6000.
+    \\ Set up default buffer to &C000.
     LDA #0
     STA var_zp_ABI_buf_1
-    LDA #&60
+    LDA #&C0
     STA var_zp_ABI_buf_1 + 1
 
     \\ Detect 8271 vs. 1770 on model B.
@@ -160,6 +165,10 @@ GUARD (BASE + 2048)
 
 .detected_intel
     \\ Set up vectors.
+    LDA #LO(intel_load)
+    STA ABI_LOAD + 1
+    LDA #HI(intel_load)
+    STA ABI_LOAD + 2
     LDA #LO(intel_seek)
     STA ABI_SEEK + 1
     LDA #HI(intel_seek)
@@ -194,21 +203,6 @@ GUARD (BASE + 2048)
     ORA var_zp_drive_bits
     ORA #INTEL_DRVOUT_LOAD_HEAD
     STA var_zp_drive_side_bits
-
-    \\ Disable automatic spindown. On my machine, the 8271 is super picky about
-    \\ starting up again after it spins down, requiring a seek to track 0??
-    \\ Also set seek time to 12ms, twice as fast as standard but still slow.
-    LDA #INTEL_CMD_SET_PARAM
-    JSR intel_do_cmd
-    LDA #INTEL_PARAM_SPINDOWN_LOADTIME
-    JSR intel_do_param
-    \\ No auto unload, head load 16ms.
-    LDA #&F8
-    JSR intel_do_param
-    JSR intel_wait_idle
-
-    \\ Spin up and load head.
-    JSR intel_set_drvout
 
     LDA #DETECTED_INTEL
     STA var_zp_param_1
@@ -256,6 +250,10 @@ GUARD (BASE + 2048)
     STA wd_read_loop_patch_data_register + 1
 
     \\ Set up vectors.
+    LDA #LO(wd_load)
+    STA ABI_LOAD + 1
+    LDA #HI(wd_load)
+    STA ABI_LOAD + 2
     LDA #LO(wd_seek)
     STA ABI_SEEK + 1
     LDA #HI(wd_seek)
@@ -277,22 +275,74 @@ GUARD (BASE + 2048)
     LDA #HI(wd_time_drive)
     STA ABI_TIME_DRIVE + 2
 
-    \\ Set control register. Drive 0 vs. 1 select is common to both variants.
-    LDA var_zp_drive
-    \\ Drive 0 -> 1, drive 1 -> 2.
-    CLC
-    ADC #1
-    \\ Add in reset, density and side.
-    ORA var_zp_drive_side_bits
-    LDY #0
-    STA (var_zp_wd_drvctrl),Y
-
     LDA #DETECTED_WD
     STA var_zp_param_1
     JMP detected_common
 
 .detected_common
+    \\ Select drive, head, controller parameters, and spin-up if needed.
+    JSR ABI_LOAD
+
+    \\ Seek to 0.
+    LDA #0
+    JSR ABI_SEEK
+
+    \\ Time the drive.
+    JSR ABI_TIME_DRIVE
+
     LDA var_zp_param_1
+    RTS
+
+.disable_dfs
+    \\ *FX 140,0, aka. *TAPE
+    LDA #&8C
+    LDX #0
+    LDY #0
+    JSR OSBYTE
+
+    \\ Install null NMI handler.
+    LDA #&40
+    STA NMI
+    RTS
+
+.entry_reinit
+    JSR disable_dfs
+    JSR timer_stop
+    JSR ABI_LOAD
+    RTS
+
+.intel_load
+    \\ Disable automatic spindown. On my machine, the 8271 is super picky about
+    \\ starting up again after it spins down.
+    LDA #INTEL_PARAM_SPINDOWN_LOADTIME
+    LDX #&F8
+    JSR intel_set_param
+    \\ Also set seek time to 12ms, twice as fast as standard but still slow.
+    LDA #INTEL_PARAM_STEP_RATE
+    LDX #6
+    JSR intel_set_param
+    \\ Settle time to 20ms.
+    LDA #INTEL_PARAM_SETTLE_TIME
+    LDX #10
+    JSR intel_set_param
+
+    \\ Reset bad track parameters.
+    LDA #INTEL_PARAM_BAD_TRACK_1_DRIVE_0
+    LDX #&FF
+    JSR intel_set_param
+    LDA #INTEL_PARAM_BAD_TRACK_2_DRIVE_0
+    LDX #&FF
+    JSR intel_set_param
+    LDA #INTEL_PARAM_BAD_TRACK_1_DRIVE_1
+    LDX #&FF
+    JSR intel_set_param
+    LDA #INTEL_PARAM_BAD_TRACK_2_DRIVE_1
+    LDX #&FF
+    JSR intel_set_param
+
+    \\ Spin up and load head.
+    JSR intel_set_drvout
+
     RTS
 
 .intel_set_param
@@ -577,6 +627,19 @@ GUARD (BASE + 2048)
 .intel_set_result
     LDA &FE81
     TAX
+    RTS
+
+.wd_load
+    \\ Set control register. Drive 0 vs. 1 select is common to both variants.
+    LDA var_zp_drive
+    \\ Drive 0 -> 1, drive 1 -> 2.
+    CLC
+    ADC #1
+    \\ Add in reset, density and side.
+    ORA var_zp_drive_side_bits
+    LDY #0
+    STA (var_zp_wd_drvctrl),Y
+
     RTS
 
 .wd_seek
