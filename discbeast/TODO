@@ -8,3 +8,5 @@ General
 
 8271
 ====
+- Add 4096 byte read mode.
+- Read IDs multiple times to get more accurate timing (8271 has latency).
