@@ -227,7 +227,6 @@ ENDPROC
 DEF PROChfeg
 PRINT:VDU132,157,134:PRINT"HFE Grab v0.2"
 !(C%+4)=-1
-PROCstor(B%,0,8192)
 V%(5)=V%(2)
 V%(6)=V%(0)
 V%(7)=V%(1)
@@ -238,7 +237,7 @@ IF V%(5)<>0 THEN PRINT"SAVING TO DRIVE 1"
 FOR T%=V%(6) TO V%(7)
 IF (T% MOD 10)=0 THEN PRINT:PRINT STR$(T%)+" ";
 IF T%=0 THEN PRINT" ";
-IF T% AND 1 THEN B%=&6000 ELSE B%=&5000
+IF T% AND 1 THEN B%=&6000 ELSE B%=&5000:PROCstor(B%,0,8192)
 PROCtrk
 REM Display character and color.
 I%=2:J%=32:K%=255
