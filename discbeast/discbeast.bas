@@ -11,7 +11,7 @@ REM For OSWORD.
 DIM O% 15:FOR I%=0 TO 15:?(O%+I%)=0:NEXT
 ?(O%+1)=B%:?(O%+2)=B% DIV 256
 REM For CRC.
-DIM C% 7
+DIM C% 11
 
 REPEAT
 
@@ -100,11 +100,11 @@ CALL U%+9
 ENDPROC
 
 DEF PROCcrcf32(A%)
-X%=!A% EOR &FFFFFFFF
-?A%=X% DIV &1000000
-?(A%+1)=X% DIV &10000
-?(A%+2)=X% DIV &100
-?(A%+3)=X%
+!(C%+8)=!A% EOR &FFFFFFFF
+?A%=?(C%+11)
+?(A%+1)=?(C%+10)
+?(A%+2)=?(C%+9)
+?(A%+3)=?(C%+8)
 ENDPROC
 
 DEF PROCowrd
