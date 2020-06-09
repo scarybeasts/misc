@@ -241,7 +241,15 @@ convert_tracks(uint8_t* p_hfe_buf, uint8_t* p_trks_buf, uint32_t num_tracks) {
                       i,
                       j);
       } else {
-        do_crc32(&track_crc32, (p_in_track + 0x200 + pos), (length + 1));
+        uint8_t logical_track = p_in_track[0x20 + (j * 4)];
+        /* 8271 has problems with logical track 0 not on physical track 0 so
+         * don't include in CRC32.
+         */
+        if ((i != 0) && (logical_track == 0)) {
+          /* Ignore. */
+        } else {
+          do_crc32(&track_crc32, (p_in_track + 0x200 + pos), (length + 1));
+        }
       }
     }
 

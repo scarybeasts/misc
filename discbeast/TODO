@@ -10,6 +10,7 @@ General
 ====
 - Add 4096 byte read mode.
 - Read IDs multiple times to get more accurate timing (8271 has latency).
+- Check if 8271 can read logical track 0xFF, i.e. Exile disc.
 
 hfeg2hfe
 ========

@@ -199,8 +199,6 @@ FOR I%=0 TO J%-1
 K%=1
 IF FNcrcerr(I%) THEN K%=0
 IF FNidtrk(I%)=0 AND T%<>0 THEN K%=0
-REM Not sure 8271 can read &FF
-IF FNidtrk(I%)=&FF THEN K%=0
 L%=FNssize(FNrsiz(I%))+1
 M%=FNsaddr(I%)
 IF K%=1 THEN PROCcrca32(M%,L%,C%)
