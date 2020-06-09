@@ -12,6 +12,8 @@ static const int k_hfe_blocks_per_track = 50;
 /* NOTE: cannot be increased without re-evaluating k_hfe_blocks_per_track. */
 static const int k_max_track_length = 3190;
 
+static const int k_standard_track_length = 3125;
+
 static uint16_t
 get16(uint8_t* p_buf) {
   uint16_t ret = p_buf[0];
@@ -188,6 +190,12 @@ convert_tracks(uint8_t* p_hfe_buf, uint8_t* p_trks_buf, uint32_t num_tracks) {
       errx(1, "excessive number of sectors");
     }
     track_length = get16(p_in_track + 6);
+    /* The track length may not have been stored, depending on controller chip
+     * and whether the track is formatted or not.
+     */
+    if (track_length == 0) {
+      track_length = k_standard_track_length;
+    }
     if ((track_length < 3000) || (track_length > 3190)) {
       errx(1, "bad track length");
     }
