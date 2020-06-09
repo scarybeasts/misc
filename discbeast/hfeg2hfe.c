@@ -226,7 +226,7 @@ convert_tracks(uint8_t* p_hfe_buf, uint8_t* p_trks_buf, uint32_t num_tracks) {
         errx(1, "overlapping marker");
       }
       is_marker[pos] = 1;
-      length = p_in_track[0xe0 + j];
+      length = (p_in_track[0xe0 + j] & 7);
       if (length > 4) {
         errx(1, "bad real sector length");
       }
