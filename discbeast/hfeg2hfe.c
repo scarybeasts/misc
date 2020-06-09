@@ -248,7 +248,8 @@ convert_tracks(uint8_t* p_hfe_buf, uint8_t* p_trks_buf, uint32_t num_tracks) {
     /* Update disc CRC32. */
     track_crc32 = ~track_crc32;
     if (s_is_verbose) {
-      (void) printf("Track %d CRC32 %X\n", i, track_crc32);
+      uint16_t length = get16(p_in_track + 6);
+      (void) printf("Track %d length %d CRC32 %X\n", i, length, track_crc32);
     }
     do_crc32(&disc_crc32, (uint8_t*) &track_crc32, 4);
 
