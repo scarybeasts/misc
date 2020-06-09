@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+static int s_is_verbose;
+
 static const int k_max_num_tracks = 81;
 /* Each block is 512 bytes, 256 per side. */
 static const int k_hfe_blocks_per_track = 50;
@@ -80,6 +82,48 @@ hfe_add(uint8_t* p_hfe_buf, uint32_t* p_hfe_track_pos, uint8_t byte) {
   *p_hfe_track_pos = hfe_track_pos;
 }
 
+static void
+do_crc16(uint16_t* p_crc, uint8_t* p_buf, uint32_t len) {
+  uint32_t i;
+  uint32_t j;
+  uint16_t crc = *p_crc;
+
+  for (i = 0; i < len; ++i) {
+    uint8_t byte = p_buf[i];
+    for (j = 0; j < 8; ++j) {
+      int bit = (byte & 0x80);
+      int bit_test = ((crc & 0x8000) ^ (bit << 8));
+      crc <<= 1;
+      if (bit_test) {
+        crc ^= 0x1021;
+      }
+      byte <<= 1;
+    }
+  }
+
+  *p_crc = crc;
+}
+
+static void
+do_crc32(uint32_t* p_crc, uint8_t* p_buf, uint32_t len) {
+  uint32_t i;
+  uint32_t j;
+  uint32_t crc = *p_crc;
+
+  for (i = 0; i < len; ++i) {
+    uint8_t byte = p_buf[i];
+    crc = (crc ^ byte);
+    for (j = 0; j < 8; ++j) {
+      int do_eor = (crc & 1);
+      crc = (crc >> 1);
+      if (do_eor) {
+        crc ^= 0xEDB88320;
+      }
+    }
+  }
+  *p_crc = crc;
+}
+
 static uint32_t
 load_trks_files(uint8_t* p_buf) {
   char path[16];
@@ -121,15 +165,16 @@ load_trks_files(uint8_t* p_buf) {
 static void
 convert_tracks(uint8_t* p_hfe_buf, uint8_t* p_trks_buf, uint32_t num_tracks) {
   uint32_t i;
+  uint32_t disc_crc32 = 0xFFFFFFFF;
 
   for (i = 0; i < num_tracks; ++i) {
     uint8_t is_marker[k_max_track_length];
     uint32_t num_sectors;
     uint32_t track_length;
     uint32_t j;
-    uint16_t pos;
     uint32_t hfe_track_pos;
 
+    uint32_t track_crc32 = 0xFFFFFFFF;
     uint8_t* p_in_track = (p_trks_buf + (i * 4096));
     uint8_t* p_out_track = p_hfe_buf;
     p_out_track += 1024;
@@ -151,22 +196,61 @@ convert_tracks(uint8_t* p_hfe_buf, uint8_t* p_trks_buf, uint32_t num_tracks) {
     put16((p_hfe_buf + 512 + (i * 4)), (2 + (i * k_hfe_blocks_per_track)));
     put16((p_hfe_buf + 512 + (i * 4) + 2), ((track_length * 8) + 6));
 
-    /* Build a list of where the markers are. */
+    /* Build a list of where the markers are and check CRCs. */
     (void) memset(is_marker, '\0', sizeof(is_marker));
     for (j = 0; j < num_sectors; ++j) {
+      uint32_t k;
+      uint16_t pos;
+      uint16_t crc16_calc;
+      uint16_t crc16_disc;
+      uint32_t length;
+      int is_data_crc_error;
+
       /* Sector header. */
       pos = get16(p_in_track + 0x100 + (j * 2));
       if (is_marker[pos]) {
         errx(1, "overlapping marker");
       }
       is_marker[pos] = 1;
+      crc16_calc = 0xFFFF;
+      do_crc16(&crc16_calc, (p_in_track + 0x200 + pos), 5);
+      crc16_disc = ((p_in_track[0x200 + pos + 5]) << 8);
+      crc16_disc |= p_in_track[0x200 + pos + 6];
+      if (crc16_calc != crc16_disc) {
+        printf("Header CRC error, physical track / sector %d / %d\n", i, j);
+      }
+
       /* Sector data. */
       pos = get16(p_in_track + 0x140 + (j * 2));
       if (is_marker[pos]) {
         errx(1, "overlapping marker");
       }
       is_marker[pos] = 1;
+      length = p_in_track[0xe0 + j];
+      if (length > 4) {
+        errx(1, "bad real sector length");
+      }
+      length = (128 << length);
+      crc16_calc = 0xFFFF;
+      do_crc16(&crc16_calc, (p_in_track + 0x200 + pos), (length + 1));
+      crc16_disc = ((p_in_track[0x200 + pos + length + 1]) << 8);
+      crc16_disc |= p_in_track[0x200 + pos + length + 2];
+      is_data_crc_error = (crc16_calc != crc16_disc);
+      if (is_data_crc_error) {
+        (void) printf("Data CRC error, physical track / sector %d / %d\n",
+                      i,
+                      j);
+      } else {
+        do_crc32(&track_crc32, (p_in_track + 0x200 + pos), (length + 1));
+      }
     }
+
+    /* Update disc CRC32. */
+    track_crc32 = ~track_crc32;
+    if (s_is_verbose) {
+      (void) printf("Track %d CRC32 %X\n", i, track_crc32);
+    }
+    do_crc32(&disc_crc32, (uint8_t*) &track_crc32, 4);
 
     /* Per-track HFEv3 opcode set up. */
     hfe_track_pos = 0;
@@ -195,6 +279,8 @@ convert_tracks(uint8_t* p_hfe_buf, uint8_t* p_trks_buf, uint32_t num_tracks) {
       hfe_add(p_out_track, &hfe_track_pos, hfe_bits[3]);
     }
   }
+  disc_crc32 = ~disc_crc32;
+  (void) printf("Disc CRC32: %X\n", disc_crc32);
 }
 
 int
@@ -209,6 +295,12 @@ main(int argc, const char* argv[]) {
   uint32_t hfe_length;
 
   const char* p_capture_chip = NULL;
+
+  for (i = 0; i < (uint32_t) argc; ++i) {
+    if (!strcmp(argv[i], "-v")) {
+      s_is_verbose = 1;
+    }
+  }
 
   (void) memset(trks_buf, '\0', sizeof(trks_buf));
   (void) memset(hfe_buf, '\0', sizeof(hfe_buf));
