@@ -206,7 +206,12 @@ NEXT
 PROCcrcf32(C%)
 ENDPROC
 
-DEF PROCtrk:V%(0)=T%:PROCseek:PROCgtrk:PROCtcrc:PROCcrca32(C%,4,C%+4):ENDPROC
+DEF PROCtrk
+V%(0)=T%:PROCseek:PROCgtrk
+IF R%<>0 THEN ENDPROC
+PROCtcrc:PROCcrca32(C%,4,C%+4)
+R%=0
+ENDPROC
 
 DEF PROCpcrc:PROCcrcf32(C%+4):VDU130:PRINT "DISC CRC32 "+STR$~(!(C%+4)):ENDPROC
 
@@ -216,10 +221,10 @@ V%(7)=V%(0)
 IF V%(7)=-1 THEN V%(7)=40
 FOR T%=0 TO V%(7)
 PRINT"TRACK "+STR$(T%)+" ";
-PROCtrk
-PRINT"CRC32 "+STR$~(!C%)
+PROCtrk:IF R%<>0 THEN PRINT"(RETRY) ";:PROCtrk
+IF R%<>0 THEN T%=V(7) ELSE PRINT"CRC32 "+STR$~(!C%)
 NEXT
-PROCpcrc
+IF R%<>0 THEN PRINT"FAIL" ELSE PROCpcrc
 ENDPROC
 
 DEF PROChfeg
@@ -236,7 +241,19 @@ FOR T%=V%(6) TO V%(7)
 IF (T% MOD 10)=0 THEN PRINT:PRINT STR$(T%)+" ";
 IF T%=0 THEN PRINT" ";
 IF T% AND 1 THEN B%=&6000 ELSE B%=&5000:PROCstor(B%,0,8192)
+VDU135,46
 PROCtrk
+REM Retries.
+IF R%<>0 THEN VDU7,8,33:PROCwait(200):PROCtrk
+IF R%<>0 THEN VDU7,8,8,129,33:PROCwait(200):PROCtrk
+IF R%=0 THEN PROChfegy ELSE T%=V%(7)
+NEXT
+PRINT
+IF R%=0 THEN PROCpcrc ELSE PRINT"FAIL"
+B%=&4000
+ENDPROC
+
+DEF PROChfegy
 REM Display character and color.
 I%=2:J%=32:K%=255
 A%=?(B%+5)
@@ -245,11 +262,8 @@ IF A%>10 THEN J%=43
 L%=?(B%+4)
 IF L%=&18 THEN I%=4:J%=33
 IF A%>0 THEN PROChfegs
-VDU128+I%:VDU K%:VDU J%
+VDU8,8,128+I%,K%,J%
 PROCsave:PROCreinit
-NEXT
-PRINT:PROCpcrc
-B%=&4000
 ENDPROC
 
 DEF PROChfegs
@@ -279,7 +293,7 @@ ENDPROC
 DEF PROCgtrk
 PROCclr:?B%=E%:?(B%+1)=T%:?(B%+2)=?(Z%+4):?(B%+3)=?(Z%+5)
 PROCbufs(B%+&20,B%+&A0):PROCrids:?(B%+4)=R%
-IF (R% AND &FF)=&18 THEN ENDPROC
+IF (R% AND &FF)=&18 THEN R%=0:ENDPROC
 ?(B%+5)=S%:J%=S%
 
 IF E%=1 THEN PROCg8271 ELSE PROCg1770
@@ -291,25 +305,22 @@ Y%=!(B%+&20+I%*4)
 N%=0
 FOR K%=-5 TO 5
 L%=B%+&200+X%+K%
-IF (?L%=&FE OR ?L%=&CE) AND !(L%+1)=Y% THEN N%=N%+1:X%=X%+K%:?(B%+&100+I%*2)=X%:?(B%+&101+I%*2)=X% DIV 256:PROCsfix:K%=2
+IF (?L%=&FE OR ?L%=&CE) AND !(L%+1)=Y% THEN N%=N%+1:X%=X%+K%:?(B%+&100+I%*2)=X%:?(B%+&101+I%*2)=X% DIV 256:K%=2
 NEXT
 FOR K%=14 TO 30
 L%=B%+&200+X%+K%
-IF ?L%=&FB OR ?L%=&CB OR ?L%=&F8 OR ?L%=&C8 THEN N%=N%+1:X%=X%+K%:?(B%+&140+I%*2)=X%:?(B%+&141+I%*2)=X% DIV 256:PROCsfix:K%=30
+IF ?L%=&FB OR ?L%=&CB OR ?L%=&F8 OR ?L%=&C8 THEN N%=N%+1:X%=X%+K%:?(B%+&140+I%*2)=X%:?(B%+&141+I%*2)=X% DIV 256:K%=30
 NEXT
-IF N%<>2 THEN PRINT"RTRK MISSING SECTOR":END
+IF N%=2 THEN PROCgtrky:R%=0 ELSE R%=2:I%=J%-1
+NEXT
+ENDPROC
+
+DEF PROCgtrky
 K%=B%+&E0+I%
 M%=FNssize(?K%)
 REM Tag size / CRC mismatches.
 IF ?K%<>FNidsiz(I%) THEN ?K%=(?K%)+&40
 PROCcrc16(L%,M%+1):L%=L%+M%+1:S%=?L%*256+?(L%+1):IF R%<>S% THEN ?K%=(?K%)+&80
-NEXT
-ENDPROC
-
-DEF PROCsfix
-?L%=?L% OR &F0
-IF ?(L%-1)=0 AND ?(L%-2)=0 THEN ENDPROC
-FOR A%=1 TO 6:?(L%-A%)=0:NEXT
 ENDPROC
 
 DEF PROCg1770
@@ -336,6 +347,10 @@ IF I%=J%-1 THEN L%=3328 ELSE L%=FNcstime(I%+1)
 L%=L%-(M%-B%-&200)
 PROCcopy(M%,&4000,L%)
 NEXT
+ENDPROC
+
+DEF PROCwait(A%)
+X%=TIME:REPEAT:UNTIL TIME>X%+A%
 ENDPROC
 
 DEF FNhex(A%)

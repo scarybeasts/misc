@@ -165,6 +165,22 @@ load_trks_files(uint8_t* p_buf) {
 }
 
 static void
+fixup_marker(uint8_t* p_track_data, uint32_t pos) {
+  uint32_t i;
+
+  if (pos < 6) {
+    errx(1, "marker too early");
+  }
+  p_track_data[pos] |= 0xF0;
+  if ((p_track_data[pos - 1] != 0) ||
+      (p_track_data[pos - 2] != 0)) {
+    for (i = 0; i < 6; ++i) {
+      p_track_data[pos - 1 - i] = 0;
+    }
+  }
+}
+
+static void
 convert_tracks(uint8_t* p_hfe_buf, uint8_t* p_trks_buf, uint32_t num_tracks) {
   uint32_t i;
   uint32_t disc_crc32 = 0xFFFFFFFF;
@@ -175,6 +191,8 @@ convert_tracks(uint8_t* p_hfe_buf, uint8_t* p_trks_buf, uint32_t num_tracks) {
     uint32_t track_length;
     uint32_t j;
     uint32_t hfe_track_pos;
+    uint8_t clocks;
+    uint8_t data;
 
     uint32_t track_crc32 = 0xFFFFFFFF;
     uint8_t* p_in_track = (p_trks_buf + (i * 4096));
@@ -220,6 +238,11 @@ convert_tracks(uint8_t* p_hfe_buf, uint8_t* p_trks_buf, uint32_t num_tracks) {
         errx(1, "overlapping marker");
       }
       is_marker[pos] = 1;
+      data = p_in_track[0x200 + pos];
+      if ((data != 0xFE) && (data != 0xCE)) {
+        errx(1, "bad header marker byte 0x%.2X", data);
+      }
+      fixup_marker(&p_in_track[0x200], pos);
       crc16_calc = 0xFFFF;
       do_crc16(&crc16_calc, (p_in_track + 0x200 + pos), 5);
       crc16_disc = ((p_in_track[0x200 + pos + 5]) << 8);
@@ -234,6 +257,14 @@ convert_tracks(uint8_t* p_hfe_buf, uint8_t* p_trks_buf, uint32_t num_tracks) {
         errx(1, "overlapping marker");
       }
       is_marker[pos] = 1;
+      data = p_in_track[0x200 + pos];
+      if ((data != 0xF8) &&
+          (data != 0xC8) &&
+          (data != 0xFB) &&
+          (data != 0xCB)) {
+        errx(1, "bad data marker byte 0x%.2X", data);
+      }
+      fixup_marker(&p_in_track[0x200], pos);
       length = (p_in_track[0xe0 + j] & 7);
       if (length > 4) {
         errx(1, "bad real sector length");
@@ -283,12 +314,9 @@ convert_tracks(uint8_t* p_hfe_buf, uint8_t* p_trks_buf, uint32_t num_tracks) {
     for (j = 0; j < track_length; ++j) {
       uint8_t hfe_bits[4];
 
-      uint8_t clocks = 0xFF;
-      uint8_t data = p_in_track[0x200 + j];
+      clocks = 0xFF;
+      data = p_in_track[0x200 + j];
       if (is_marker[j]) {
-        if ((data != 0xFE) && (data != 0xF8) && (data != 0xFB)) {
-          errx(1, "bad marker byte");
-        }
         clocks = 0xC7;
       }
       hfe_convert_to_bits(hfe_bits, data, clocks);
