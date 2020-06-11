@@ -180,7 +180,7 @@ ENDPROC
 DEF PROCdtrk
 PROCgtrk
 J%=?(B%+5)
-PRINT"TRACK "+STR$(T%)+" "+STR$(J%)+" SECTORS, LEN "+STR$(FNg16(B%+6))
+PRINT"TRACK "+STR$(T%)+" "+STR$(J%)+" SECTORS, LEN "+STR$(FNtlen)
 IF J%=0 THEN ENDPROC
 FOR I%=0 TO J%-1
 IF FNcrcerr(I%) THEN VDU129:PRINT"SECTOR "+STR$(I%)+" CRC ERROR"
@@ -383,6 +383,11 @@ DEF FNidsiz(A%):=?(B%+&20+A%*4+3)
 DEF FNrsiz(A%):=?(B%+&E0+A%) AND 7
 DEF FNsaddr(A%):=B%+&200+?(B%+&140+A%*2)+?(B%+&141+A%*2)*256
 DEF FNstime(A%):=FNg16(B%+&A0+A%*2)
-DEF FNcstime(A%):A%=FNstime(A%):=(3125/FNdrvspd)*A%
+DEF FNtlen:=FNg16(B%+6)
+
+DEF FNcstime(A%)
+A%=FNstime(A%)
+X%=FNtlen:IF X%=0 THEN X%=3125
+=(3125/FNdrvspd)*(X%/3125)*A%
 
 DEF FNdrvspd:=FNg16(Z%+4)
