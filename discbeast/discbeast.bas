@@ -200,7 +200,7 @@ FOR I%=0 TO J%-1
 K%=1
 IF FNcrcerr(I%) THEN K%=0
 IF FNidtrk(I%)=0 AND T%<>0 THEN K%=0
-L%=FNssize(FNrsiz(I%))+1
+L%=FNrsiz(I%)+1
 M%=FNsaddr(I%)
 IF K%=1 THEN PROCcrca32(M%,L%,C%)
 NEXT
@@ -276,13 +276,16 @@ PROCsave:PROCreinit
 ENDPROC
 
 DEF PROChfegs
+Y%=0
 FOR X%=0 TO A%-1
 IF FNidtrk(X%)<>T% THEN I%=7
 IF FNidtrk(X%)=0 AND T%<>0 THEN I%=6
 IF FNsizem(X%) THEN I%=3
 IF FNcrcerr(X%) THEN I%=1
 IF ?FNsaddr(X%)=&F8 THEN K%=68
+Y%=Y%+FNrsiz(X%)
 NEXT
+IF Y%>2560 THEN I%=5
 ENDPROC
 
 DEF PROCsave
@@ -383,7 +386,7 @@ DEF FNsizem(A%):=?(B%+&E0+A%) AND &40
 DEF FNidtrk(A%):=?(B%+&20+A%*4)
 DEF FNidsec(A%):=?(B%+&20+A%*4+2)
 DEF FNidsiz(A%):=?(B%+&20+A%*4+3)
-DEF FNrsiz(A%):=?(B%+&E0+A%) AND 7
+DEF FNrsiz(A%):A%=?(B%+&E0+A%):=FNssize(A%)
 DEF FNsaddr(A%):=B%+&200+?(B%+&140+A%*2)+?(B%+&141+A%*2)*256
 DEF FNstime(A%):=FNg16(B%+&A0+A%*2)
 DEF FNtlen:=FNg16(B%+6)
