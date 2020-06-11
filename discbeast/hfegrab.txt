@@ -9,6 +9,7 @@ Each track is emitted as a 4096 byte chunk, compromised as follows:
  &04       : 8271-style return code from reading sector IDs; &00 ok &18 no track
  &05       : number sectors found
  &06, &07  : track length if known
+ &08       : set to 1 if any CRC errors
 
  &20 -  &9F: up to 32 sector IDs, 4 bytes each
 
