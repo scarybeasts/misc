@@ -223,7 +223,7 @@ V%(7)=V%(0)
 IF V%(7)=-1 THEN V%(7)=40
 FOR T%=0 TO V%(7)
 PRINT"TRACK "+STR$(T%)+" ";
-V%(4)=10
+V%(4)=5
 REPEAT
 V%(4)=V%(4)-1
 PROCtrk
@@ -252,7 +252,7 @@ IF (T% MOD 10)=0 THEN PRINT:PRINT STR$(T%)+" ";
 IF T%=0 THEN PRINT" ";
 VDU135,46
 REM Retries.
-V%(4)=10
+V%(4)=5
 REPEAT
 V%(4)=V%(4)-1
 PROCtrk
