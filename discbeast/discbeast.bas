@@ -126,14 +126,15 @@ ENDPROC
 DEF PROCrids
 K%=FNg16(Z%+2)
 R%=USR(D%+15)
-IF (R% AND &FF)<>0 THEN ENDPROC
 S%=0
+IF (R% AND &FF)=&18 THEN ENDPROC
 J%=FNdrvspd
 REM Sectors in one rev.
 FOR I%=0 TO 31
 L%=FNg16(K%+I%*2)
-IF L%<J% THEN S%=S%+1 ELSE I%=31
+IF L%>0 AND L%<J% THEN S%=S%+1 ELSE I%=31
 NEXT
+IF S%=0 THEN ENDPROC
 REM Timing based sector sizes.
 FOR I%=0 TO S%-1
 IF I%=S%-1 THEN L%=J% ELSE L%=FNg16(K%+(I%+1)*2)
@@ -306,10 +307,12 @@ ENDPROC
 
 DEF PROCgtrk
 ?B%=E%:?(B%+1)=T%:?(B%+2)=?(Z%+4):?(B%+3)=?(Z%+5)
-PROCbufs(B%+&20,B%+&A0):PROCrids:?(B%+4)=R%
-IF (R% AND &FF)=&18 THEN R%=0:ENDPROC
-?(B%+5)=S%:J%=S%
+PROCbufs(B%+&20,B%+&A0):PROCrids
+R%=R% AND &FF:?(B%+4)=R%:?(B%+5)=S%:J%=S%
+IF R%=&18 THEN R%=0:ENDPROC
 
+IF R%<>0 THEN ?(B%+8)=1
+IF R%<>0 AND E%=1 THEN R%=1:ENDPROC
 IF E%=1 THEN PROCg8271 ELSE PROCg1770
 
 REM Find sectors in raw track read.
