@@ -341,7 +341,8 @@ K%=B%+&E0+I%
 M%=FNssize(?K%)
 REM Tag size / CRC mismatches.
 IF ?K%<>FNidsiz(I%) THEN ?K%=(?K%)+&40
-PROCcrc16(L%,M%+1):L%=L%+M%+1:S%=?L%*256+?(L%+1)
+N%=?L%:?L%=?L% OR &F0:PROCcrc16(L%,M%+1):?L%=N%
+L%=L%+M%+1:S%=?L%*256+?(L%+1)
 IF R%<>S% THEN ?K%=(?K%)+&80:?(B%+8)=1
 ENDPROC
 
