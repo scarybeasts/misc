@@ -316,7 +316,7 @@ IF R%<>0 THEN ?(B%+8)=1
 IF R%<>0 AND E%=1 THEN R%=1:ENDPROC
 IF E%=1 THEN PROCg8271 ELSE PROCg1770
 
-REM Find sectors in raw track read.
+REM Find sectors in raw track.
 FOR I%=0 TO J%-1
 X%=FNcstime(I%)-1
 Y%=!(B%+&20+I%*4)
@@ -332,6 +332,8 @@ NEXT
 IF N%=2 THEN PROCgtrky:R%=0 ELSE R%=2:I%=J%-1
 NEXT
 IF R%=0 AND ?(B%+8)=1 THEN R%=1
+REM 1770 sees ghosts.
+IF R%=2 AND ?(B%+4)<>0 THEN ?(B%+4)=&18:?(B%+5)=0:R%=1
 ENDPROC
 
 DEF PROCgtrky
