@@ -248,7 +248,9 @@ convert_tracks(uint8_t* p_hfe_buf, uint8_t* p_trks_buf, uint32_t num_tracks) {
       crc16_disc = ((p_in_track[0x200 + pos + 5]) << 8);
       crc16_disc |= p_in_track[0x200 + pos + 6];
       if (crc16_calc != crc16_disc) {
-        printf("Header CRC error, physical track / sector %d / %d\n", i, j);
+        (void) printf("Header CRC error, physical track / sector %d / %d\n",
+                      i,
+                      j);
       }
 
       /* Sector data. */
@@ -295,8 +297,9 @@ convert_tracks(uint8_t* p_hfe_buf, uint8_t* p_trks_buf, uint32_t num_tracks) {
     /* Update disc CRC32. */
     track_crc32 = ~track_crc32;
     if (s_is_verbose) {
-      (void) printf("Track %d length %d CRC32 %X\n",
+      (void) printf("Track %d sectors %d length %d CRC32 %X\n",
                     i,
+                    num_sectors,
                     track_length,
                     track_crc32);
     }
