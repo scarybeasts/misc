@@ -323,7 +323,7 @@ FOR I%=0 TO J%-1
 X%=FNcstime(I%)-1
 Y%=!(B%+&20+I%*4)
 N%=0
-FOR K%=-5 TO 5
+FOR K%=-10 TO 10
 L%=B%+&200+X%+K%
 IF (?L%=&FE OR ?L%=&CE) AND !(L%+1)=Y% THEN N%=N%+1:X%=X%+K%:?(B%+&100+I%*2)=X%:?(B%+&101+I%*2)=X% DIV 256:K%=2
 NEXT
