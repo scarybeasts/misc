@@ -5,8 +5,8 @@ REM UTILS base and zero page.
 U%=&7A00:W%=&50
 REM Read/write buffers. 4k x3.
 B%=&4000
-REM For parsed command values.
-DIM V%(7)
+REM Command params, globals.
+DIM V%(7),G%(3)
 REM For OSWORD.
 DIM O% 15:FOR I%=0 TO 15:?(O%+I%)=0:NEXT
 ?(O%+1)=B%:?(O%+2)=B% DIV 256
@@ -30,6 +30,7 @@ P%=I%
 
 PROCbufs(B%,B%+4096)
 IF A$="INIT" THEN PROCsetup
+IF A$="DBUG" THEN G%(2)=NOT G%(2):PRINT"DBUG "+STR$(G%(2))
 IF A$="OWRD" THEN PROCowrd
 IF A$="DUMP" THEN PROCdump
 IF A$="SEEK" THEN PROCseek
@@ -47,13 +48,14 @@ UNTIL FALSE
 DEF PROCsetup
 A%=V%(0):T%=0
 IF A%<0 THEN A%=0
-E%=USR(D%) AND &FF
-IF E%=0 THEN PRINT"FAIL":END
-IF E%=1 THEN PRINT"OK 8271"
-IF E%=2 THEN PRINT"OK 1770"
-G%=A%
+G%(0)=A%
+A%=USR(D%) AND &FF
+IF A%=0 THEN PRINT"FAIL":END
+IF A%=1 THEN PRINT"OK 8271"
+IF A%=2 THEN PRINT"OK 1770"
+G%(1)=A%
 ?O%=A%
-PRINT"DRIVE "+STR$(G%)+" SPEED: "+STR$(FNdrvspd)
+PRINT"DRIVE "+STR$(G%(0))+" SPEED: "+STR$(FNdrvspd)
 ENDPROC
 
 DEF PROCreinit:CALL D%+3:ENDPROC
@@ -162,7 +164,7 @@ R%=USR(D%+18)
 ENDPROC
 
 DEF PROCrtrk
-IF E%<>2 THEN PRINT"RTRK 1770 ONLY":ENDPROC
+IF G%(1)<>2 THEN PRINT"RTRK 1770 ONLY":ENDPROC
 S%=FNg16(Z%)
 R%=USR(D%+12)
 S%=FNg16(Z%)-S%
@@ -307,14 +309,14 @@ IF A%=-1 THEN A%=0
 ENDPROC
 
 DEF PROCgtrk
-?B%=E%:?(B%+1)=T%:?(B%+2)=?(Z%+4):?(B%+3)=?(Z%+5)
+?B%=G%(1):?(B%+1)=T%:?(B%+2)=?(Z%+4):?(B%+3)=?(Z%+5)
 PROCbufs(B%+&20,B%+&A0):PROCrids
 R%=R% AND &FF:?(B%+4)=R%:?(B%+5)=S%:J%=S%
 IF R%=&18 THEN R%=0:ENDPROC
 
 IF R%<>0 THEN ?(B%+8)=1
-IF R%<>0 AND E%=1 THEN R%=1:ENDPROC
-IF E%=1 THEN PROCg8271 ELSE PROCg1770
+IF R%<>0 AND G%(1)=1 THEN R%=1:ENDPROC
+IF G%(1)=1 THEN PROCg8271 ELSE PROCg1770
 
 REM Find sectors in raw track.
 FOR I%=0 TO J%-1
@@ -331,6 +333,7 @@ IF ?L%=&FB OR ?L%=&CB OR ?L%=&F8 OR ?L%=&C8 THEN N%=N%+1:X%=X%+K%:?(B%+&140+I%*2
 NEXT
 IF N%=2 THEN PROCgtrky:R%=0 ELSE R%=2:I%=J%-1
 NEXT
+IF R%<>0 AND G%(2) THEN PRINT"DBUG":END
 IF R%=0 AND ?(B%+8)=1 THEN R%=1
 REM 1770 sees ghosts.
 IF R%=2 AND ?(B%+4)<>0 THEN ?(B%+4)=&18:?(B%+5)=0:R%=1
