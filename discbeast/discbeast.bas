@@ -288,7 +288,7 @@ IF FNidtrk(X%)<>T% THEN I%=7
 IF FNidtrk(X%)=0 AND T%<>0 THEN I%=6
 IF FNsizem(X%) THEN I%=3
 IF FNcrcerr(X%) THEN I%=1
-IF ?FNsaddr(X%)=&F8 THEN K%=68
+IF ?FNsaddr(X%)=&F8 OR ?FNsaddr(X%)=&C8 THEN K%=68
 Y%=Y%+FNrsiz(X%)
 NEXT
 IF Y%>2560 THEN I%=5
