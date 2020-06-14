@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <err.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -127,8 +128,8 @@ do_crc32(uint32_t* p_crc, uint8_t* p_buf, uint32_t len) {
 }
 
 static uint32_t
-load_trks_files(uint8_t* p_buf) {
-  char path[16];
+load_trks_files(uint8_t* p_buf, const char* p_path_prefix) {
+  char path[256];
   FILE* f;
   uint32_t i;
   size_t fread_ret;
@@ -138,7 +139,7 @@ load_trks_files(uint8_t* p_buf) {
 
   for (i = 0; i <= 80; i += 2) {
     if (!(i & 1)) {
-      (void) snprintf(path, sizeof(path), "TRKS%d", i);
+      (void) snprintf(path, sizeof(path), "%s/TRKS%d", p_path_prefix, i);
       f = fopen(path, "r");
       if (f == NULL) {
         return num_tracks;
@@ -181,9 +182,22 @@ fixup_marker(uint8_t* p_track_data, uint32_t pos) {
 }
 
 static void
-convert_tracks(uint8_t* p_hfe_buf, uint8_t* p_trks_buf, uint32_t num_tracks) {
+convert_tracks(uint8_t* p_hfe_buf,
+               uint32_t* p_track_lengths,
+               int is_second_side,
+               uint8_t* p_trks_buf,
+               int do_expand,
+               uint32_t num_tracks) {
   uint32_t i;
+  uint32_t expand_factor;
+
   uint32_t disc_crc32 = 0xFFFFFFFF;
+
+  expand_factor = 1;
+  if (do_expand) {
+    assert((num_tracks * 2) <= k_max_num_tracks);
+    expand_factor = 2;
+  }
 
   for (i = 0; i < num_tracks; ++i) {
     uint8_t is_marker[k_max_track_length];
@@ -198,7 +212,10 @@ convert_tracks(uint8_t* p_hfe_buf, uint8_t* p_trks_buf, uint32_t num_tracks) {
     uint8_t* p_in_track = (p_trks_buf + (i * 4096));
     uint8_t* p_out_track = p_hfe_buf;
     p_out_track += 1024;
-    p_out_track += (i * k_hfe_blocks_per_track * 512);
+    p_out_track += (i * expand_factor * k_hfe_blocks_per_track * 512);
+    if (is_second_side) {
+      p_out_track += 256;
+    }
 
     if (p_in_track[1] != i) {
       errx(1, "mismatched track number");
@@ -218,9 +235,7 @@ convert_tracks(uint8_t* p_hfe_buf, uint8_t* p_trks_buf, uint32_t num_tracks) {
       errx(1, "bad track length");
     }
 
-    /* Write HFE track position and length metadata. */
-    put16((p_hfe_buf + 512 + (i * 4)), (2 + (i * k_hfe_blocks_per_track)));
-    put16((p_hfe_buf + 512 + (i * 4) + 2), ((track_length * 8) + 6));
+    p_track_lengths[i] = track_length;
 
     /* Build a list of where the markers are and check CRCs. */
     (void) memset(is_marker, '\0', sizeof(is_marker));
@@ -337,13 +352,21 @@ int
 main(int argc, const char* argv[]) {
   FILE* f;
   uint32_t i;
-  uint8_t trks_buf[k_max_num_tracks * 4096];
+  uint8_t trks_buf_drv0[k_max_num_tracks * 4096];
+  uint8_t trks_buf_drv2[k_max_num_tracks * 4096];
+  uint32_t track_lengths_drv0[k_max_num_tracks];
+  uint32_t track_lengths_drv2[k_max_num_tracks];
   uint8_t hfe_buf[(k_max_num_tracks * k_hfe_blocks_per_track * 512) + 1024];
-  uint32_t num_tracks;
   size_t fwrite_ret;
   int ret;
   uint32_t hfe_length;
+  uint32_t num_tracks;
+  uint32_t num_sides;
 
+  int do_expand_drv0 = 0;
+  int do_expand_drv2 = 0;
+  uint32_t num_tracks_drv0 = 0;
+  uint32_t num_tracks_drv2 = 0;
   const char* p_capture_chip = NULL;
 
   for (i = 0; i < (uint32_t) argc; ++i) {
@@ -352,26 +375,74 @@ main(int argc, const char* argv[]) {
     }
   }
 
-  (void) memset(trks_buf, '\0', sizeof(trks_buf));
+  (void) memset(trks_buf_drv0, '\0', sizeof(trks_buf_drv0));
+  (void) memset(trks_buf_drv2, '\0', sizeof(trks_buf_drv2));
+  (void) memset(track_lengths_drv0, '\0', sizeof(track_lengths_drv0));
+  (void) memset(track_lengths_drv2, '\0', sizeof(track_lengths_drv2));
   (void) memset(hfe_buf, '\0', sizeof(hfe_buf));
-  num_tracks = load_trks_files(trks_buf);
 
+  num_tracks_drv0 = load_trks_files(trks_buf_drv0, "drv0");
+  if (num_tracks_drv0) {
+    num_tracks_drv2 = load_trks_files(trks_buf_drv2, "drv2");
+  } else {
+    num_tracks_drv0 = load_trks_files(trks_buf_drv0, ".");
+  }
+
+  num_tracks = num_tracks_drv0;
+  if (num_tracks_drv2 > num_tracks) {
+    num_tracks = num_tracks_drv2;
+  }
   (void) printf("Tracks: %d\n", num_tracks);
   if (num_tracks == 0) {
     errx(1, "no tracks");
   }
 
-  if (trks_buf[0] == 1) {
+  if (num_tracks_drv2 > 0) {
+    num_sides = 2;
+    (void) printf("Double sided\n");
+    if ((num_tracks_drv0 <= (k_max_num_tracks / 2)) &&
+        (num_tracks_drv2 >= 80)) {
+      do_expand_drv0 = 1;
+    }
+  } else {
+    num_sides = 1;
+    (void) printf("Single sided\n");
+  }
+
+  if (trks_buf_drv0[0] == 1) {
     p_capture_chip = "8271";
-  } else if (trks_buf[0] == 2) {
+  } else if (trks_buf_drv0[0] == 2) {
     p_capture_chip = "1770";
   } else {
     errx(1, "unknown capture chip");
   }
   (void) printf("Captured with: %s\n", p_capture_chip);
-  (void) printf("Drive speed: %d\n", get16(&trks_buf[2]));
+  (void) printf("Drive speed: %d\n", get16(&trks_buf_drv0[2]));
 
-  convert_tracks(hfe_buf, trks_buf, num_tracks);
+  convert_tracks(hfe_buf,
+                 track_lengths_drv0,
+                 0,
+                 trks_buf_drv0,
+                 do_expand_drv0,
+                 num_tracks_drv0);
+  if (num_tracks_drv2 > 0) {
+    convert_tracks(hfe_buf,
+                   track_lengths_drv2,
+                   1,
+                   trks_buf_drv2,
+                   do_expand_drv2,
+                   num_tracks_drv2);
+  }
+
+  /* Write HFE track position metadata. */
+  for (i = 0; i < num_tracks; ++i) {
+    uint32_t track_length = track_lengths_drv0[i];
+    if (track_lengths_drv2[i] > track_length) {
+      track_length = track_lengths_drv2[i];
+    }
+    put16((hfe_buf + 512 + (i * 4)), (2 + (i * k_hfe_blocks_per_track)));
+    put16((hfe_buf + 512 + (i * 4) + 2), ((track_length * 8) + 6));
+  }
 
   /* Write HFEv3 header. */
   (void) memset(hfe_buf, '\xff', 512);
@@ -380,8 +451,8 @@ main(int argc, const char* argv[]) {
   hfe_buf[8] = 0;
   /* Number of tracks. */
   hfe_buf[9] = num_tracks;
-  /* 1 side. */
-  hfe_buf[10] = 1;
+  /* 1 or 2 sides. */
+  hfe_buf[10] = num_sides;
   /* IBM FM encoding. */
   hfe_buf[11] = 2;
   /* 250kbit. */
