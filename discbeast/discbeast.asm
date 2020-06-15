@@ -13,6 +13,8 @@ ABI_READ_TRACK = (BASE + 12)
 ABI_READ_IDS = (BASE + 15)
 ABI_READ_SECTORS = (BASE + 18)
 ABI_TIME_DRIVE = (BASE + 21)
+ABI_WRITE_SECTORS = (BASE + 24)
+ABI_WRITE_TRACK = (BASE + 27)
 
 DETECTED_NOTHING = 0
 DETECTED_INTEL = 1
@@ -47,6 +49,7 @@ WD_CMD_SEEK = &10
 WD_CMD_READ_SECTOR_SETTLE = &84
 WD_CMD_READ_ADDRESS = &C0
 WD_CMD_READ_TRACK_SETTLE = &E4
+WD_CMD_WRITE_TRACK_SETTLE = &F4
 
 WD_STATUS_BIT_NOT_FOUND = &10
 
@@ -99,6 +102,10 @@ GUARD (BASE + 2048)
     \\ base + 18, read sectors
     JMP entry_not_set
     \\ base + 21, time drive
+    JMP entry_not_set
+    \\ base + 24, write sectors
+    JMP entry_not_set
+    \\ base + 27, write track
     JMP entry_not_set
 
 .entry_not_set
@@ -242,12 +249,14 @@ GUARD (BASE + 2048)
     LDA #&FE
     STA var_zp_wd_base + 1
     STA var_zp_wd_drvctrl + 1
-    \\ Patch read loop, self modifying.
+    \\ Patch read / write loops, self modifying.
     LDA var_zp_wd_base
     STA wd_read_loop_patch_status_register + 1
+    STA wd_write_loop_patch_status_register + 1
     CLC
     ADC #3
     STA wd_read_loop_patch_data_register + 1
+    STA wd_write_loop_patch_data_register + 1
 
     \\ Set up vectors.
     LDA #LO(wd_load)
@@ -274,6 +283,10 @@ GUARD (BASE + 2048)
     STA ABI_TIME_DRIVE + 1
     LDA #HI(wd_time_drive)
     STA ABI_TIME_DRIVE + 2
+    LDA #LO(wd_write_track)
+    STA ABI_WRITE_TRACK + 1
+    LDA #HI(wd_write_track)
+    STA ABI_WRITE_TRACK + 2
 
     LDA #DETECTED_WD
     STA var_zp_param_1
@@ -843,6 +856,20 @@ GUARD (BASE + 2048)
     STA var_zp_ABI_drive_speed + 1
     RTS
 
+.wd_write_track
+    JSR timer_enter
+
+    \\ Write track, spin up, head settle.
+    LDA #WD_CMD_WRITE_TRACK_SETTLE
+    JSR wd_do_command
+
+    JSR wd_write_loop
+
+    JSR timer_exit
+
+    JSR wd_set_result_type_2_3
+    RTS
+
 .wd_do_command
     LDY #0
     STA (var_zp_wd_base),Y
@@ -883,6 +910,27 @@ GUARD (BASE + 2048)
     INC var_zp_ABI_buf_1 + 1
     JMP wd_read_loop_loop
   .wd_read_loop_done
+    RTS
+
+.wd_write_loop
+    LDY #0
+  .wd_write_loop_loop
+  .wd_write_loop_patch_status_register
+    LDA &FEFF
+    LSR A
+    AND #1
+    BNE wd_write_loop_need_byte
+    BCC wd_write_loop_done
+    JMP wd_write_loop_loop
+  .wd_write_loop_need_byte
+    LDA (var_zp_ABI_buf_1),Y
+  .wd_write_loop_patch_data_register
+    STA &FEFF
+    INC var_zp_ABI_buf_1
+    BNE wd_write_loop_loop
+    INC var_zp_ABI_buf_1 + 1
+    JMP wd_write_loop_loop
+  .wd_write_loop_done
     RTS
 
 .wd_do_spin_up_idle
