@@ -52,6 +52,8 @@ WD_CMD_READ_TRACK_SETTLE = &E4
 WD_CMD_WRITE_TRACK_SETTLE = &F4
 
 WD_STATUS_BIT_NOT_FOUND = &10
+WD_STATUS_BIT_CRC_ERROR = &08
+WD_STATUS_BIT_TYPE_II_III_LOST_BYTE = &04
 
 ORG ZP
 GUARD (ZP + 32)
@@ -1014,11 +1016,14 @@ GUARD (BASE + 2048)
     LDA (var_zp_wd_base),Y
     TAX
     \\ Convert to 8271 return code equivalent.
-    AND #&10
+    AND #WD_STATUS_BIT_NOT_FOUND
     BNE wd_set_result_not_found
     TXA
-    AND #&08
+    AND #WD_STATUS_BIT_CRC_ERROR
     BNE wd_set_result_crc_error
+    TXA
+    AND #WD_STATUS_BIT_TYPE_II_III_LOST_BYTE
+    BNE wd_set_result_lost_data
   .wd_set_result_add_deleted
     TXA
     AND #&20
@@ -1038,6 +1043,10 @@ GUARD (BASE + 2048)
     JMP wd_set_result_add_deleted
   .wd_set_result_sector_crc_error
     LDA #&0C
+    STA var_zp_temp
+    JMP wd_set_result_add_deleted
+  .wd_set_result_lost_data
+    LDA #&0A
     STA var_zp_temp
     JMP wd_set_result_add_deleted
 
