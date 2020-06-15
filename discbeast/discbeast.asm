@@ -415,10 +415,7 @@ GUARD (BASE + 2048)
 
     JSR intel_wait_ready
 
-    JSR intel_wait_no_index_pulse
-    JSR intel_wait_index_pulse
-
-    JSR timer_start
+    JSR intel_wait_index_and_start_timer
 
     \\ 4 bytes per ID on the 8271.
     LDA #&FC
@@ -493,9 +490,7 @@ GUARD (BASE + 2048)
 
     JSR intel_set_track
 
-    JSR intel_wait_no_index_pulse
-    JSR intel_wait_index_pulse
-    JSR timer_start
+    JSR intel_wait_index_and_start_timer
 
     LDA #INTEL_CMD_READ_SECTORS_WITH_DELETED
     JSR intel_do_cmd
@@ -529,9 +524,7 @@ GUARD (BASE + 2048)
 
     JSR intel_wait_ready
 
-    JSR intel_wait_no_index_pulse
-    JSR intel_wait_index_pulse
-    JSR timer_start
+    JSR intel_wait_index_and_start_timer
     JSR intel_wait_no_index_pulse
     JSR intel_wait_index_pulse
     JSR timer_stop
@@ -559,6 +552,12 @@ GUARD (BASE + 2048)
     \\ Check RDY0.
     AND #&40
     BEQ intel_wait_ready
+    RTS
+
+.intel_wait_index_and_start_timer
+    JSR intel_wait_no_index_pulse
+    JSR intel_wait_index_pulse
+    JSR timer_start
     RTS
 
 .intel_wait_no_index_pulse
@@ -714,10 +713,7 @@ GUARD (BASE + 2048)
     JSR clear_scratch
 
     JSR wd_do_spin_up_idle
-    JSR wd_wait_no_index_pulse
-    JSR wd_wait_index_pulse
-
-    JSR timer_start
+    JSR wd_wait_index_and_start_timer
 
     \\ 6 bytes per ID on the 1770.
     LDA #&FA
@@ -793,9 +789,7 @@ GUARD (BASE + 2048)
     JSR timer_enter
 
     JSR wd_do_spin_up_idle
-    JSR wd_wait_no_index_pulse
-    JSR wd_wait_index_pulse
-    JSR timer_start
+    JSR wd_wait_index_and_start_timer
 
     \\ Track register.
     LDY #1
@@ -841,9 +835,7 @@ GUARD (BASE + 2048)
 
     JSR wd_do_spin_up_idle
 
-    JSR wd_wait_no_index_pulse
-    JSR wd_wait_index_pulse
-    JSR timer_start
+    JSR wd_wait_index_and_start_timer
     JSR wd_wait_no_index_pulse
     JSR wd_wait_index_pulse
     JSR timer_stop
@@ -984,6 +976,12 @@ GUARD (BASE + 2048)
     LDA (var_zp_wd_base),Y
     AND #&80
     BNE wd_wait_motor_off_loop
+    RTS
+
+.wd_wait_index_and_start_timer
+    JSR wd_wait_no_index_pulse
+    JSR wd_wait_index_pulse
+    JSR timer_start
     RTS
 
 .wd_wait_no_index_pulse
