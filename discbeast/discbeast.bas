@@ -6,7 +6,7 @@ U%=&7A00:W%=&50
 REM Read/write buffers. 4k x3.
 B%=&4000
 REM Command params, globals.
-DIM V%(8),G%(3)
+DIM V%(8),G%(4)
 REM For OSWORD.
 DIM O% 15:FOR I%=0 TO 15:?(O%+I%)=0:NEXT
 ?(O%+1)=B%:?(O%+2)=B% DIV 256
@@ -28,9 +28,8 @@ P$=RIGHT$(P$,LEN(P$)-J%)
 UNTIL LEN(P$)=0
 P%=I%
 
-PROCbufs(B%,B%+4096)
+PROCbufs(B%,B%+4096):PROCs16(Z%+6,G%(3)):PROCs16(Z%+8,-G%(4))
 IF A$="INIT" THEN PROCsetup
-IF A$="DBUG" THEN G%(2)=NOT G%(2):PRINT"DBUG "+STR$(G%(2))
 IF A$="OWRD" THEN PROCowrd
 IF A$="DUMP" THEN PROCdump
 IF A$="BFIL" THEN PROCbfil
@@ -44,7 +43,9 @@ IF A$="TIME" THEN PROCtime:PRINT"DRIVE SPEED: "+STR$(FNdrvspd)
 IF A$="DTRK" THEN PROCdtrk
 IF A$="DCRC" THEN PROCdcrc
 IF A$="HFEG" THEN PROChfeg
-IF A$="STRT" THEN PROCstrt
+IF A$="DBUG" THEN G%(2)=NOT G%(2):PRINT"DBUG "+STR$(G%(2))
+IF A$="STRT" THEN G%(3)=V%(0)
+IF A$="BAIL" THEN G%(4)=V%(0)
 
 UNTIL FALSE
 
@@ -134,7 +135,7 @@ A%=&7F:X%=O%:Y%=O% DIV 256:CALL&FFF1:R%=?(O%+6+P%)
 PRINT"OSWORD &7F: &"+STR$~(R%)
 ENDPROC
 
-DEF PROCbufs(A%,X%):?Z%=A%:?(Z%+1)=A% DIV 256:?(Z%+2)=X%:?(Z%+3)=X% DIV 256:ENDPROC
+DEF PROCbufs(A%,Y%):PROCs16(Z%,A%):PROCs16(Z%+2,Y%):ENDPROC
 
 DEF PROCseek
 A%=V%(0)
@@ -324,12 +325,6 @@ IF T%<=40 THEN OSCLI("DR.1") ELSE OSCLI("DR.3")
 OSCLI("SAVE TRKS"+STR$(T% AND &FE)+" 5000 +2000")
 ENDPROC
 
-DEF PROCstrt
-A%=V%(0)
-IF A%=-1 THEN A%=0
-?(Z%+6)=A%:?(Z%+7)=A% DIV 256
-ENDPROC
-
 DEF PROCgtrk
 ?B%=G%(1):?(B%+1)=T%:?(B%+2)=?(Z%+4):?(B%+3)=?(Z%+5)
 PROCbufs(B%+&20,B%+&A0):PROCrids
@@ -372,7 +367,7 @@ IF R%<>S% THEN ?K%=(?K%)+&80:?(B%+8)=1
 ENDPROC
 
 DEF PROCg1770
-PROCbufs(B%+&200,B%+&180):PROCrtrk:?(B%+6)=S%:?(B%+7)=S% DIV 256
+PROCbufs(B%+&200,B%+&180):PROCrtrk:PROCs16(B%+6,S%)
 ENDPROC
 
 DEF PROCg8271
@@ -407,6 +402,7 @@ IF LEN(A$)=1 THEN A$="0"+A$
 =A$
 
 DEF FNg16(A%):=?A%+?(A%+1)*256
+DEF PROCs16(A%,X%):?A%=X%:?(A%+1)=(X% AND &FF00) DIV 256:ENDPROC
 
 DEF FNssize(A%)
 A%=A% AND 7

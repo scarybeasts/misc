@@ -65,7 +65,7 @@ GUARD (ZP + 32)
 \\ 6
 .var_zp_ABI_start SKIP 2
 \\ 8
-.var_zp_ABI_stop SKIP 2
+.var_zp_ABI_bail_bytes SKIP 2
 .var_zp_wd_base SKIP 2
 .var_zp_wd_drvctrl SKIP 2
 .var_zp_drive SKIP 1
@@ -126,8 +126,8 @@ GUARD (BASE + 2048)
     STA var_zp_ABI_drive_speed + 1
     STA var_zp_ABI_start
     STA var_zp_ABI_start + 1
-    STA var_zp_ABI_stop
-    STA var_zp_ABI_stop + 1
+    STA var_zp_ABI_bail_bytes
+    STA var_zp_ABI_bail_bytes + 1
 
     \\ Try and make DFS safe.
     JSR disable_dfs
@@ -926,11 +926,26 @@ GUARD (BASE + 2048)
     LDA (var_zp_ABI_buf_1),Y
   .wd_write_loop_patch_data_register
     STA &FEFF
+    INC var_zp_ABI_bail_bytes
+    BNE wd_write_loop_no_bail
+    INC var_zp_ABI_bail_bytes + 1
+    BNE wd_write_loop_no_bail
+    \\ Bail mid-way through command.
+    JMP wd_bail
+  .wd_write_loop_no_bail
     INC var_zp_ABI_buf_1
     BNE wd_write_loop_loop
     INC var_zp_ABI_buf_1 + 1
     JMP wd_write_loop_loop
   .wd_write_loop_done
+    RTS
+
+.wd_bail
+    LDY #0
+  .wd_bail_loop
+    LDA (var_zp_wd_base),Y
+    AND #1
+    BNE wd_bail_loop
     RTS
 
 .wd_do_spin_up_idle
