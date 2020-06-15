@@ -6,7 +6,7 @@ U%=&7A00:W%=&50
 REM Read/write buffers. 4k x3.
 B%=&4000
 REM Command params, globals.
-DIM V%(7),G%(3)
+DIM V%(8),G%(3)
 REM For OSWORD.
 DIM O% 15:FOR I%=0 TO 15:?(O%+I%)=0:NEXT
 ?(O%+1)=B%:?(O%+2)=B% DIV 256
@@ -17,7 +17,7 @@ REPEAT
 
 INPUT A$:IF LEN(A$)<4 THEN A$="????"
 P$=MID$(A$,5):A$=LEFT$(A$,4)
-FOR I%=0 TO 5:V%(I%)=-1:NEXT
+FOR I%=0 TO 8:V%(I%)=-1:NEXT
 
 I%=0
 REPEAT
@@ -33,7 +33,8 @@ IF A$="INIT" THEN PROCsetup
 IF A$="DBUG" THEN G%(2)=NOT G%(2):PRINT"DBUG "+STR$(G%(2))
 IF A$="OWRD" THEN PROCowrd
 IF A$="DUMP" THEN PROCdump
-IF A$="BFIL" THEN PROCstor(B%,V%(0),4096)
+IF A$="BFIL" THEN PROCbfil
+IF A$="BSET" THEN PROCbset
 IF A$="SEEK" THEN PROCseek
 IF A$="RIDS" THEN PROCclr:PROCrids:PROCres:PRINT"SECTOR HEADERS: "+STR$(S%):V%(0)=-1:PROCdump
 IF A$="READ" THEN PROCclr:PROCread:PROCres:L%=FNg16(Z%)-B%:!C%=-1:PROCcrca32(B%,L%,C%):PROCcrcf32(C%):PRINT"CRC32 "+STR$(L%)+" BYTES: "+STR$~(!C%):V%(0)=-1:PROCdump
@@ -63,6 +64,20 @@ ENDPROC
 DEF PROCreinit:CALL D%+3:ENDPROC
 
 DEF PROCclr:PROCstor(B%,0,4096):ENDPROC
+
+DEF PROCbfil
+A%=0:X%=0
+IF V%(1)<>-1 THEN A%=V%(0):X%=V%(1) ELSE X%=V%(0)
+Y%=4096-A%
+PROCstor(B%+A%,X%,Y%)
+ENDPROC
+
+DEF PROCbset
+A%=V%(0)
+FOR I%=1 TO 8
+IF V%(I%)<>-1 THEN ?(B%+A%+I%-1)=V%(I%)
+NEXT
+ENDPROC
 
 DEF PROCres
 I%=R% AND &FF
