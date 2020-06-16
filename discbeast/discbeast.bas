@@ -31,13 +31,13 @@ P%=I%
 PROCbufs(B%,B%+4096):PROCs16(Z%+6,G%(3)):PROCs16(Z%+8,-G%(4))
 IF A$="INIT" THEN PROCsetup
 IF A$="OWRD" THEN PROCowrd
-IF A$="DUMP" THEN PROCdump
+IF A$="DUMP" THEN PROCdump(V%(0))
 IF A$="BFIL" THEN PROCbfil
 IF A$="BSET" THEN PROCbset
 IF A$="SEEK" THEN PROCseek
-IF A$="RIDS" THEN PROCclr:PROCrids:PROCres:PRINT"SECTOR HEADERS: "+STR$(S%):V%(0)=-1:PROCdump
-IF A$="READ" THEN PROCclr:PROCread:PROCres:L%=FNg16(Z%)-B%:!C%=-1:PROCcrca32(B%,L%,C%):PROCcrcf32(C%):PRINT"CRC32 "+STR$(L%)+" BYTES: "+STR$~(!C%):V%(0)=-1:PROCdump
-IF A$="RTRK" THEN PROCclr:PROCrtrk:PROCres:PRINT"LEN: "+STR$(S%):V%(0)=-1:PROCdump
+IF A$="RIDS" THEN PROCclr:PROCrids:PROCres:PRINT"SECTOR HEADERS: "+STR$(S%):PROCdump(0)
+IF A$="READ" THEN PROCclr:PROCread:PROCres:L%=FNg16(Z%)-B%:!C%=-1:PROCcrca32(B%,L%,C%):PROCcrcf32(C%):PRINT"CRC32 "+STR$(L%)+" BYTES: "+STR$~(!C%):PROCdump(0)
+IF A$="RTRK" THEN PROCclr:PROCrtrk:PROCres:PRINT"LEN: "+STR$(S%):PROCdump(0)
 IF A$="WRIT" THEN PROCwrit:PROCres
 IF A$="WTRK" THEN PROCwtrk:PROCres
 IF A$="TIME" THEN PROCtime:PRINT"DRIVE SPEED: "+STR$(FNdrvspd)
@@ -200,8 +200,8 @@ ENDPROC
 
 DEF PROCtime:CALL D%+21:ENDPROC
 
-DEF PROCdump
-A%=V%(0):IF A%<0 THEN A%=0
+DEF PROCdump(A%)
+IF A%<0 THEN A%=0
 FOR I%=0 TO 63
 PRINT" "+FNhex(?(B%+A%+I%));
 IF I% MOD 8=7 THEN PRINT
@@ -347,15 +347,15 @@ Y%=!(B%+&20+I%*4)
 N%=0
 FOR K%=-10 TO 10
 L%=B%+&200+X%+K%
-IF (?L%=&FE OR ?L%=&CE OR ?L%=&F9) AND !(L%+1)=Y% THEN N%=N%+1:X%=X%+K%:?(B%+&100+I%*2)=X%:?(B%+&101+I%*2)=X% DIV 256:K%=2
+IF (?L%=&FE OR ?L%=&CE OR ?L%=&F9) AND !(L%+1)=Y% THEN N%=1:X%=X%+K%:?(B%+&100+I%*2)=X%:?(B%+&101+I%*2)=X% DIV 256:K%=10
 NEXT
+IF G%(2) AND N%=0 THEN PRINT"DBUG: HDR "+STR$~(X%):PROCdump(&200+X%-32)
 FOR K%=14 TO 30
 L%=B%+&200+X%+K%
 IF ?L%=&FB OR ?L%=&CB OR ?L%=&F8 OR ?L%=&C8 THEN N%=N%+1:X%=X%+K%:?(B%+&140+I%*2)=X%:?(B%+&141+I%*2)=X% DIV 256:K%=30
 NEXT
 IF N%=2 THEN PROCgtrky:R%=0 ELSE R%=2:I%=J%-1
 NEXT
-IF R%<>0 AND G%(2) THEN PRINT"DBUG":END
 IF R%=0 AND ?(B%+8)=1 THEN R%=1
 REM 1770 sees ghosts.
 IF R%=2 AND ?(B%+4)<>0 THEN ?(B%+4)=&18:?(B%+5)=0:R%=1
@@ -372,7 +372,9 @@ IF R%<>S% THEN ?K%=(?K%)+&80:?(B%+8)=1
 ENDPROC
 
 DEF PROCg1770
-PROCbufs(B%+&200,B%+&180):PROCrtrk:PROCs16(B%+6,S%)
+PROCbufs(B%+&200,B%+&180)
+PROCrtrk:IF G%(2) AND (R% AND &FF)<>0 THEN PRINT"DBUG: RTRK":PROCres
+PROCs16(B%+6,S%)
 ENDPROC
 
 DEF PROCg8271
@@ -384,7 +386,7 @@ M%=B%+&200+FNcstime(I%)-1
 ?M%=&FE:!(M%+1)=!(B%+&20+I%*4)
 PROCcrc16(M%,5):?(M%+5)=R% DIV 256:?(M%+6)=R%
 M%=M%+7+17
-V%(0)=K%:PROCstrt:K%=FNstime(I%)
+G%(3)=K%:K%=FNstime(I%)
 PROCbufs(&4000,&4800)
 V%(0)=FNidtrk(I%):V%(1)=FNidsec(I%):V%(2)=1:V%(3)=2048:PROCread:R%=R% AND &FF
 IF R%=&18 THEN PRINT"SECTOR READ FAILED":END
