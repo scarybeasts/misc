@@ -47,6 +47,7 @@ IF A$="HFEG" THEN PROChfeg
 IF A$="DBUG" THEN G%(2)=NOT G%(2):PRINT"DBUG "+STR$(G%(2))
 IF A$="STRT" THEN G%(3)=V%(0)
 IF A$="BAIL" THEN G%(4)=V%(0)
+IF A$="BFUN" THEN ?(Z%+10)=V%(0)
 
 UNTIL FALSE
 

@@ -70,8 +70,8 @@ GUARD (ZP + 32)
 .var_zp_ABI_start SKIP 2
 \\ 8
 .var_zp_ABI_bail_bytes SKIP 2
-.var_zp_wd_base SKIP 2
-.var_zp_wd_drvctrl SKIP 2
+\\ 10
+.var_zp_ABI_bail_function SKIP 1
 .var_zp_drive SKIP 1
 .var_zp_side SKIP 1
 .var_zp_drive_side_bits SKIP 1
@@ -85,6 +85,9 @@ GUARD (ZP + 32)
 .var_zp_system_VIA_IER SKIP 1
 .var_zp_IRQ1V SKIP 2
 .var_zp_byte_counter_reload SKIP 1
+.var_zp_wd_base SKIP 2
+.var_zp_wd_drvctrl SKIP 2
+.var_zp_wd_dden_bit SKIP 1
 
 ORG BASE
 GUARD (BASE + 2048)
@@ -132,6 +135,7 @@ GUARD (BASE + 2048)
     STA var_zp_ABI_start + 1
     STA var_zp_ABI_bail_bytes
     STA var_zp_ABI_bail_bytes + 1
+    STA var_zp_ABI_bail_function
 
     \\ Try and make DFS safe.
     JSR disable_dfs
@@ -236,6 +240,8 @@ GUARD (BASE + 2048)
     \\ No reset, single density.
     ORA #&28
     STA var_zp_drive_side_bits
+    LDA #&08
+    STA var_zp_wd_dden_bit
     JMP detected_wd_common
 
 .detected_wd_fe2x
@@ -251,6 +257,8 @@ GUARD (BASE + 2048)
     \\ Single density, no reset.
     ORA #&24
     STA var_zp_drive_side_bits
+    LDA #&20
+    STA var_zp_wd_dden_bit
     JMP detected_wd_common
 
 .detected_wd_common
@@ -720,6 +728,7 @@ GUARD (BASE + 2048)
     ADC #1
     \\ Add in reset, density and side.
     ORA var_zp_drive_side_bits
+    STA var_zp_drive_side_bits
     LDY #0
     STA (var_zp_wd_drvctrl),Y
 
@@ -1055,11 +1064,35 @@ GUARD (BASE + 2048)
     RTS
 
 .wd_bail
+    LDA var_zp_ABI_bail_function
+    BEQ wd_wait_idle
+    CMP #1
+    BEQ wd_reset
+    LDA var_zp_drive_side_bits
+    EOR var_zp_wd_dden_bit
     LDY #0
-  .wd_bail_loop
+    STA (var_zp_wd_drvctrl),Y
+    LDX #0
+  .wd_bail_dden_write_loop
+    TXA
+    LDY #3
+    STA (var_zp_wd_base),Y
+    INX
+    LDY #0
     LDA (var_zp_wd_base),Y
     AND #1
-    BNE wd_bail_loop
+    BNE wd_bail_dden_write_loop
+
+    LDA var_zp_drive_side_bits
+    LDY #0
+    STA (var_zp_wd_drvctrl),Y
+    RTS
+
+.wd_reset
+    LDA #0
+    LDY #0
+    STA (var_zp_wd_drvctrl),Y
+    JSR wd_delay
     RTS
 
 .wd_do_spin_up_idle
