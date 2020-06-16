@@ -25,6 +25,7 @@ OSBYTE = &FFF4
 IRQ1V = &0204
 
 INTEL_CMD_DRIVE0 = &40
+INTEL_CMD_WRITE_SECTORS = &0B
 INTEL_CMD_READ_SECTORS_WITH_DELETED = &17
 INTEL_CMD_READ_IDS = &1B
 INTEL_CMD_SEEK = &29
@@ -47,6 +48,7 @@ INTEL_DRVOUT_LOAD_HEAD = &08
 WD_CMD_RESTORE = &00
 WD_CMD_SEEK = &10
 WD_CMD_READ_SECTOR_SETTLE = &84
+WD_CMD_WRITE_SECTOR_SETTLE = &A4
 WD_CMD_READ_ADDRESS = &C0
 WD_CMD_READ_TRACK_SETTLE = &E4
 WD_CMD_WRITE_TRACK_SETTLE = &F4
@@ -194,6 +196,10 @@ GUARD (BASE + 2048)
     STA ABI_TIME_DRIVE + 1
     LDA #HI(intel_time_drive)
     STA ABI_TIME_DRIVE + 2
+    LDA #LO(intel_write_sectors)
+    STA ABI_WRITE_SECTORS + 1
+    LDA #HI(intel_write_sectors)
+    STA ABI_WRITE_SECTORS + 2
 
     \\ Calculate values for drive out parameter and command select bits.
     LDA var_zp_drive
@@ -285,6 +291,10 @@ GUARD (BASE + 2048)
     STA ABI_TIME_DRIVE + 1
     LDA #HI(wd_time_drive)
     STA ABI_TIME_DRIVE + 2
+    LDA #LO(wd_write_sectors)
+    STA ABI_WRITE_SECTORS + 1
+    LDA #HI(wd_write_sectors)
+    STA ABI_WRITE_SECTORS + 2
     LDA #LO(wd_write_track)
     STA ABI_WRITE_TRACK + 1
     LDA #HI(wd_write_track)
@@ -539,6 +549,46 @@ GUARD (BASE + 2048)
     STA var_zp_ABI_drive_speed + 1
     RTS
 
+.intel_write_sectors
+    STA var_zp_param_1
+    STX var_zp_param_2
+    STY var_zp_param_3
+
+    JSR timer_enter
+
+    JSR intel_wait_ready
+
+    JSR intel_set_track
+
+    JSR intel_wait_index_and_start_timer
+
+    LDA #INTEL_CMD_WRITE_SECTORS
+    JSR intel_do_cmd
+    \\ Track.
+    LDA var_zp_param_1
+    JSR intel_do_param
+    \\ Start sector.
+    LDA var_zp_param_2
+    JSR intel_do_param
+    \\ Number sectors.
+    LDA var_zp_param_3
+    JSR intel_do_param
+
+    JSR intel_write_loop
+    JSR intel_set_result
+    STA var_zp_param_1
+    STX var_zp_param_2
+
+    JSR timer_stop
+
+    JSR intel_unset_track
+
+    JSR timer_exit
+
+    LDA var_zp_param_1
+    LDX var_zp_param_2
+    RTS
+
 .intel_wait_ready
     LDA #INTEL_CMD_READ_STATUS
     JSR intel_do_cmd
@@ -630,6 +680,25 @@ GUARD (BASE + 2048)
     INC var_zp_ABI_buf_1 + 1
     JMP intel_read_loop_loop
   .intel_read_loop_done
+    RTS
+
+.intel_write_loop
+    LDY #0
+  .intel_write_loop_loop
+    LDA &FE80
+    ASL A
+    AND #8
+    BNE intel_write_loop_need_byte
+    BCC intel_write_loop_done
+    JMP intel_write_loop_loop
+  .intel_write_loop_need_byte
+    LDA (var_zp_ABI_buf_1),Y
+    STA &FE84
+    INC var_zp_ABI_buf_1
+    BNE intel_write_loop_loop
+    INC var_zp_ABI_buf_1 + 1
+    JMP intel_write_loop_loop
+  .intel_write_loop_done
     RTS
 
 .intel_wait_idle
@@ -848,6 +917,57 @@ GUARD (BASE + 2048)
     STA var_zp_ABI_drive_speed
     LDA var_zp_timer + 1
     STA var_zp_ABI_drive_speed + 1
+    RTS
+
+.wd_write_sectors
+    STA var_zp_param_1
+    STX var_zp_param_2
+    TYA
+    AND #&1F
+    STA var_zp_param_3
+
+    JSR timer_enter
+
+    JSR wd_do_spin_up_idle
+    JSR wd_wait_index_and_start_timer
+
+    \\ Track register.
+    LDY #1
+    LDA var_zp_param_1
+    STA (var_zp_wd_base),Y
+
+  .wd_write_sector_loop
+    \\ Sector register.
+    LDY #2
+    LDA var_zp_param_2
+    STA (var_zp_wd_base),Y
+
+    LDA #WD_CMD_WRITE_SECTOR_SETTLE
+    JSR wd_do_command
+
+    JSR wd_write_loop
+
+    \\ Bail if error.
+    JSR wd_set_result_type_2_3
+    AND #&1F
+    BNE wd_write_sectors_error_out
+
+    \\ Loop across all sectors.
+    INC var_zp_param_2
+    DEC var_zp_param_3
+    BNE wd_write_sector_loop
+
+  .wd_write_sectors_error_out
+    JSR timer_stop
+
+    \\ Put back track register.
+    LDA var_zp_track
+    LDY #1
+    STA (var_zp_wd_base),Y
+
+    JSR timer_exit
+
+    JSR wd_set_result_type_2_3
     RTS
 
 .wd_write_track
