@@ -269,10 +269,12 @@ GUARD (BASE + 2048)
     LDA var_zp_wd_base
     STA wd_read_loop_patch_status_register + 1
     STA wd_write_loop_patch_status_register + 1
+    STA wd_read_loop_fast_patch_status_register + 1
     CLC
     ADC #3
     STA wd_read_loop_patch_data_register + 1
     STA wd_write_loop_patch_data_register + 1
+    STA wd_read_loop_fast_nmi_patch_data_register + 1
 
     \\ Set up vectors.
     LDA #LO(wd_load)
@@ -763,11 +765,13 @@ GUARD (BASE + 2048)
 .wd_read_track
     JSR timer_enter
 
+    JSR wd_read_loop_fast_setup
+
     \\ Read track, spin up, head settle.
     LDA #WD_CMD_READ_TRACK_SETTLE
     JSR wd_do_command
 
-    JSR wd_read_loop
+    JSR wd_read_loop_fast
 
     JSR timer_exit
 
@@ -1034,6 +1038,61 @@ GUARD (BASE + 2048)
     JMP wd_read_loop_loop
   .wd_read_loop_done
     RTS
+
+.wd_read_loop_fast_setup
+    \\ Copy NMI code over.
+    LDX #(wd_read_loop_fast_nmi_end - wd_read_loop_fast_nmi)
+    LDY #0
+  .wd_read_loop_setup_copy_loop
+    LDA wd_read_loop_fast_nmi,Y
+    STA NMI,Y
+    INY
+    DEX
+    BNE wd_read_loop_setup_copy_loop
+    \\ Patch in buffer pointer (minus one because we pre-increment).
+    LDA var_zp_ABI_buf_1
+    SEC
+    SBC #1
+    STA NMI + 12
+    LDA var_zp_ABI_buf_1 + 1
+    SBC #0
+    STA NMI + 13
+    RTS
+
+.wd_read_loop_fast
+  .wd_read_loop_fast_patch_status_register
+    LDA &FEFF
+    AND #1
+    BNE wd_read_loop_fast
+
+    \\ Nullify NMI handler again.
+    LDA #&40
+    STA NMI
+
+    \\ Copy buffer pointer back.
+    \\ The final INTRQ will have incremented our buffer pointer but we started
+    \\ at -1, so it should be correct as-is.
+    LDA NMI + 12
+    STA var_zp_ABI_buf_1
+    LDA NMI + 13
+    STA var_zp_ABI_buf_1 + 1
+    RTS
+
+.wd_read_loop_fast_nmi
+    \\ Pre-increment to avoid potential problems with recursive NMIs.
+    \\ This comes at the cost of worse latency before we grab the data byte
+    \\ (and lower NMI) by reading the data register.
+    \\ The 1770 delivers NMI closer spaced than 64us in "read track" when it
+    \\ gains sync part-way through a byte.
+    INC NMI + 12
+    BNE wd_read_loop_nmi_no_inc_hi
+    INC NMI + 13
+  .wd_read_loop_nmi_no_inc_hi
+  .wd_read_loop_fast_nmi_patch_data_register
+    LDX &FEFF
+    STX &C000
+    RTI
+  .wd_read_loop_fast_nmi_end
 
 .wd_write_loop
     LDY #0
