@@ -1155,7 +1155,6 @@ GUARD (BASE + 2048)
     RTS
 
 .wd_do_spin_up_idle
-    JSR wd_wait_motor_off
     \\ Seek to current track.
     LDY #1
     LDA (var_zp_wd_base),Y
@@ -1182,14 +1181,6 @@ GUARD (BASE + 2048)
     LDA (var_zp_wd_base),Y
     AND #1
     BNE wd_wait_idle_loop
-    RTS
-
-.wd_wait_motor_off
-    LDY #0
-  .wd_wait_motor_off_loop
-    LDA (var_zp_wd_base),Y
-    AND #&80
-    BNE wd_wait_motor_off_loop
     RTS
 
 .wd_wait_index_and_start_timer
