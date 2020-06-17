@@ -344,17 +344,17 @@ IF R%<>0 THEN ENDPROC
 
 REM Find sectors in raw track.
 FOR I%=0 TO J%-1
-X%=FNcstime(I%)-1
-Y%=!(B%+&20+I%*4)
+IF I%=0 THEN M%=FNcstime(I%)-1 ELSE M%=FNg16(B%+&100+(I%-1)*2)+FNcstime(I%)-FNcstime(I%-1)
+P%=!(B%+&20+I%*4)
 N%=0
 FOR K%=-10 TO 10
-L%=B%+&200+X%+K%
-IF (?L%=&FE OR ?L%=&CE) AND !(L%+1)=Y% THEN N%=1:X%=X%+K%:?(B%+&100+I%*2)=X%:?(B%+&101+I%*2)=X% DIV 256:K%=10
+L%=B%+&200+M%+K%
+IF (?L%=&FE OR ?L%=&CE) AND !(L%+1)=P% THEN N%=1:M%=M%+K%:PROCs16(B%+&100+I%*2,M%):K%=10
 NEXT
-IF G%(2) AND N%=0 THEN PRINT"DBUG: HDR "+STR$~(X%):PROCdump(&200+X%-32)
+IF G%(2) AND N%=0 THEN PRINT"DBUG: HDR "+STR$~(X%):PROCdump(&200+M%-32)
 FOR K%=14 TO 30
-L%=B%+&200+X%+K%
-IF ?L%=&FB OR ?L%=&CB OR ?L%=&F8 OR ?L%=&C8 THEN N%=N%+1:X%=X%+K%:?(B%+&140+I%*2)=X%:?(B%+&141+I%*2)=X% DIV 256:K%=30
+L%=B%+&200+M%+K%
+IF ?L%=&FB OR ?L%=&CB OR ?L%=&F8 OR ?L%=&C8 THEN N%=N%+1:M%=M%+K%:PROCs16(B%+&140+I%*2,M%):K%=30
 NEXT
 IF N%=2 THEN PROCgtrky:R%=0 ELSE R%=2:I%=J%-1
 NEXT
@@ -431,7 +431,7 @@ DEF FNidtrk(A%):=?(B%+&20+A%*4)
 DEF FNidsec(A%):=?(B%+&20+A%*4+2)
 DEF FNidsiz(A%):=?(B%+&20+A%*4+3)
 DEF FNrsiz(A%):A%=?(B%+&E0+A%):=FNssize(A%)
-DEF FNsaddr(A%):=B%+&200+?(B%+&140+A%*2)+?(B%+&141+A%*2)*256
+DEF FNsaddr(A%):=B%+&200+FNg16(B%+&140+A%*2)
 DEF FNstime(A%):=FNg16(B%+&A0+A%*2)
 DEF FNtlen:=FNg16(B%+6)
 
