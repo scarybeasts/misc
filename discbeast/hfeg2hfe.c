@@ -173,10 +173,6 @@ fixup_marker(uint8_t* p_track_data, uint32_t pos) {
     errx(1, "marker too early");
   }
   p_track_data[pos] |= 0xF0;
-  /* Multiple different 1770s have given 0xF9 instead of 0xFE. */
-  if (p_track_data[pos] == 0xF9) {
-    p_track_data[pos] = 0xFE;
-  }
   if ((p_track_data[pos - 1] != 0) ||
       (p_track_data[pos - 2] != 0)) {
     for (i = 0; i < 6; ++i) {
@@ -258,7 +254,7 @@ convert_tracks(uint8_t* p_hfe_buf,
       }
       is_marker[pos] = 1;
       data = p_in_track[0x200 + pos];
-      if ((data != 0xFE) && (data != 0xCE) && (data != 0xF9)) {
+      if ((data != 0xFE) && (data != 0xCE)) {
         errx(1, "bad header marker byte 0x%.2X", data);
       }
       fixup_marker(&p_in_track[0x200], pos);

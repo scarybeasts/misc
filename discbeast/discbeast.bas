@@ -349,7 +349,7 @@ Y%=!(B%+&20+I%*4)
 N%=0
 FOR K%=-10 TO 10
 L%=B%+&200+X%+K%
-IF (?L%=&FE OR ?L%=&CE OR ?L%=&F9) AND !(L%+1)=Y% THEN N%=1:X%=X%+K%:?(B%+&100+I%*2)=X%:?(B%+&101+I%*2)=X% DIV 256:K%=10
+IF (?L%=&FE OR ?L%=&CE) AND !(L%+1)=Y% THEN N%=1:X%=X%+K%:?(B%+&100+I%*2)=X%:?(B%+&101+I%*2)=X% DIV 256:K%=10
 NEXT
 IF G%(2) AND N%=0 THEN PRINT"DBUG: HDR "+STR$~(X%):PROCdump(&200+X%-32)
 FOR K%=14 TO 30
