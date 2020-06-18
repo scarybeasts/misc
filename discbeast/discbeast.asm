@@ -81,6 +81,7 @@ GUARD (ZP + 32)
 .var_zp_param_1 SKIP 1
 .var_zp_param_2 SKIP 1
 .var_zp_param_3 SKIP 1
+.var_zp_param_4 SKIP 1
 .var_zp_timer SKIP 2
 .var_zp_system_VIA_IER SKIP 1
 .var_zp_IRQ1V SKIP 2
@@ -783,6 +784,9 @@ GUARD (BASE + 2048)
 
     LDA #32
     STA var_zp_param_1
+    \\ No errors yet.
+    LDA #0
+    STA var_zp_param_4
     \\ Use param_2 and param_3 to point to the scratch space.
     \\ We read 6-byte style 1770 IDs to the scratch space and the pick the
     \\ first 4 bytes of each.
@@ -809,12 +813,20 @@ GUARD (BASE + 2048)
 
     JSR wd_read_loop
 
-    \\ Bail loop if nothing found.
-    JSR wd_set_result_type_2_3
-    TXA
-    AND #WD_STATUS_BIT_NOT_FOUND
+    \\ Bail loop if nothing found or data lost.
+    \\ Also tag CRC error but continue.
+    LDY #0
+    LDA (var_zp_wd_base),Y
+    TAX
+    AND #(WD_STATUS_BIT_NOT_FOUND + WD_STATUS_BIT_TYPE_II_III_LOST_BYTE)
     BNE wd_read_ids_loop_done
+    TXA
+    AND #WD_STATUS_BIT_CRC_ERROR
+    BEQ wd_read_ids_loop_no_crc_error
+    LDA #1
+    STA var_zp_param_4
 
+  .wd_read_ids_loop_no_crc_error
     DEC var_zp_param_1
     BNE wd_read_ids_loop
 
@@ -860,7 +872,13 @@ GUARD (BASE + 2048)
 
     JSR timer_exit
 
-    JSR wd_set_result_type_2_3
+    LDY #0
+    LDA (var_zp_wd_base),Y
+    LDY var_zp_param_4
+    BEQ wd_read_ids_no_crc_error
+    ORA #WD_STATUS_BIT_CRC_ERROR
+  .wd_read_ids_no_crc_error
+    JSR wd_set_result_type_2_3_a_already_set
     RTS
 
 .wd_read_sectors
@@ -1217,6 +1235,7 @@ GUARD (BASE + 2048)
     LDY #0
     STY var_zp_temp
     LDA (var_zp_wd_base),Y
+.wd_set_result_type_2_3_a_already_set
     TAX
     \\ Convert to 8271 return code equivalent.
     AND #WD_STATUS_BIT_NOT_FOUND
