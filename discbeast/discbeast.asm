@@ -813,6 +813,14 @@ GUARD (BASE + 2048)
 
     JSR wd_read_loop
 
+    \\ Delay a bit. This prevents ghost sector headers on some discs that
+    \\ appear in the sync between header and data.
+    LDY #8
+  .wd_read_ids_loop_delay_loop
+    JSR wd_delay
+    DEY
+    BNE wd_read_ids_loop_delay_loop
+
     \\ Bail loop if nothing found or data lost.
     \\ Also tag CRC error but continue.
     LDY #0
@@ -1233,9 +1241,10 @@ GUARD (BASE + 2048)
 
 .wd_set_result_type_2_3
     LDY #0
-    STY var_zp_temp
     LDA (var_zp_wd_base),Y
 .wd_set_result_type_2_3_a_already_set
+    LDY #0
+    STY var_zp_temp
     TAX
     \\ Convert to 8271 return code equivalent.
     AND #WD_STATUS_BIT_NOT_FOUND
