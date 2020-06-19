@@ -170,7 +170,7 @@ IF L%<256 THEN A%=0
 NEXT
 ENDPROC
 
-DEF PROCrw(R%)
+DEF PROCrw(I%)
 X%=V%(1):IF X%=-1 THEN X%=0
 Y%=V%(2):IF Y%=-1 THEN Y%=1
 A%=V%(3):IF A%=-1 THEN A%=256
@@ -180,7 +180,7 @@ IF A%=1024 THEN Y%=Y%+&60
 IF A%=2048 THEN Y%=Y%+&80
 IF A%=4096 THEN Y%=Y%+&A0
 A%=V%(0):IF A%=-1 THEN A%=T%
-R%=USR(D%+R%)
+R%=USR(D%+I%)
 ENDPROC
 
 DEF PROCread:PROCrw(18):ENDPROC
@@ -394,7 +394,7 @@ M%=B%+&200+FNcstime(I%)-1
 ?M%=&FE:!(M%+1)=!(B%+&20+I%*4)
 PROCcrc16(M%,5):?(M%+5)=R% DIV 256:?(M%+6)=R%
 M%=M%+7+17
-G%(3)=K%:K%=FNstime(I%)
+PROCs16(Z%+6,K%):K%=FNstime(I%):PROCs16(Z%+8,0)
 PROCbufs(&4000,&4800)
 V%(0)=FNidtrk(I%):V%(1)=FNidsec(I%):V%(2)=1:V%(3)=2048:PROCread:R%=R% AND &FF
 IF R%=&18 THEN PRINT"SECTOR READ FAILED":END
