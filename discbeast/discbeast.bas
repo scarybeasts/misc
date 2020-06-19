@@ -334,6 +334,8 @@ ENDPROC
 DEF PROCgtrk
 ?B%=G%(1):?(B%+1)=T%:?(B%+2)=?(Z%+4):?(B%+3)=?(Z%+5)
 PROCbufs(B%+&20,B%+&A0):PROCrids
+REM More 1770 ghosts.
+IF S%=0 THEN R%=&18
 R%=R% AND &FF:?(B%+4)=R%:?(B%+5)=S%:J%=S%
 IF R%=&18 THEN R%=0:ENDPROC
 
