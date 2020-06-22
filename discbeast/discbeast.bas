@@ -9,7 +9,7 @@ REM Command params, globals.
 DIM V%(8),G%(4)
 REM For OSWORD.
 DIM O% 15:FOR I%=0 TO 15:?(O%+I%)=0:NEXT
-?(O%+1)=B%:?(O%+2)=B% DIV 256
+PROCs16(O%+1,B%)
 REM For CRC.
 DIM C% 11
 
@@ -84,40 +84,34 @@ ENDPROC
 
 DEF PROCres
 I%=R% AND &FF
-J%=(R% AND &FF00) DIV &100
+J%=(R% AND &FF00) DIV 256
 PRINT"RESULT: &" + STR$~(I%);
 IF I%<>J% THEN PRINT" (&"+STR$~(J%)+")" ELSE PRINT
 ENDPROC
 
 DEF PROCstor(A%,X%,Y%)
-?W%=A%:?(W%+1)=A% DIV 256:A%=X%
-Y%=-Y%
-?(W%+4)=Y%:?(W%+5)=(Y% AND &FF00) DIV 256
-CALL U%
+PROCs16(W%,A%)
+Y%=-Y%:PROCs16(W%+4,Y%)
+A%=X%:CALL U%
 ENDPROC
 
 DEF PROCcopy(A%,X%,Y%)
-?W%=A%:?(W%+1)=A% DIV 256
-?(W%+2)=X%:?(W%+3)=X% DIV 256
-Y%=-Y%
-?(W%+4)=Y%:?(W%+5)=(Y% AND &FF00) DIV 256
+PROCs16(W%,A%):PROCs16(W%+2,X%)
+Y%=-Y%:PROCs16(W%+4,Y%)
 CALL U%+3
 ENDPROC
 
 DEF PROCcrc16(A%,X%)
-?(W%+2)=A%:?(W%+3)=A% DIV 256
-X%=-X%
-?(W%+4)=X%:?(W%+5)=(X% AND &FF00) DIV 256
+PROCs16(W%+2,A%)
+X%=-X%:PROCs16(W%+4,X%)
 X%=&FF:Y%=&FF
 R%=USR(U%+6):X%=(R% AND &FF00) DIV &100:Y%=(R% AND &FF0000) DIV &10000
 R%=X%*256+Y%
 ENDPROC
 
 DEF PROCcrca32(A%,X%,Y%)
-?W%=Y%:?(W%+1)=Y% DIV 256
-?(W%+2)=A%:?(W%+3)=A% DIV 256
-X%=-X%
-?(W%+4)=X%:?(W%+5)=(X% AND &FF00) DIV 256
+PROCs16(W%,Y%):PROCs16(W%+2,A%)
+X%=-X%:PROCs16(W%+4,X%)
 CALL U%+9
 ENDPROC
 
@@ -392,7 +386,7 @@ FOR I%=0 TO J%-1
 REM Write in sector header and CRC.
 M%=B%+&200+FNcstime(I%)-1
 ?M%=&FE:!(M%+1)=!(B%+&20+I%*4)
-PROCcrc16(M%,5):?(M%+5)=R% DIV 256:?(M%+6)=R%
+PROCcrc16(M%,5):?(M%+5)=(R% AND &FF00) DIV 256:?(M%+6)=R%
 M%=M%+7+17
 PROCs16(Z%+6,K%):K%=FNstime(I%):PROCs16(Z%+8,0)
 PROCbufs(&4000,&4800)
