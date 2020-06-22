@@ -8,7 +8,7 @@ B%=&4000
 REM Command params, globals.
 DIM V%(8),G%(4)
 REM For OSWORD.
-DIM O% 15:FOR I%=0 TO 15:?(O%+I%)=0:NEXT
+DIM O% 15:PROCstor(O%,0,16)
 PROCs16(O%+1,B%)
 REM For CRC.
 DIM C% 11
