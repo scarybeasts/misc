@@ -142,7 +142,11 @@ load_trks_files(uint8_t* p_buf, const char* p_path_prefix) {
       (void) snprintf(path, sizeof(path), "%s/TRKS%d", p_path_prefix, i);
       f = fopen(path, "r");
       if (f == NULL) {
-        return num_tracks;
+        (void) snprintf(path, sizeof(path), "%s/$.TRKS%d", p_path_prefix, i);
+        f = fopen(path, "r");
+        if (f == NULL) {
+          return num_tracks;
+        }
       }
       fread_ret = fread(p_buf, 8192, 1, f);
       ret = fclose(f);
