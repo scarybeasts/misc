@@ -6,7 +6,7 @@ U%=&7A00:W%=&50
 REM Read/write buffers. 4k x3.
 B%=&4000
 REM Command params, globals.
-DIM V%(8),G%(4)
+DIM V%(8),G%(5)
 REM For OSWORD.
 DIM O% 15:PROCstor(O%,0,16)
 PROCs16(O%+1,B%)
@@ -34,7 +34,7 @@ IF A$="OWRD" THEN PROCowrd
 IF A$="DUMP" THEN PROCdump(V%(0))
 IF A$="BFIL" THEN PROCbfil
 IF A$="BSET" THEN PROCbset
-IF A$="SEEK" THEN PROCseek
+IF A$="SEEK" THEN T%=V%(0):PROCseek
 IF A$="RIDS" THEN PROCclr:PROCrids:PROCres:PRINT"SECTOR HEADERS: "+STR$(S%):PROCdump(0)
 IF A$="READ" THEN PROCclr:PROCread:PROCres:L%=FNg16(Z%)-B%:!C%=-1:PROCcrca32(B%,L%,C%):PROCcrcf32(C%):PRINT"CRC32 "+STR$(L%)+" BYTES: "+STR$~(!C%):PROCdump(0)
 IF A$="RTRK" THEN PROCclr:PROCrtrk:PROCres:PRINT"LEN: "+STR$(S%):PROCdump(0)
@@ -44,12 +44,17 @@ IF A$="TIME" THEN PROCtime:PRINT"DRIVE SPEED: "+STR$(FNdrvspd)
 IF A$="DTRK" THEN PROCdtrk
 IF A$="DCRC" THEN PROCdcrc
 IF A$="HFEG" THEN PROChfeg
-IF A$="DBUG" THEN G%(2)=NOT G%(2):PRINT"DBUG "+STR$(G%(2))
-IF A$="STRT" THEN G%(3)=V%(0)
-IF A$="BAIL" THEN G%(4)=V%(0)
+IF A$="DBUG" THEN PROCgset(2)
+IF A$="STRT" THEN PROCgset(3)
+IF A$="BAIL" THEN PROCgset(4)
+IF A$="DSTP" THEN PROCgset(5)
 IF A$="BFUN" THEN ?(Z%+10)=V%(0)
 
 UNTIL FALSE
+
+DEF PROCgset(A%)
+G%(A%)=V%(0):PRINT A$+" "+STR$(V%(0))
+ENDPROC
 
 DEF PROCsetup
 A%=V%(0):T%=0
@@ -134,9 +139,9 @@ ENDPROC
 DEF PROCbufs(A%,Y%):PROCs16(Z%,A%):PROCs16(Z%+2,Y%):ENDPROC
 
 DEF PROCseek
-A%=V%(0)
-IF A%=-1 THEN A%=0
-CALL D%+9:T%=A%
+A%=T%:IF A%=-1 THEN A%=0
+IF G%(5) THEN A%=A%*2
+CALL D%+9
 ENDPROC
 
 DEF PROCrids
@@ -235,9 +240,7 @@ ENDPROC
 
 DEF PROCtrk
 IF T% AND 1 THEN B%=&6000 ELSE B%=&5000
-PROCclr
-V%(0)=T%:PROCseek
-PROCgtrk:PROCtcrc
+PROCclr:PROCseek:PROCgtrk:PROCtcrc
 ENDPROC
 
 DEF PROCpcrc:PROCcrcf32(C%+4):VDU130:PRINT "DISC CRC32 "+STR$~(!(C%+4)):ENDPROC
@@ -252,7 +255,7 @@ V%(4)=5
 REPEAT
 V%(4)=V%(4)-1
 PROCtrk
-IF R%<>0 THEN PRINT"(RETRY) ";:PROCwait(200):I%=T%:V%(0)=0:PROCseek:V%(0)=I%:PROCseek
+IF R%<>0 THEN PRINT"(RETRY) ";:PROCwait(200):I%=T%:T%=0:PROCseek:T%=I%:PROCseek
 UNTIL R%=0 OR V%(4)=0
 PROCcrca32(C%,4,C%+4)
 IF R%>1 THEN T%=V%(7) ELSE PRINT" "+STR$~(!C%);
@@ -281,7 +284,7 @@ V%(4)=5
 REPEAT
 V%(4)=V%(4)-1
 PROCtrk
-IF R%<>0 THEN VDU7,8,8,129,33:PROCwait(200):I%=T%:V%(0)=0:PROCseek:V%(0)=I%:PROCseek
+IF R%<>0 THEN VDU7,8,8,129,33:PROCwait(200):I%=T%:T%=0:PROCseek:T%=I%:PROCseek
 UNTIL R%=0 OR V%(4)=0
 PROCcrca32(C%,4,C%+4)
 IF R%<2 THEN PROChfegy ELSE T%=V%(7)
