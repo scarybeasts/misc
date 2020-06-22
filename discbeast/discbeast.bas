@@ -247,7 +247,7 @@ DEF PROCdcrc
 V%(7)=V%(0)
 IF V%(7)=-1 THEN V%(7)=40
 FOR T%=0 TO V%(7)
-PRINT"TRACK "+STR$(T%)+" ";
+IF (T% AND 3)=0 THEN PRINT:PRINT STR$(T%);
 V%(4)=5
 REPEAT
 V%(4)=V%(4)-1
@@ -255,7 +255,7 @@ PROCtrk
 IF R%<>0 THEN PRINT"(RETRY) ";:PROCwait(200):I%=T%:V%(0)=0:PROCseek:V%(0)=I%:PROCseek
 UNTIL R%=0 OR V%(4)=0
 PROCcrca32(C%,4,C%+4)
-IF R%>1 THEN T%=V%(7) ELSE PRINT"CRC32 "+STR$~(!C%)
+IF R%>1 THEN T%=V%(7) ELSE PRINT" "+STR$~(!C%);
 NEXT
 IF R%>1 THEN PRINT"FAIL" ELSE PROCpcrc
 B%=&4000
