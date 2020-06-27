@@ -44,6 +44,7 @@ INTEL_PARAM_TRACK_DRIVE_1 = &1A
 INTEL_PARAM_DRVOUT = &23
 INTEL_DRVOUT_SELECT0 = &40
 INTEL_DRVOUT_LOAD_HEAD = &08
+INTEL_DRVOUT_WRITE_ENABLE = &01
 
 WD_CMD_RESTORE = &00
 WD_CMD_SEEK = &10
@@ -705,11 +706,52 @@ GUARD (BASE + 2048)
   .intel_write_loop_need_byte
     LDA (var_zp_ABI_buf_1),Y
     STA &FE84
+    INC var_zp_ABI_bail_bytes
+    BNE intel_write_loop_no_bail
+    INC var_zp_ABI_bail_bytes + 1
+    BNE intel_write_loop_no_bail
+    \\ Bail mid-way through command.
+    JMP intel_bail
+  .intel_write_loop_no_bail
     INC var_zp_ABI_buf_1
     BNE intel_write_loop_loop
     INC var_zp_ABI_buf_1 + 1
     JMP intel_write_loop_loop
   .intel_write_loop_done
+    RTS
+
+.intel_bail
+    LDA var_zp_ABI_bail_function
+    \\ 0: stop writing bytes and wait for command to exit
+    BEQ intel_wait_idle
+    CMP #1
+    \\ 1: reset controller
+    BEQ intel_reset
+    \\ 2: write weak bits for a bit
+    JSR intel_reset
+    LDA var_zp_drive_side_bits
+    ORA #INTEL_DRVOUT_WRITE_ENABLE
+    TAX
+    LDA #INTEL_PARAM_DRVOUT
+    JSR intel_set_param
+    LDX #0
+  .intel_bail_weak_bits_wait_loop
+    DEX
+    BNE intel_bail_weak_bits_wait_loop
+    LDA #INTEL_PARAM_DRVOUT
+    LDX var_zp_drive_side_bits
+    JSR intel_set_param
+    RTS
+
+.intel_reset
+    LDA #1
+    STA &FE82
+    LDX #20
+  .intel_reset_wait_loop
+    DEX
+    BNE intel_reset_wait_loop
+    LDA #0
+    STA &FE82
     RTS
 
 .intel_wait_idle
