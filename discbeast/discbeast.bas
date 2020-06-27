@@ -6,12 +6,14 @@ U%=&7A00:W%=&50
 REM Read/write buffers. 4k x3.
 B%=&4000
 REM Command params, globals.
-DIM V%(8),G%(5)
+DIM V%(8),G%(6)
 REM For OSWORD.
 DIM O% 15:PROCstor(O%,0,16)
 PROCs16(O%+1,B%)
 REM For CRC.
 DIM C% 11
+REM TRKS target.
+F$="DISC":G%(6)=1
 
 REPEAT
 
@@ -23,7 +25,7 @@ I%=0
 REPEAT
 J%=INSTR(P$," "):IF J%=0 THEN J%=LEN(P$)
 Q$=LEFT$(P$,J%)
-IF LEN(Q$)<>0 AND Q$<>" " THEN V%(I%)=EVAL(Q$):I%=I%+1
+IF LEN(Q$)<>0 AND Q$<>" " AND Q$<"A" THEN V%(I%)=EVAL(Q$):I%=I%+1
 P$=RIGHT$(P$,LEN(P$)-J%)
 UNTIL LEN(P$)=0
 P%=I%
@@ -48,7 +50,9 @@ IF A$="DBUG" THEN PROCgset(2)
 IF A$="STRT" THEN PROCgset(3)
 IF A$="BAIL" THEN PROCgset(4)
 IF A$="DSTP" THEN PROCgset(5)
+IF A$="FDRV" THEN PROCgset(6)
 IF A$="BFUN" THEN ?(Z%+10)=V%(0)
+IF A$="FSYS" THEN F$=Q$
 
 UNTIL FALSE
 
@@ -323,8 +327,9 @@ ENDPROC
 DEF PROCsave
 IF V%(5)=0 THEN ENDPROC
 IF (T% AND 1)=0 AND T%<>V%(7) THEN ENDPROC
-OSCLI("DISC")
-IF T%<=40 THEN OSCLI("DR.1") ELSE OSCLI("DR.3")
+OSCLI(F$)
+A%=G%(6):IF T%>40 THEN A%=A%+2
+IF F$="DISC" THEN OSCLI("DR."+STR$(A%))
 OSCLI("SAVE TRKS"+STR$(T% AND &FE)+" 5000 +2000")
 ENDPROC
 
