@@ -5,7 +5,7 @@ REM Output, track.
 O%=&FF:T%=-1
 
 PROCsetup
-PROCseek0
+PROCon:PROCseek0:PROCoff
 PRINT"OK TRK0"
 
 REPEAT
