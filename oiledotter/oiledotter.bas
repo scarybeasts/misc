@@ -17,7 +17,7 @@ IF A$="NUKE" THEN PROCnuke
 IF A$="IN" THEN PROCstepin
 IF A$="OUT" THEN PROCstepout
 IF A$="0" THEN PROCseek0
-IF A$="WTRK" THEN PROCwtrk
+IF A$="WTRK" THEN PROCwtrk:MODE7
 
 UNTIL FALSE
 
@@ -85,12 +85,11 @@ DEF PROCwtrk
 *LOAD TFORM0 4000
 PROCon
 PROCseek0
-MODE7
+CLS
 PROCgentab
 ?Z%=0:?(Z%+1)=&40
 CALL D%
 REM Video state will have been messed up.
-MODE7
 PROCoff
 ENDPROC
 
