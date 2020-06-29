@@ -25,6 +25,12 @@ GUARD (BASE + 256)
 .entry_write_track
     SEI
 
+    \\ Turn the write gate on.
+    LDA &FE60
+    ORA #&C0
+    AND #&FB
+    STA &FE60
+
     \\ Buffer must be aligned to a page.
     LDA #0
     STA var_zp_ABI_buf
@@ -134,7 +140,7 @@ GUARD (BASE + 256)
   .main_loop_done
     \\ Turn off drive write gate.
     LDA &FE60
-    ORA #&04
+    ORA #(&C0 + &04)
     STA &FE60
 
     \\ Restore just enough 6845 registers for a working DRAM refresh.
