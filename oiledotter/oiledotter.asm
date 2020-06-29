@@ -15,7 +15,7 @@ GUARD (ZP + 16)
 .var_zp_saw_no_index SKIP 1
 
 ORG BASE
-GUARD (BASE + 256)
+GUARD (BASE + 512)
 
 .oiledotter_begin
 
@@ -37,6 +37,28 @@ GUARD (BASE + 256)
 
     LDA #1
     STA var_zp_saw_no_index
+
+    \\ Set up video ULA register: MODE4
+    LDA #&08
+    STA &FE20
+    \\ Set up video ULA colors: black, white
+    LDA #&07
+    LDX #8
+    CLC
+  .ula_color_black_loop
+    STA &FE21
+    ADC #&10
+    DEX
+    BNE ula_color_black_loop
+
+    LDA #&80
+    LDX #8
+    CLC
+  .ula_color_white_loop
+    STA &FE21
+    ADC #&10
+    DEX
+    BNE ula_color_white_loop
 
     \\ Set up 6845 video into a ready-to-go state.
     \\ Disable cursor.
@@ -77,6 +99,12 @@ GUARD (BASE + 256)
     LDA #0:STA &FE00
 
     \\ Video is primed and ready to go.
+    JMP wait_index_high
+
+\\ Start a fresh page here because the main loop is extremely timing sensitive
+\\ and we can't have any branches crossing pages.
+ORG (BASE + 256)
+
     \\ Look for index pulse edge (active low) for when to go.
     \\ Need to see index high. Honor DRAM refresh.
   .wait_index_high
@@ -97,8 +125,6 @@ GUARD (BASE + 256)
     \\ Unleash the video!
     LDA #31:STA &FE01
     \\ Now aligned to even cycle.
-
-    LDA #0
 
   .main_loop_64cyc
     \\ 0cyc
