@@ -1,7 +1,7 @@
 \\ oiledotter.asm
 \\ A tool to directly drive the wires to a disc drive.
 
-BASE = &7000
+BASE = &7200
 ZP = &70
 
 ABI_WRITE_TRACK = (BASE + 0)
@@ -149,3 +149,4 @@ GUARD (BASE + 256)
 SAVE "OOASM", oiledotter_begin, oiledotter_end
 PUTTEXT "boot.txt", "!BOOT", 0
 PUTBASIC "oiledotter.bas", "OOTTER"
+PUTFILE "TFORM0", "TFORM0", &4000
