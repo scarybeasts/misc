@@ -455,6 +455,10 @@ ORG (BASE + 256)
   .sync_bytes_ok
     DEC var_zp_markers_count
     BEQ markers_done
+    LDA var_zp_markers_buf
+    CLC
+    ADC #2
+    STA var_zp_markers_buf
     JMP markers_loop
   .markers_done
     RTS
