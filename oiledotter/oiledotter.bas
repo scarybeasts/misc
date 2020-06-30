@@ -3,6 +3,8 @@ REM Machine code.
 D%=&7200:Z%=&70
 REM Output, track.
 O%=&FF:T%=-1
+REM Filesystem, drive.
+F$="DISC":F%=0
 
 PROCsetup
 PROCon:PROCseek0:PROCoff
@@ -17,7 +19,8 @@ IF A$="NUKE" THEN PROCnuke
 IF A$="IN" THEN PROCstepin
 IF A$="OUT" THEN PROCstepout
 IF A$="0" THEN PROCseek0
-IF A$="WTRK" THEN PROCwtrk:MODE7
+IF A$="WBUF" THEN PROCwbuf:MODE7
+IF A$="WDSK" THEN PROCwdsk:MODE7
 
 UNTIL FALSE
 
@@ -81,16 +84,46 @@ UNTIL FNtrk0
 T%=0
 ENDPROC
 
-DEF PROCwtrk
+DEF PROCfsys
+OSCLI(F$)
+IF F$="DISC" THEN OSCLI("DR."+STR$(F%))
+ENDPROC
+
+DEF PROCwbuf
+PROCfsys
 *LOAD TFORM0 4000
 PROCon
 PROCseek0
 CLS
 PROCgentab
-?Z%=0:?(Z%+1)=&40
+PROCs16(Z%,&4000)
 CALL D%
 REM Video state will have been messed up.
 PROCoff
+ENDPROC
+
+DEF PROCwdsk
+PROCfsys
+PROCon
+PROCseek0
+CLS
+PROCgentab
+FOR T%=0 TO 40
+I%=T% AND NOT 1
+OSCLI("LOAD TRKS"+STR$(I%)+" 3000")
+REM Fast copy 4000 to 3000.
+IF (T% AND 1)=1 THEN PROCs16(Z%,&3000):PROCs16(Z%+2,&4000):PROCs16(Z%+4,-4096):CALL D%+3
+REM TRKS to OTTER buffer.
+PROCt2o
+REM Write it.
+CALL D%
+REM Seek.
+PROCstepin
+NEXT
+ENDPROC
+
+DEF PROCt2o
+PROCs16(Z%,&4000):PROCs16(Z%+2,&3000):CALL D%+6
 ENDPROC
 
 DEF FNtrk0
@@ -99,6 +132,8 @@ IF (?&FE60 AND &80)=&80 THEN =0 ELSE =1
 DEF PROCwait(A%)
 X%=TIME:REPEAT:UNTIL TIME>X%+A%+1
 ENDPROC
+
+DEF PROCs16(A%,X%):?A%=X%:?(A%+1)=(X% AND &FF00) DIV 256:ENDPROC
 
 DEF PROCgentab
 A%=&7E00
@@ -122,4 +157,7 @@ REM Clock &7, data &E
 REM Clock &7, data &B
 !&7D40=0:!&7D48=&FF:!&7D50=&FF:!&7D58=&FF
 !&7D44=&FF:!&7D4C=0:!&7D54=&FF:!&7D5C=&FF
+REM Clock &7, data &8
+!&7D60=0:!&7D68=&FF:!&7D70=&FF:!&7D78=&FF
+!&7D64=&FF:!&7D6C=0:!&7D74=0:!&7D7C=0
 ENDPROC
