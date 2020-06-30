@@ -186,6 +186,8 @@ ORG (BASE + 256)
     LDA #0:STA &FE00:LDA #63:STA &FE01
     LDA #9:STA &FE00:LDA #7:STA &FE01
 
+    LDA #4:STA &FE00:LDA #38:STA &FE01
+
     CLI
     RTS
 
@@ -379,7 +381,7 @@ ORG (BASE + 256)
     STA var_zp_source_buf_copy + 1
     \\ Write first nibble, always data 0xF clock 0xC.
     LDY #0
-    LDA #&28
+    LDA #&29
     STA (var_zp_dest_buf_copy),Y
     INY
     LDA #&00
@@ -394,21 +396,21 @@ ORG (BASE + 256)
     CMP #&0B
     BEQ marker_data
     \\ marker_sector_id
-    LDA #&28
+    LDA #&29
     STA (var_zp_dest_buf_copy),Y
     INY
     LDA #&20
     STA (var_zp_dest_buf_copy),Y
     JMP marker_post_write
   .marker_deleted_data
-    LDA #&28
+    LDA #&29
     STA (var_zp_dest_buf_copy),Y
     INY
     LDA #&60
     STA (var_zp_dest_buf_copy),Y
     JMP marker_post_write
   .marker_data
-    LDA #&28
+    LDA #&29
     STA (var_zp_dest_buf_copy),Y
     INY
     LDA #&40
