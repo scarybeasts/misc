@@ -185,8 +185,20 @@ ORG (BASE + 256)
     \\ Restore just enough 6845 registers for a working DRAM refresh.
     LDA #0:STA &FE00:LDA #63:STA &FE01
     LDA #9:STA &FE00:LDA #7:STA &FE01
-
+    \\ Also make the frame longer so we're not vsyncing all the time, which
+    \\ seemed to cause a hang on exit otherwise.
     LDA #4:STA &FE00:LDA #38:STA &FE01
+    \\ Might as well fully switch to MODE4 framing for aesthetics.
+    LDA #6:STA &FE00:LDA #32:STA &FE01
+    LDA #7:STA &FE00:LDA #35:STA &FE01
+    LDA #1:STA &FE00:LDA #40:STA &FE01
+    LDA #2:STA &FE00:LDA #49:STA &FE01
+    LDA #12:STA &FE00:LDA #&28:STA &FE01
+    LDA #13:STA &FE00:LDA #0:STA &FE01
+
+    \\ Lower vsync IRQ.
+    LDA #2
+    STA &FE4D
 
     CLI
     RTS
