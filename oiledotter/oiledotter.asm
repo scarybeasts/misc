@@ -44,6 +44,10 @@ GUARD (BASE + 1024)
     AND #&FB
     STA &FE60
 
+    \\ Shift lock light on when write gate is on.
+    LDA #&7
+    STA &FE40
+
     \\ Buffer must be aligned to a page.
     LDA #0
     STA var_zp_ABI_buf_1
@@ -181,6 +185,10 @@ ORG (BASE + 256)
     LDA &FE60
     ORA #(&C0 + &04)
     STA &FE60
+
+    \\ Shift lock light off when write gate is off.
+    LDA #&F
+    STA &FE40
 
     \\ Restore just enough 6845 registers for a working DRAM refresh.
     LDA #0:STA &FE00:LDA #63:STA &FE01
