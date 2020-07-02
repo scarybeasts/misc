@@ -5,6 +5,8 @@ REM Output, track.
 O%=&FF:T%=-1
 REM Filesystem, drive.
 F$="DISC":F%=0
+REM Buffer.
+B%=&4000
 
 PROCsetup
 PROCon:PROCseek0:PROCoff
@@ -19,8 +21,9 @@ IF A$="NUKE" THEN PROCnuke
 IF A$="IN" THEN PROCstepin
 IF A$="OUT" THEN PROCstepout
 IF A$="0" THEN PROCseek0
-IF A$="WBUF" THEN PROCwbuf:MODE7
 IF A$="WDSK" THEN PROCwdsk:MODE7
+IF A$="TFORM" THEN PROCtform:MODE7
+IF A$="LONG" THEN PROClong:MODE7
 
 UNTIL FALSE
 
@@ -89,14 +92,46 @@ OSCLI(F$)
 IF F$="DISC" THEN OSCLI("DR."+STR$(F%))
 ENDPROC
 
-DEF PROCwbuf
+DEF PROCtform
 PROCfsys
-*LOAD TFORM0 4000
+OSCLI("LOAD TFORM0 "+STR$~(B%))
+PROCwbuf
+ENDPROC
+
+DEF PROClong
+W%=B%
+PROCwhdr(0):PROCwraw(&29,&C0,460)
+PROCwhdr(1):PROCwrun(&FF,258)
+PROCwbuf
+ENDPROC
+
+DEF PROCwhdr(A%)
+PROCwrun(&FF,16):PROCwrun(&00,6)
+PROCwraw(&29,&00,1):PROCwraw(&29,&20,1)
+PROCwrun(&00,2):PROCwrun(A%,1):PROCwrun(&01,1)
+IF A%=0 THEN PROCwrun(&F1,1):PROCwrun(&D3,1) ELSE PROCwrun(&C2,1):PROCwrun(&E2,1)
+PROCwrun(&FF,16):PROCwrun(&00,6)
+PROCwraw(&29,&00,1):PROCwraw(&29,&40,1)
+ENDPROC
+
+DEF PROCwrun(A%,X%)
+J%=&2A00+(A% AND &F0)*2
+K%=(J% AND &FF00) DIV 256
+L%=&2A00+(A% AND &0F)*32
+M%=(L% AND &FF00) DIV 256
+FOR I%=1 TO X%:?W%=K%:?(W%+1)=J%:?(W%+2)=M%:?(W%+3)=L%:W%=W%+4:NEXT
+ENDPROC
+
+DEF PROCwraw(A%,X%,Y%)
+FOR I%=1 TO Y%:?W%=A%:?(W%+1)=X%:W%=W%+2:NEXT
+ENDPROC
+
+DEF PROCwbuf
 PROCon
 PROCseek0
 CLS
 PROCgentab
-PROCs16(Z%,&4000)
+PROCs16(Z%,B%)
 CALL D%
 REM Video state will have been messed up.
 PROCoff
@@ -116,14 +151,14 @@ IF (T% AND 1)=1 THEN PROCs16(Z%,&3000):PROCs16(Z%+2,&4000):PROCs16(Z%+4,-4096):C
 REM TRKS to OTTER buffer.
 PROCt2o
 REM Write it.
-PROCs16(Z%,&4000):CALL D%
+PROCs16(Z%,B%):CALL D%
 REM Seek.
 PROCstepin
 NEXT
 ENDPROC
 
 DEF PROCt2o
-PROCs16(Z%,&4000):PROCs16(Z%+2,&3000):CALL D%+6
+PROCs16(Z%,B%):PROCs16(Z%+2,&3000):CALL D%+6
 ENDPROC
 
 DEF FNtrk0
@@ -160,4 +195,13 @@ REM Clock &7, data &B
 REM Clock &7, data &8
 !&7D60=0:!&7D68=&FF:!&7D70=&FF:!&7D78=&FF
 !&7D64=&FF:!&7D6C=0:!&7D74=0:!&7D7C=0
+REM Weak bits
+!&7D80=0:!&7D88=0:!&7D90=0:!&7D98=0
+!&7D84=0:!&7D8C=0:!&7D94=0:!&7D9C=0
+REM Long track, data &FF, 10 pulses (normally 8)
+!&7DA0=&7F0000FF:!&7DA4=&E01F0080:!&7DA8=&00F00F00:!&7DAC=&0100FC03
+!&7DB0=&7F0000FE:!&7DB4=&C03F0080:!&7DB8=&00F00F00:!&7DBC=&0000F807
+REM Long track, data &FF, 9 pulses (normally 8)
+!&7DC0=&0F0000FF:!&7DC4=&7F0000F0:!&7DC8=&F8070080:!&7DCC=&C03F0000
+!&7DD0=&00FC0300:!&7DD4=&00E01F00:!&7DD8=&0000FE01:!&7DDC=&0000F00F
 ENDPROC
