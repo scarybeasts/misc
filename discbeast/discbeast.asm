@@ -437,13 +437,13 @@ GUARD (BASE + 2048)
 .intel_read_ids
     JSR timer_enter
 
-    JSR intel_wait_ready
-
-    JSR intel_wait_index_and_start_timer
-
     \\ 4 bytes per ID on the 8271.
     LDA #&FC
     STA var_zp_byte_counter_reload
+
+    JSR intel_wait_ready
+
+    JSR intel_wait_index_and_start_timer
 
     LDA #INTEL_CMD_READ_IDS
     JSR intel_do_cmd
@@ -510,6 +510,10 @@ GUARD (BASE + 2048)
 
     JSR timer_enter
 
+    \\ Sample timing every 128 bytes.
+    LDA #&80
+    STA var_zp_byte_counter_reload
+
     JSR intel_wait_ready
 
     JSR intel_set_track
@@ -534,6 +538,15 @@ GUARD (BASE + 2048)
     STX var_zp_param_2
 
     JSR timer_stop
+
+    \\ Log final time.
+    LDA var_zp_timer
+    LDY #0
+    STA (var_zp_ABI_buf_2),Y
+    INC var_zp_ABI_buf_2
+    LDA var_zp_timer + 1
+    STA (var_zp_ABI_buf_2),Y
+    INC var_zp_ABI_buf_2
 
     JSR intel_unset_track
 
@@ -822,8 +835,6 @@ GUARD (BASE + 2048)
     RTS
 
 .wd_read_ids
-    JSR timer_enter
-
     LDA #32
     STA var_zp_param_1
     \\ No errors yet.
@@ -842,12 +853,14 @@ GUARD (BASE + 2048)
     STA var_zp_ABI_buf_1 + 1
     JSR clear_scratch
 
-    JSR wd_do_spin_up_idle
-    JSR wd_wait_index_and_start_timer
+    JSR timer_enter
 
     \\ 6 bytes per ID on the 1770.
     LDA #&FA
     STA var_zp_byte_counter_reload
+
+    JSR wd_do_spin_up_idle
+    JSR wd_wait_index_and_start_timer
 
   .wd_read_ids_loop
     LDA #WD_CMD_READ_ADDRESS
@@ -940,6 +953,10 @@ GUARD (BASE + 2048)
 
     JSR timer_enter
 
+    \\ Sample timing every 128 bytes.
+    LDA #&80
+    STA var_zp_byte_counter_reload
+
     JSR wd_do_spin_up_idle
     JSR wd_wait_index_and_start_timer
 
@@ -971,6 +988,15 @@ GUARD (BASE + 2048)
 
   .wd_read_sectors_error_out
     JSR timer_stop
+
+    \\ Log final time.
+    LDA var_zp_timer
+    LDY #0
+    STA (var_zp_ABI_buf_2),Y
+    INC var_zp_ABI_buf_2
+    LDA var_zp_timer + 1
+    STA (var_zp_ABI_buf_2),Y
+    INC var_zp_ABI_buf_2
 
     \\ Put back track register.
     LDA var_zp_track

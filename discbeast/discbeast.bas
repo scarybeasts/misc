@@ -38,7 +38,7 @@ IF A$="BFIL" THEN PROCbfil
 IF A$="BSET" THEN PROCbset
 IF A$="SEEK" THEN T%=V%(0):PROCseek
 IF A$="RIDS" THEN PROCclr:PROCrids:PROCres:PRINT"SECTOR HEADERS: "+STR$(S%):PROCdump(0)
-IF A$="READ" THEN PROCclr:PROCread:PROCres:L%=FNg16(Z%)-B%:!C%=-1:PROCcrca32(B%,L%,C%):PROCcrcf32(C%):PRINT"CRC32 "+STR$(L%)+" BYTES: "+STR$~(!C%):PROCdump(0)
+IF A$="READ" THEN PROCclr:PROCread:PROCres:PROCdtim:L%=FNg16(Z%)-B%:!C%=-1:PROCcrca32(B%,L%,C%):PROCcrcf32(C%):PRINT"CRC32 "+STR$(L%)+" BYTES: "+STR$~(!C%):PROCdump(0)
 IF A$="RTRK" THEN PROCclr:PROCrtrk:PROCres:PRINT"LEN: "+STR$(S%):PROCdump(0)
 IF A$="WRIT" THEN PROCwrit:PROCres
 IF A$="WTRK" THEN PROCwtrk:PROCres
@@ -96,6 +96,13 @@ I%=R% AND &FF
 J%=(R% AND &FF00) DIV 256
 PRINT"RESULT: &" + STR$~(I%);
 IF I%<>J% THEN PRINT" (&"+STR$~(J%)+")" ELSE PRINT
+ENDPROC
+
+DEF PROCdtim
+A%=V%(3)/128
+X%=FNg16(B%+4096)
+Y%=FNg16(B%+4096+A%*2)
+PRINT"TIME: "+STR$(Y%-X%)
 ENDPROC
 
 DEF PROCstor(A%,X%,Y%)
@@ -174,16 +181,17 @@ NEXT
 ENDPROC
 
 DEF PROCrw(I%)
-X%=V%(1):IF X%=-1 THEN X%=0
-Y%=V%(2):IF Y%=-1 THEN Y%=1
-A%=V%(3):IF A%=-1 THEN A%=256
+IF V%(0)=-1 THEN V%(0)=T%
+IF V%(1)=-1 THEN V%(1)=0
+IF V%(2)=-1 THEN V%(2)=1
+IF V%(3)=-1 THEN V%(3)=256
+X%=V%(1):Y%=V%(2):A%=V%(3)
 IF A%=256 THEN Y%=Y%+&20
 IF A%=512 THEN Y%=Y%+&40
 IF A%=1024 THEN Y%=Y%+&60
 IF A%=2048 THEN Y%=Y%+&80
 IF A%=4096 THEN Y%=Y%+&A0
-A%=V%(0):IF A%=-1 THEN A%=T%
-R%=USR(D%+I%)
+A%=V%(0):R%=USR(D%+I%)
 ENDPROC
 
 DEF PROCread:PROCrw(18):ENDPROC
