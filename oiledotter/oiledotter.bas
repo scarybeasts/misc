@@ -2,7 +2,7 @@ MODE7:VDU133,157,131:PRINT"Oiled Otter v0.1":PRINT
 REM Machine code.
 D%=&7200:Z%=&70
 REM Output, track.
-O%=&FF:T%=-1
+U%=&FF:T%=-1
 REM Filesystem, drive.
 F$="DISC":F%=0
 REM Buffer.
@@ -24,6 +24,7 @@ IF A$="0" THEN PROCseek0
 IF A$="WDSK" THEN PROCwdsk:MODE7
 IF A$="TFORM" THEN PROCtform:MODE7
 IF A$="LONG" THEN PROClong:MODE7
+IF A$="FUZZ" THEN PROCfuzz:MODE7
 
 UNTIL FALSE
 
@@ -36,17 +37,17 @@ REM User port bits 0-5 output, 6-7 input.
 ENDPROC
 
 DEF PROCr(A%)
-O%=O% AND NOT A%
-?&FE60=O%
+U%=U% AND NOT A%
+?&FE60=U%
 ENDPROC
 
 DEF PROCs(A%)
-O%=O% OR A%
-?&FE60=O%
+U%=U% OR A%
+?&FE60=U%
 ENDPROC
 
 DEF PROCon
-IF (O% AND &03)=0 THEN ENDPROC
+IF (U% AND &03)=0 THEN ENDPROC
 PROCr(&03)
 PROCwait(100)
 ENDPROC
@@ -105,6 +106,18 @@ PROCwhdr(1):PROCwrun(&FF,258)
 PROCwbuf
 ENDPROC
 
+DEF PROCfuzz
+W%=B%
+PROCwhdr(0)
+FOR I%=0 TO 31
+J%=&2000+I%*32
+K%=(J% AND &FF00) DIV 256
+PROCwraw(K%,J%,1)
+NEXT
+PROCwrun(&FF,256)
+PROCwbuf
+ENDPROC
+
 DEF PROCwhdr(A%)
 PROCwrun(&FF,16):PROCwrun(&00,6)
 PROCwraw(&29,&00,1):PROCwraw(&29,&20,1)
@@ -123,7 +136,7 @@ FOR I%=1 TO X%:?W%=K%:?(W%+1)=J%:?(W%+2)=M%:?(W%+3)=L%:W%=W%+4:NEXT
 ENDPROC
 
 DEF PROCwraw(A%,X%,Y%)
-FOR I%=1 TO Y%:?W%=A%:?(W%+1)=X%:W%=W%+2:NEXT
+FOR M%=1 TO Y%:?W%=A%:?(W%+1)=X%:W%=W%+2:NEXT
 ENDPROC
 
 DEF PROCwbuf
@@ -204,4 +217,18 @@ REM Long track, data &FF, 10 pulses (normally 8)
 REM Long track, data &FF, 9 pulses (normally 8)
 !&7DC0=&0F0000FF:!&7DC4=&7F0000F0:!&7DC8=&F8070080:!&7DCC=&C03F0000
 !&7DD0=&00FC0300:!&7DD4=&00E01F00:!&7DD8=&0000FE01:!&7DDC=&0000F00F
+REM Fuzzy bits.
+A%=&3C00
+!A%=&0F:!(A%+8)=&0F:!(A%+16)=&0F:!(A%+24)=&0F
+!(A%+4)=&0F:!(A%+12)=0:!(A%+20)=0:!(A%+28)=0
+A%=A%+32
+J%=0:K%=0:L%=&80
+FOR I%=1 TO 31
+!A%=&0F:!(A%+8)=&0F:!(A%+16)=&0F:!(A%+24)=&0F
+!(A%+4)=!(A%-28):!(A%+12)=0:!(A%+20)=0:!(A%+28)=0
+K%=K% OR L%:L%=L%/2
+?(A%+5+J%)=K%
+IF K%=&FF THEN J%=J%+1:K%=0:L%=&80
+A%=A%+32
+NEXT
 ENDPROC
