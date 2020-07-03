@@ -25,6 +25,7 @@ IF A$="WDSK" THEN PROCwdsk:MODE7
 IF A$="TFORM" THEN PROCtform:MODE7
 IF A$="LONG" THEN PROClong:MODE7
 IF A$="FUZZ" THEN PROCfuzz:MODE7
+IF A$="WEAK" THEN PROCweak:MODE7
 
 UNTIL FALSE
 
@@ -118,6 +119,19 @@ PROCwrun(&FF,256)
 PROCwbuf
 ENDPROC
 
+DEF PROCweak
+W%=B%
+PROCwhdr(0)
+FOR I%=0 TO 64
+PROCwrun(&FF,1)
+PROCwraw(&29,&80,2)
+PROCwrun(&00,1)
+PROCwraw(&29,&80,2)
+NEXT
+PROCwrun(&FF,16)
+PROCwbuf
+ENDPROC
+
 DEF PROCwhdr(A%)
 PROCwrun(&FF,16):PROCwrun(&00,6)
 PROCwraw(&29,&00,1):PROCwraw(&29,&20,1)
@@ -132,11 +146,11 @@ J%=&2A00+(A% AND &F0)*2
 K%=(J% AND &FF00) DIV 256
 L%=&2A00+(A% AND &0F)*32
 M%=(L% AND &FF00) DIV 256
-FOR I%=1 TO X%:?W%=K%:?(W%+1)=J%:?(W%+2)=M%:?(W%+3)=L%:W%=W%+4:NEXT
+FOR N%=1 TO X%:?W%=K%:?(W%+1)=J%:?(W%+2)=M%:?(W%+3)=L%:W%=W%+4:NEXT
 ENDPROC
 
 DEF PROCwraw(A%,X%,Y%)
-FOR M%=1 TO Y%:?W%=A%:?(W%+1)=X%:W%=W%+2:NEXT
+FOR N%=1 TO Y%:?W%=A%:?(W%+1)=X%:W%=W%+2:NEXT
 ENDPROC
 
 DEF PROCwbuf
