@@ -245,7 +245,9 @@ IF FNcrcerr(I%) THEN K%=0
 IF FNidtrk(I%)=0 AND T%<>0 THEN K%=0
 L%=FNrsiz(I%)+1
 M%=FNsaddr(I%)
+N%=?M%:?M%=N% OR &F0
 IF K%=1 THEN PROCcrca32(M%,L%,C%)
+?M%=N%
 NEXT
 PROCcrcf32(C%)
 ENDPROC
@@ -380,7 +382,7 @@ K%=B%+&E0+I%
 M%=FNssize(?K%)
 REM Tag size / CRC mismatches.
 IF ?K%<>FNidsiz(I%) THEN ?K%=(?K%)+&40
-N%=?L%:?L%=?L% OR &F0:PROCcrc16(L%,M%+1):?L%=N%
+N%=?L%:?L%=N% OR &F0:PROCcrc16(L%,M%+1):?L%=N%
 L%=L%+M%+1:S%=?L%*256+?(L%+1)
 IF R%<>S% THEN ?K%=(?K%)+&80:?(B%+8)=1
 ENDPROC
