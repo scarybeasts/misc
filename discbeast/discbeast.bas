@@ -242,7 +242,8 @@ IF J%=0 THEN !C%=0:ENDPROC
 FOR I%=0 TO J%-1
 K%=1
 IF FNcrcerr(I%) THEN K%=0
-IF FNidtrk(I%)=0 AND T%<>0 THEN K%=0
+L%=FNidtrk(I%)
+IF L%=&FF OR (L%=0 AND T%<>0) THEN K%=0
 L%=FNrsiz(I%)+1
 M%=FNsaddr(I%)
 N%=?M%:?M%=N% OR &F0
@@ -398,7 +399,7 @@ R%=0:PROCs16(B%+6,S%)
 ENDPROC
 
 DEF PROCg8271
-PROCstor(B%+&200,&FF,3125)
+PROCstor(B%+&200,&FF,3125):PROCstor(&4000,0,4096)
 K%=0
 FOR I%=0 TO J%-1
 REM Write in sector header and CRC.
@@ -408,8 +409,9 @@ PROCcrc16(M%,5):?(M%+5)=(R% AND &FF00) DIV 256:?(M%+6)=R%
 M%=M%+7+17
 PROCs16(Z%+6,K%):K%=FNstime(I%):PROCs16(Z%+8,0)
 PROCbufs(&4000,&4800)
-V%(0)=FNidtrk(I%):V%(1)=FNidsec(I%):V%(2)=1:V%(3)=2048:PROCread:R%=R% AND &FF
-IF R%=&18 THEN PRINT"SECTOR READ FAILED":END
+V%(0)=FNidtrk(I%):V%(1)=FNidsec(I%):V%(2)=1:V%(3)=2048
+R%=0:IF V%(0)<>&FF AND (T%=0 OR V%(0)<>0) THEN PROCread:R%=R% AND &FF
+IF R%=&18 THEN PRINT"SECTOR READ FAILED: "+STR$~(V%(0))+" "+STR$~(V%(1)):END
 REM Copy in sector data.
 IF R% AND &20 THEN ?M%=&F8 ELSE ?M%=&FB
 M%=M%+1
