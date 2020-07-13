@@ -1,15 +1,18 @@
 General
 =======
+- Finalize HG2 fingerprint "algorithm".
+- Weak bits support (re-read tracks with CRC errors).
 
 1770
 ====
-- Read track multiple times to get more accurate track timing.
+- Read track multiple times to get more accurate track timing and track start
+sync?
 
 8271
 ====
+- Handle tightly packed sectors of Tynesoft discs.
 - Add 4096 byte read mode.
 - Read IDs multiple times to get more accurate timing (8271 has latency).
-- Check if 8271 can read logical track 0xFF, i.e. Exile disc.
 
 hfeg2hfe
 ========
