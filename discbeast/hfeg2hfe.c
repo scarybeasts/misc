@@ -307,6 +307,8 @@ convert_tracks(uint8_t* p_hfe_buf,
          */
         if ((i != 0) && (logical_track == 0)) {
           /* Ignore. */
+        } else if (logical_track == 0xFF) {
+          /* Ignore. */
         } else {
           do_crc32(&track_crc32, (p_in_track + 0x200 + pos), (length + 1));
         }
