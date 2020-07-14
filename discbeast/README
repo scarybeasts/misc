@@ -1,0 +1,140 @@
+This is discbeast.
+
+Discbeast is a disc utility for the BBC Micro series of computers. It drives
+the disc controller chip directly to offer advanced read and write
+functionality, supporting the 8271 and 1770/2 disc controllers.
+
+
+- Initialization and setup.
+The first command you need to supply is the INIT command to specify which
+drive and surface to operate on. For example:
+
+INIT 0
+(The space is optional.)
+
+Typical values for INIT will be 0-3 inclusive, mapping to the BBC's drive
+numbers.
+All being well, discbeast will report something like:
+
+OK 1770
+DRIVE 0 SPEED: 3125
+
+A lot of discs are recorded as 40 track discs, including many 40/80 track dual
+format discs. And a lot of drives are 80 track drives, most being 40/80 track
+switchable.
+If you are analyzing a 40 track disc with a 40/80 track switchable drive, it is
+best to place the drive in 80 track mode and then use double stepping:
+
+DSTP 1
+
+You will also need double stepping if you have a non-switchable 80 track drive
+operating on a 40 track disc.
+(The reason for putting a switchable drive into 80 track mode is that some
+drives prevent reading the one-past-the-end track with their internal double
+step logic, but work fine otherwise.)
+
+If you are going to be capturing and saving discs with the HFE grab tool, you
+need to set up where the resulting TRKS<n> files will be saved to. By default,
+that will be drive 1 (and 3 for 80 track captures) of the DISC filing system.
+If instead you wish to save to e.g. RAMFS, use:
+
+FSYS RAM
+
+This will execute *RAM before every *SAVE. Any FSYS string is passed verbatim
+to a * command.
+
+
+- 8271 vs. 1770 disc controller.
+
+Both the 8271 and 1770/2 disc controllers have long lists of quirks and
+headaches. But at the end of the day, the 1770 is better at seeing more of the
+disc surface than the 8271.
+
+Disc captures should be done with a 1770. (The 8271 capture code is less capable
+at this time, and also much more experimental.)
+
+Some examples of things the 1770 can see that the 8271 can't, or can't easily:
+a) Accurate track length. (Western Security protection.)
+b) Sectors where the header has a CRC error. (Elite duplication markers.)
+c) Accurate first sector header start position.
+d) Sectors with logical track 0, but not physical track 0.
+e) Sectors with logical track 255.
+
+The disc fingerprinting is designed so that it should work equally on an 8271
+or 1770 based system.
+
+
+- Basic commands.
+
+TIME            - re-check and display drive rotation timing
+SEEK 7          - seek to track 7
+RIDS            - read and display sector headers of current track
+READ 7 3 1 256  - read logical track 7, logical sector 3, 1 sector total,
+                  with 256 byte sectors, and display result
+DUMP &80        - dump latest read buffer from offset hex 0x80
+RTRK            - read current track fully (1770 only)
+DTRK            - dump details about current track
+
+
+- Disc fingerprinting.
+
+One of the primary goals of discbeast is to permit owners of original discs to
+quickly "fingerprint" them to see if their disc is known to the community or
+not. This is to assist in thorough archival of as many discs and variants as
+possible.
+In particular, at the time of writing, the BBC Micro community has not engaged
+in a structured attempt at archiving original discs. This is a problem as many
+original discs are becoming lost, or rotting away. 
+
+This is the command to fingerprint a disc:
+
+DCRC (if 40 track)
+DCRC 80 (if 80 track)
+
+All being well, it'll crank away for a while, displaying a CRC for each track
+and finally a grand total CRC such as:
+
+DISC CRC32 DDDB3CB9
+
+The fingerprint is based on the sector bytes for cleanly defined sectors (no
+on-disc CRC errors, no sectors that an 8271 can't read). It doesn't include
+inter-sector GAP bytes, or sector header bytes. The rationale here is that
+any significant change in inter-sector GAP bytes is likely to also come along
+with a significant change in the sector data to do the updated check.
+Put another way, the CRC32 aims to be as simple as stable as possible while
+still having great chances to catch any difference of significance.
+
+
+- Disc capturing.
+
+In an ideal world, we'd capture all variants of all BBC discs with accurate
+modern solutions such as a GreaseWeazle.
+However, not everyone has a GreaseWeazle. But a lot of people have BBCs with
+disc drives as well as a collection of original discs. The good news is that
+the BBC itself is capable of directly capturing protected discs -- even tricky
+ones! (Even if a disc is protected, it still has to readable otherwise you have
+problems.) When captured with a 1770 disc controller, the resulting images have
+pretty good fidelity.
+
+To capture a disc, make sure you've read the "Initialization and setup" section
+above, particularly noting to switch your drive to 80 track mode no matter
+what, and understanding where the capture files will be written.
+
+Kicking off a capture is pretty easy:
+
+HFEG 0 40 (if 40 track disc)
+HFEG 0 80 (if 80 track disc)
+
+or to run the capture without writing output files, append a 0 parameter, e.g.
+HFEG 0 40 0
+
+A bunch of files starting with TRKS will be written, 8kB each and containing
+2 tracks each. These TRKS files can be rebuilt into an HFE file with C program
+hfeg2hfe.c. Just run that executable with the working directory set to where
+the series of TRKS files reside.
+
+TRKS files occupy more space that the source tracks, so if the destination
+is another disc (a Gotek drive perhaps), plan appropriately. A 40 track capture
+needs an 80 track destination disc, and an 80 track capture needs a double
+sided 80 track destination disc.
+
