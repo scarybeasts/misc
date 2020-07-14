@@ -1,5 +1,5 @@
 #include <assert.h>
-#include <err.h>
+#include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,6 +14,22 @@ static const int k_hfe_blocks_per_track = 50;
 static const int k_max_track_length = 3190;
 
 static const int k_standard_track_length = 3125;
+
+static void
+bail(const char* p_msg, ...) {
+  va_list args;
+  char msg[256];
+
+  va_start(args, p_msg);
+  msg[0] = '\0';
+  (void) vsnprintf(msg, sizeof(msg), p_msg, args);
+  va_end(args);
+
+  (void) fprintf(stderr, "BAILING: %s\n", msg);
+
+  exit(1);
+  /* Not reached. */
+}
 
 static uint16_t
 get16(uint8_t* p_buf) {
@@ -140,10 +156,10 @@ load_trks_files(uint8_t* p_buf, const char* p_path_prefix) {
   for (i = 0; i <= 80; i += 2) {
     if (!(i & 1)) {
       (void) snprintf(path, sizeof(path), "%s/TRKS%d", p_path_prefix, i);
-      f = fopen(path, "r");
+      f = fopen(path, "rb");
       if (f == NULL) {
         (void) snprintf(path, sizeof(path), "%s/$.TRKS%d", p_path_prefix, i);
-        f = fopen(path, "r");
+        f = fopen(path, "rb");
         if (f == NULL) {
           return num_tracks;
         }
@@ -151,13 +167,13 @@ load_trks_files(uint8_t* p_buf, const char* p_path_prefix) {
       fread_ret = fread(p_buf, 8192, 1, f);
       ret = fclose(f);
       if (ret != 0) {
-        errx(1, "fclose failed");
+        bail("fclose failed");
       }
       if (fread_ret != 1) {
-        errx(1, "incorrect TRKS file size");
+        bail("incorrect TRKS file size");
       }
       if (p_buf[0] == 0) {
-        errx(1, "empty TRKS file");
+        bail("empty TRKS file");
       }
       num_tracks++;
       if (p_buf[4096] == 0) {
@@ -167,6 +183,8 @@ load_trks_files(uint8_t* p_buf, const char* p_path_prefix) {
       p_buf += 8192;
     }
   }
+
+  return num_tracks;
 }
 
 static void
@@ -174,7 +192,7 @@ fixup_marker(uint8_t* p_track_data, uint32_t pos) {
   uint32_t i;
 
   if (pos < 6) {
-    errx(1, "marker too early");
+    bail("marker too early");
   }
   p_track_data[pos] |= 0xF0;
   if ((p_track_data[pos - 1] != 0) ||
@@ -222,11 +240,11 @@ convert_tracks(uint8_t* p_hfe_buf,
     }
 
     if (p_in_track[1] != i) {
-      errx(1, "mismatched track number");
+      bail("mismatched track number");
     }
     num_sectors = p_in_track[5];
     if (num_sectors > 32) {
-      errx(1, "excessive number of sectors");
+      bail("excessive number of sectors");
     }
     track_length = get16(p_in_track + 6);
     /* The track length may not have been stored, depending on controller chip
@@ -236,7 +254,7 @@ convert_tracks(uint8_t* p_hfe_buf,
       track_length = k_standard_track_length;
     }
     if ((track_length < 3000) || (track_length > 3190)) {
-      errx(1, "bad track length");
+      bail("bad track length");
     }
 
     p_track_lengths[i] = track_length;
@@ -244,7 +262,6 @@ convert_tracks(uint8_t* p_hfe_buf,
     /* Build a list of where the markers are and check CRCs. */
     (void) memset(is_marker, '\0', sizeof(is_marker));
     for (j = 0; j < num_sectors; ++j) {
-      uint32_t k;
       uint16_t pos;
       uint16_t crc16_calc;
       uint16_t crc16_disc;
@@ -254,12 +271,12 @@ convert_tracks(uint8_t* p_hfe_buf,
       /* Sector header. */
       pos = get16(p_in_track + 0x100 + (j * 2));
       if (is_marker[pos]) {
-        errx(1, "overlapping marker");
+        bail("overlapping marker");
       }
       is_marker[pos] = 1;
       data = p_in_track[0x200 + pos];
       if ((data != 0xFE) && (data != 0xCE)) {
-        errx(1, "bad header marker byte 0x%.2X", data);
+        bail("bad header marker byte 0x%.2X", data);
       }
       fixup_marker(&p_in_track[0x200], pos);
       crc16_calc = 0xFFFF;
@@ -275,7 +292,7 @@ convert_tracks(uint8_t* p_hfe_buf,
       /* Sector data. */
       pos = get16(p_in_track + 0x140 + (j * 2));
       if (is_marker[pos]) {
-        errx(1, "overlapping marker");
+        bail("overlapping marker");
       }
       is_marker[pos] = 1;
       data = p_in_track[0x200 + pos];
@@ -283,12 +300,12 @@ convert_tracks(uint8_t* p_hfe_buf,
           (data != 0xC8) &&
           (data != 0xFB) &&
           (data != 0xCB)) {
-        errx(1, "bad data marker byte 0x%.2X", data);
+        bail("bad data marker byte 0x%.2X", data);
       }
       fixup_marker(&p_in_track[0x200], pos);
       length = (p_in_track[0xe0 + j] & 7);
       if (length > 4) {
-        errx(1, "bad real sector length");
+        bail("bad real sector length");
       }
       length = (128 << length);
       crc16_calc = 0xFFFF;
@@ -400,7 +417,7 @@ main(int argc, const char* argv[]) {
   }
   (void) printf("Tracks: %d\n", num_tracks);
   if (num_tracks == 0) {
-    errx(1, "no tracks");
+    bail("no tracks");
   }
 
   if (num_tracks_drv2 > 0) {
@@ -420,7 +437,7 @@ main(int argc, const char* argv[]) {
   } else if (trks_buf_drv0[0] == 2) {
     p_capture_chip = "1770";
   } else {
-    errx(1, "unknown capture chip");
+    bail("unknown capture chip");
   }
   (void) printf("Captured with: %s\n", p_capture_chip);
   (void) printf("Drive speed: %d\n", get16(&trks_buf_drv0[2]));
@@ -452,7 +469,7 @@ main(int argc, const char* argv[]) {
 
   /* Write HFEv3 header. */
   (void) memset(hfe_buf, '\xff', 512);
-  (void) strcpy(hfe_buf, "HXCHFEV3");
+  (void) strcpy((char*) hfe_buf, "HXCHFEV3");
   /* Revision 0. */
   hfe_buf[8] = 0;
   /* Number of tracks. */
@@ -473,18 +490,18 @@ main(int argc, const char* argv[]) {
   hfe_buf[18] = 1;
   hfe_buf[19] = 0;
 
-  f = fopen("out.hfe", "w");
+  f = fopen("out.hfe", "wb");
   if (f == NULL) {
-    errx(1, "couldn't open output file");
+    bail("couldn't open output file");
   }
   hfe_length = ((num_tracks * k_hfe_blocks_per_track * 512) + 1024);
   fwrite_ret = fwrite(hfe_buf, hfe_length, 1, f);
   if (fwrite_ret != 1) {
-    errx(1, "fwrite failed");
+    bail("fwrite failed");
   }
   ret = fclose(f);
   if (ret != 0) {
-    errx(1, "fclose failed");
+    bail("fclose failed");
   }
 
   exit(0);
