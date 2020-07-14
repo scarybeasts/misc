@@ -232,7 +232,7 @@ convert_tracks(uint8_t* p_hfe_buf,
     /* The track length may not have been stored, depending on controller chip
      * and whether the track is formatted or not.
      */
-    if (track_length == 0) {
+    if ((track_length == 0) || (p_in_track[4] == 0x18)) {
       track_length = k_standard_track_length;
     }
     if ((track_length < 3000) || (track_length > 3190)) {
