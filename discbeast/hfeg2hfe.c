@@ -7,13 +7,13 @@
 
 static int s_is_verbose;
 
-static const int k_max_num_tracks = 82;
+static const uint32_t k_max_num_tracks = 82;
 /* Each block is 512 bytes, 256 per side. */
-static const int k_hfe_blocks_per_track = 50;
+static const uint32_t k_hfe_blocks_per_track = 50;
 /* NOTE: cannot be increased without re-evaluating k_hfe_blocks_per_track. */
-static const int k_max_track_length = 3190;
+static const uint32_t k_max_track_length = 3190;
 
-static const int k_standard_track_length = 3125;
+static const uint32_t k_standard_track_length = 3125;
 
 static void
 bail(const char* p_msg, ...) {
