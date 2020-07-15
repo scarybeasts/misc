@@ -379,7 +379,7 @@ main(int argc, const char* argv[]) {
   uint8_t trks_buf_drv2[k_max_num_tracks * 4096];
   uint32_t track_lengths_drv0[k_max_num_tracks];
   uint32_t track_lengths_drv2[k_max_num_tracks];
-  uint8_t hfe_buf[(k_max_num_tracks * k_hfe_blocks_per_track * 512) + 1024];
+  uint8_t* p_hfe_buf;
   size_t fwrite_ret;
   int ret;
   uint32_t hfe_length;
@@ -391,6 +391,10 @@ main(int argc, const char* argv[]) {
   uint32_t num_tracks_drv0 = 0;
   uint32_t num_tracks_drv2 = 0;
   const char* p_capture_chip = NULL;
+  uint32_t hfe_buf_size = ((k_max_num_tracks * k_hfe_blocks_per_track * 512) +
+                           1024);
+
+  p_hfe_buf = malloc(hfe_buf_size);
 
   for (i = 0; i < (uint32_t) argc; ++i) {
     if (!strcmp(argv[i], "-v")) {
@@ -402,7 +406,7 @@ main(int argc, const char* argv[]) {
   (void) memset(trks_buf_drv2, '\0', sizeof(trks_buf_drv2));
   (void) memset(track_lengths_drv0, '\0', sizeof(track_lengths_drv0));
   (void) memset(track_lengths_drv2, '\0', sizeof(track_lengths_drv2));
-  (void) memset(hfe_buf, '\0', sizeof(hfe_buf));
+  (void) memset(p_hfe_buf, '\0', hfe_buf_size);
 
   num_tracks_drv0 = load_trks_files(trks_buf_drv0, "drv0");
   if (num_tracks_drv0) {
@@ -442,14 +446,14 @@ main(int argc, const char* argv[]) {
   (void) printf("Captured with: %s\n", p_capture_chip);
   (void) printf("Drive speed: %d\n", get16(&trks_buf_drv0[2]));
 
-  convert_tracks(hfe_buf,
+  convert_tracks(p_hfe_buf,
                  track_lengths_drv0,
                  0,
                  trks_buf_drv0,
                  do_expand_drv0,
                  num_tracks_drv0);
   if (num_tracks_drv2 > 0) {
-    convert_tracks(hfe_buf,
+    convert_tracks(p_hfe_buf,
                    track_lengths_drv2,
                    1,
                    trks_buf_drv2,
@@ -463,39 +467,39 @@ main(int argc, const char* argv[]) {
     if (track_lengths_drv2[i] > track_length) {
       track_length = track_lengths_drv2[i];
     }
-    put16((hfe_buf + 512 + (i * 4)), (2 + (i * k_hfe_blocks_per_track)));
-    put16((hfe_buf + 512 + (i * 4) + 2), ((track_length * 8) + 6));
+    put16((p_hfe_buf + 512 + (i * 4)), (2 + (i * k_hfe_blocks_per_track)));
+    put16((p_hfe_buf + 512 + (i * 4) + 2), ((track_length * 8) + 6));
   }
 
   /* Write HFEv3 header. */
-  (void) memset(hfe_buf, '\xff', 512);
-  (void) strcpy((char*) hfe_buf, "HXCHFEV3");
+  (void) memset(p_hfe_buf, '\xff', 512);
+  (void) strcpy((char*) p_hfe_buf, "HXCHFEV3");
   /* Revision 0. */
-  hfe_buf[8] = 0;
+  p_hfe_buf[8] = 0;
   /* Number of tracks. */
-  hfe_buf[9] = num_tracks;
+  p_hfe_buf[9] = num_tracks;
   /* 1 or 2 sides. */
-  hfe_buf[10] = num_sides;
+  p_hfe_buf[10] = num_sides;
   /* IBM FM encoding. */
-  hfe_buf[11] = 2;
+  p_hfe_buf[11] = 2;
   /* 250kbit. */
-  hfe_buf[12] = 0xFA;
-  hfe_buf[13] = 0;
+  p_hfe_buf[12] = 0xFA;
+  p_hfe_buf[13] = 0;
   /* 300rpm. */
-  hfe_buf[14] = 0x2C;
-  hfe_buf[15] = 0x1;
+  p_hfe_buf[14] = 0x2C;
+  p_hfe_buf[15] = 0x1;
   /* Shugart interface. */
-  hfe_buf[16] = 7;
+  p_hfe_buf[16] = 7;
   /* 1 == 512 byte LUT offset. */
-  hfe_buf[18] = 1;
-  hfe_buf[19] = 0;
+  p_hfe_buf[18] = 1;
+  p_hfe_buf[19] = 0;
 
   f = fopen("out.hfe", "wb");
   if (f == NULL) {
     bail("couldn't open output file");
   }
   hfe_length = ((num_tracks * k_hfe_blocks_per_track * 512) + 1024);
-  fwrite_ret = fwrite(hfe_buf, hfe_length, 1, f);
+  fwrite_ret = fwrite(p_hfe_buf, hfe_length, 1, f);
   if (fwrite_ret != 1) {
     bail("fwrite failed");
   }
@@ -503,6 +507,8 @@ main(int argc, const char* argv[]) {
   if (ret != 0) {
     bail("fclose failed");
   }
+
+  free(p_hfe_buf);
 
   exit(0);
 }
