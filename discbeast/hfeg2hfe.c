@@ -212,8 +212,10 @@ convert_tracks(uint8_t* p_hfe_buf,
                uint32_t num_tracks) {
   uint32_t i;
   uint32_t expand_factor;
+  uint32_t beeb_crc32;
 
   uint32_t disc_crc32 = 0xFFFFFFFF;
+  uint8_t* p_in_track = NULL;
 
   expand_factor = 1;
   if (do_expand) {
@@ -229,10 +231,12 @@ convert_tracks(uint8_t* p_hfe_buf,
     uint32_t hfe_track_pos;
     uint8_t clocks;
     uint8_t data;
+    uint8_t* p_out_track;
 
     uint32_t track_crc32 = 0xFFFFFFFF;
-    uint8_t* p_in_track = (p_trks_buf + (i * 4096));
-    uint8_t* p_out_track = p_hfe_buf;
+
+    p_in_track = (p_trks_buf + (i * 4096));
+    p_out_track = p_hfe_buf;
     p_out_track += 1024;
     p_out_track += (i * expand_factor * k_hfe_blocks_per_track * 512);
     if (is_second_side) {
@@ -334,6 +338,13 @@ convert_tracks(uint8_t* p_hfe_buf,
 
     /* Update disc CRC32. */
     track_crc32 = ~track_crc32;
+    beeb_crc32 = p_in_track[12];
+    beeb_crc32 += (p_in_track[13] << 8);
+    beeb_crc32 += (p_in_track[14] << 16);
+    beeb_crc32 += (p_in_track[15] << 24);
+    if (beeb_crc32 != track_crc32) {
+      bail("beeb track CRC32 %.4X doesn't match %.4X", beeb_crc32, track_crc32);
+    }
     if (s_is_verbose) {
       (void) printf("Track %d sectors %d length %d CRC32 %X\n",
                     i,
@@ -368,6 +379,13 @@ convert_tracks(uint8_t* p_hfe_buf,
     }
   }
   disc_crc32 = ~disc_crc32;
+  beeb_crc32 = p_in_track[28];
+  beeb_crc32 += (p_in_track[29] << 8);
+  beeb_crc32 += (p_in_track[30] << 16);
+  beeb_crc32 += (p_in_track[31] << 24);
+  if (beeb_crc32 != disc_crc32) {
+    bail("beeb disc CRC32 %.4X doesn't match %.4X", beeb_crc32, disc_crc32);
+  }
   (void) printf("Disc CRC32: %X\n", disc_crc32);
 }
 
