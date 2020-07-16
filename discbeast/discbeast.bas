@@ -170,7 +170,7 @@ IF S%=0 THEN ENDPROC
 REM Timing based sector sizes.
 FOR I%=0 TO S%-1
 IF I%=S%-1 THEN L%=J% ELSE L%=FNg16(K%+(I%+1)*2)
-L%=L%-FNg16(K%+I%*2)
+L%=L%-FNg16(K%+I%*2)-24
 A%=4
 IF L%<2048 THEN A%=3
 IF L%<1024 THEN A%=2
