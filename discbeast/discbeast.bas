@@ -166,18 +166,6 @@ FOR I%=0 TO 31
 L%=FNg16(K%+I%*2)
 IF L%>0 AND L%<J% THEN S%=S%+1 ELSE I%=31
 NEXT
-IF S%=0 THEN ENDPROC
-REM Timing based sector sizes.
-FOR I%=0 TO S%-1
-IF I%=S%-1 THEN L%=J% ELSE L%=FNg16(K%+(I%+1)*2)
-L%=L%-FNg16(K%+I%*2)-24
-A%=4
-IF L%<2048 THEN A%=3
-IF L%<1024 THEN A%=2
-IF L%<512 THEN A%=1
-IF L%<256 THEN A%=0
-?(K%+64+I%)=A%
-NEXT
 ENDPROC
 
 DEF PROCrw(I%)
@@ -354,8 +342,20 @@ IF R%<>0 AND G%(1)=1 THEN R%=1:ENDPROC
 IF G%(1)=1 THEN PROCg8271 ELSE PROCg1770
 IF R%<>0 THEN ENDPROC
 
-REM Parse sectors.
+REM Timing based sector sizes.
 J%=?(B%+5)
+FOR I%=0 TO J%-1
+IF I%=J%-1 THEN L%=FNtlen ELSE L%=FNcstime(I%+1)
+L%=L%-FNcstime(I%)-24
+A%=4
+IF L%<2048 THEN A%=3
+IF L%<1024 THEN A%=2
+IF L%<512 THEN A%=1
+IF L%<256 THEN A%=0
+?(B%+&E0+I%)=A%
+NEXT
+
+REM Parse sectors.
 FOR I%=0 TO J%-1
 IF I%=0 THEN M%=FNcstime(I%)-1 ELSE M%=FNg16(B%+&100+(I%-1)*2)+FNcstime(I%)-FNcstime(I%-1)
 P%=!(B%+&20+I%*4)
@@ -424,7 +424,7 @@ IF I%=J%-1 THEN L%=3328 ELSE L%=FNcstime(I%+1)
 L%=L%-(M%-B%-&200)
 PROCcopy(M%,&4000,L%)
 NEXT
-R%=0
+R%=0:PROCs16(B%+6,3125)
 ENDPROC
 
 DEF PROCwait(A%)
@@ -458,7 +458,6 @@ DEF FNtlen:=FNg16(B%+6)
 
 DEF FNcstime(A%)
 A%=FNstime(A%)
-X%=FNtlen:IF X%=0 THEN X%=3125
-=(3125/FNdrvspd)*(X%/3125)*A%
+=A%*(FNtlen/FNdrvspd)
 
 DEF FNdrvspd:=FNg16(Z%+4)
