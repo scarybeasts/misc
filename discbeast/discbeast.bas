@@ -266,17 +266,21 @@ V%(7)=V%(0)
 IF V%(7)=-1 THEN V%(7)=40
 FOR T%=0 TO V%(7)
 IF (T% AND 3)=0 THEN PRINT:PRINT STR$(T%);
-V%(4)=5
-REPEAT
-V%(4)=V%(4)-1
-PROCtrk
-IF R%<>0 THEN PRINT"(RETRY) ";:PROCwait(200):I%=T%:T%=0:PROCseek:T%=I%:PROCseek
-UNTIL R%=0 OR V%(4)=0
-PROCcrca32(C%,4,C%+4)
+PROCretry
 IF R%>1 THEN T%=V%(7) ELSE PRINT" "+STR$~(!C%);
 NEXT
 PRINT:IF R%>1 THEN PRINT"FAIL" ELSE PROCcrcf32(C%+4):PROCpcrc
 B%=&4000
+ENDPROC
+
+DEF PROCretry
+V%(4)=5
+REPEAT
+V%(4)=V%(4)-1
+PROCtrk
+IF R%<>0 THEN VDU7,129,33,8,8:PROCwait(100):I%=T%:T%=0:PROCseek:T%=I%:PROCseek
+UNTIL R%=0 OR V%(4)=0
+PROCcrca32(C%,4,C%+4)
 ENDPROC
 
 DEF PROChfeg
@@ -288,20 +292,13 @@ V%(7)=V%(1)
 IF V%(6)=-1 THEN V%(6)=0:V%(7)=40
 IF V%(7)=-1 THEN V%(7)=V%(6):V%(6)=0
 PRINT"TRACKS "+STR$(V%(6))+" TO "+STR$(V%(7))
-IF V%(5)<>0 THEN PRINT"SAVING TO DRIVE 1"
+IF V%(5)=0 THEN PRINT"(NOT SAVING)"
 FOR T%=V%(6) TO V%(7)
 IF (T% AND 1)=0 THEN PROCstor(&5000,0,8192)
 IF (T% MOD 10)=0 THEN PRINT:PRINT STR$(T%)+" ";
 IF T%=0 THEN PRINT" ";
 VDU135,46
-REM Retries.
-V%(4)=5
-REPEAT
-V%(4)=V%(4)-1
-PROCtrk
-IF R%<>0 THEN VDU7,8,8,129,33:PROCwait(200):I%=T%:T%=0:PROCseek:T%=I%:PROCseek
-UNTIL R%=0 OR V%(4)=0
-PROCcrca32(C%,4,C%+4)
+PROCretry
 IF R%<2 AND T%=V%(7) THEN PROCcrcf32(C%+4):!(B%+28)=!(C%+4)
 IF R%<2 THEN PROChfegy ELSE T%=V%(7)
 NEXT
