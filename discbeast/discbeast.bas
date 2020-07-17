@@ -377,13 +377,16 @@ IF R%=2 AND ?(B%+4)<>0 THEN ?(B%+4)=&18:?(B%+5)=0:R%=1
 ENDPROC
 
 DEF PROCgtrky
-K%=B%+&E0+I%
-M%=FNssize(?K%)
+K%=B%+&E0+I%:M%=?K%+1
+REM Try other sector sizes if CRC16 fails.
+REPEAT:M%=M%-1
+A%=FNssize(M%)+1
+N%=?L%:?L%=N% OR &F0:PROCcrc16(L%,A%):?L%=N%
+S%=?(L%+A%)*256+?(L%+A%+1)
+UNTIL R%=S% OR M%=0
 REM Tag size / CRC mismatches.
-IF ?K%<>FNidsiz(I%) THEN ?K%=(?K%)+&40
-N%=?L%:?L%=N% OR &F0:PROCcrc16(L%,M%+1):?L%=N%
-L%=L%+M%+1:S%=?L%*256+?(L%+1)
-IF R%<>S% THEN ?K%=(?K%)+&80:?(B%+8)=1
+IF R%=S% THEN ?K%=M% ELSE M%=?K%:?K%=(?K%)+&80:?(B%+8)=1
+IF M%<>FNidsiz(I%) THEN ?K%=(?K%)+&40
 ENDPROC
 
 DEF PROCg1770
