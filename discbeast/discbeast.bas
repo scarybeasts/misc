@@ -346,7 +346,7 @@ DEF PROCgtrk
 PROCbufs(B%+&20,B%+&A0):PROCrids
 REM More 1770 ghosts.
 IF S%=0 THEN R%=&18
-R%=R% AND &FF:?(B%+4)=R%:?(B%+5)=S%:J%=S%
+R%=R% AND &FF:?(B%+4)=R%:?(B%+5)=S%
 IF R%=&18 THEN R%=0:ENDPROC
 
 IF R%<>0 THEN ?(B%+8)=1
@@ -354,7 +354,8 @@ IF R%<>0 AND G%(1)=1 THEN R%=1:ENDPROC
 IF G%(1)=1 THEN PROCg8271 ELSE PROCg1770
 IF R%<>0 THEN ENDPROC
 
-REM Find sectors in raw track.
+REM Parse sectors.
+J%=?(B%+5)
 FOR I%=0 TO J%-1
 IF I%=0 THEN M%=FNcstime(I%)-1 ELSE M%=FNg16(B%+&100+(I%-1)*2)+FNcstime(I%)-FNcstime(I%-1)
 P%=!(B%+&20+I%*4)
@@ -386,11 +387,18 @@ IF R%<>S% THEN ?K%=(?K%)+&80:?(B%+8)=1
 ENDPROC
 
 DEF PROCg1770
-FOR I%=1 TO 4
-PROCbufs(B%+&200,B%+&180)
-PROCrtrk:R%=R% AND &FF
-IF G%(2) AND R%<>0 THEN PRINT"DBUG: RTRK":PROCres
-IF R%=0 THEN I%=4
+FOR I%=1 TO 32
+FOR J%=1 TO 4
+PROCbufs(B%+&200,B%+&180):PROCrtrk:R%=R% AND &FF
+IF R%<>0 THEN PRINT"RTRK!":PROCres
+IF R%=0 THEN J%=4
+NEXT
+K%=0
+FOR J%=&202 TO &240
+IF ?(B%+J%)=&CE THEN K%=1:J%=&240
+IF ?(B%+J%)=&FE AND ?(B%+J%-2)=0 THEN J%=&240
+NEXT
+IF K%=0 THEN I%=32
 NEXT
 R%=0:PROCs16(B%+6,S%)
 ENDPROC
