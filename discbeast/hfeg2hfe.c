@@ -6,6 +6,7 @@
 #include <string.h>
 
 static int s_is_verbose;
+static int s_is_no_check_beeb_crc;
 
 static const uint32_t k_max_num_tracks = 82;
 /* Each block is 512 bytes, 256 per side. */
@@ -342,7 +343,7 @@ convert_tracks(uint8_t* p_hfe_buf,
     beeb_crc32 += (p_in_track[13] << 8);
     beeb_crc32 += (p_in_track[14] << 16);
     beeb_crc32 += (p_in_track[15] << 24);
-    if (beeb_crc32 != track_crc32) {
+    if (!s_is_no_check_beeb_crc && (beeb_crc32 != track_crc32)) {
       bail("beeb track CRC32 %.4X doesn't match %.4X", beeb_crc32, track_crc32);
     }
     if (s_is_verbose) {
@@ -383,7 +384,7 @@ convert_tracks(uint8_t* p_hfe_buf,
   beeb_crc32 += (p_in_track[29] << 8);
   beeb_crc32 += (p_in_track[30] << 16);
   beeb_crc32 += (p_in_track[31] << 24);
-  if (beeb_crc32 != disc_crc32) {
+  if (!s_is_no_check_beeb_crc && (beeb_crc32 != disc_crc32)) {
     bail("beeb disc CRC32 %.4X doesn't match %.4X", beeb_crc32, disc_crc32);
   }
   (void) printf("Disc CRC32: %X\n", disc_crc32);
@@ -417,6 +418,8 @@ main(int argc, const char* argv[]) {
   for (i = 0; i < (uint32_t) argc; ++i) {
     if (!strcmp(argv[i], "-v")) {
       s_is_verbose = 1;
+    } else if (!strcmp(argv[i], "-n")) {
+      s_is_no_check_beeb_crc = 1;
     }
   }
 
