@@ -226,6 +226,7 @@ convert_tracks(uint8_t* p_hfe_buf,
 
   for (i = 0; i < num_tracks; ++i) {
     uint8_t is_marker[k_max_track_length];
+    uint8_t is_weak[k_max_track_length];
     uint32_t num_sectors;
     uint32_t track_length;
     uint32_t j;
@@ -264,8 +265,9 @@ convert_tracks(uint8_t* p_hfe_buf,
 
     p_track_lengths[i] = track_length;
 
-    /* Build a list of where the markers are and check CRCs. */
+    /* Build a list of where the markers are and check CRCs / weak bits. */
     (void) memset(is_marker, '\0', sizeof(is_marker));
+    (void) memset(is_weak, '\0', sizeof(is_weak));
     for (j = 0; j < num_sectors; ++j) {
       uint16_t pos;
       uint16_t crc16_calc;
@@ -335,6 +337,19 @@ convert_tracks(uint8_t* p_hfe_buf,
           do_crc32(&track_crc32, (p_in_track + 0x200 + pos), (length + 1));
         }
       }
+
+      /* Weak bits. */
+      if (p_in_track[0xE0 + j] & 0x20) {
+        uint32_t k;
+        uint32_t weak_index = get16(p_in_track + 0xf00 + (j * 2));
+        (void) printf("Weak bits index %d, physical track / sector %d / %d\n",
+                      weak_index,
+                      i,
+                      j);
+        for (k = weak_index; k < length; ++k) {
+          is_weak[pos + 1 + k] = 1;
+        }
+      }
     }
 
     /* Update disc CRC32. */
@@ -367,16 +382,23 @@ convert_tracks(uint8_t* p_hfe_buf,
     for (j = 0; j < track_length; ++j) {
       uint8_t hfe_bits[4];
 
-      clocks = 0xFF;
-      data = p_in_track[0x200 + j];
-      if (is_marker[j]) {
-        clocks = 0xC7;
+      if (is_weak[j]) {
+        uint32_t k;
+        for (k = 0; k < 4; ++k) {
+          hfe_add(p_out_track, &hfe_track_pos, flip(0xF4));
+        }
+      } else {
+        clocks = 0xFF;
+        data = p_in_track[0x200 + j];
+        if (is_marker[j]) {
+          clocks = 0xC7;
+        }
+        hfe_convert_to_bits(hfe_bits, data, clocks);
+        hfe_add(p_out_track, &hfe_track_pos, hfe_bits[0]);
+        hfe_add(p_out_track, &hfe_track_pos, hfe_bits[1]);
+        hfe_add(p_out_track, &hfe_track_pos, hfe_bits[2]);
+        hfe_add(p_out_track, &hfe_track_pos, hfe_bits[3]);
       }
-      hfe_convert_to_bits(hfe_bits, data, clocks);
-      hfe_add(p_out_track, &hfe_track_pos, hfe_bits[0]);
-      hfe_add(p_out_track, &hfe_track_pos, hfe_bits[1]);
-      hfe_add(p_out_track, &hfe_track_pos, hfe_bits[2]);
-      hfe_add(p_out_track, &hfe_track_pos, hfe_bits[3]);
     }
   }
   disc_crc32 = ~disc_crc32;

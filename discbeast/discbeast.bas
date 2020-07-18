@@ -3,8 +3,6 @@ REM DISCBEAST code and zero page.
 D%=&7000+&100:Z%=&70
 REM UTILS base and zero page.
 U%=&7A00:W%=&50
-REM Read/write buffers. 4k x3.
-B%=&4000
 REM Command params, globals.
 DIM V%(8),G%(6)
 REM For OSWORD.
@@ -30,7 +28,8 @@ P$=RIGHT$(P$,LEN(P$)-J%)
 UNTIL LEN(P$)=0
 P%=I%
 
-PROCbufs(B%,B%+4096):PROCs16(Z%+6,G%(3)):PROCs16(Z%+8,-G%(4))
+REM Buffers. &4700-&6FFF.
+B%=&5000:PROCbufs(B%,B%+4096):PROCs16(Z%+6,G%(3)):PROCs16(Z%+8,-G%(4))
 IF A$="INIT" THEN PROCsetup
 IF A$="OWRD" THEN PROCowrd
 IF A$="DUMP" THEN PROCdump(V%(0))
@@ -115,6 +114,12 @@ DEF PROCcopy(A%,X%,Y%)
 PROCs16(W%,A%):PROCs16(W%+2,X%)
 Y%=-Y%:PROCs16(W%+4,Y%)
 CALL U%+3
+ENDPROC
+
+DEF PROCcmp(A%,X%,Y%)
+PROCs16(W%,A%):PROCs16(W%+2,X%)
+Y%=-Y%:PROCs16(W%+4,Y%)
+R%=USR(U%+12) AND &FF
 ENDPROC
 
 DEF PROCcrc16(A%,X%)
@@ -213,14 +218,13 @@ PROCtrk
 J%=?(B%+5)
 PRINT"TRACK "+STR$(T%)+" "+STR$(J%)+" SECTORS, LEN "+STR$(FNtlen)
 IF R%=2 THEN PRINT"FAIL"
-IF J%=0 THEN B%=&4000:ENDPROC
+IF J%=0 THEN ENDPROC
 FOR I%=0 TO J%-1
 IF FNcrcerr(I%) THEN VDU129:PRINT"SECTOR "+STR$(I%)+" CRC ERROR"
 IF FNsizem(I%) THEN VDU131:PRINT"SECTOR "+STR$(I%)+" SIZE MISMATCH"
 IF FNidtrk(I%)<>T% THEN VDU134:PRINT"SECTOR "+STR$(I%)+" TRACK MISMATCH"
 NEXT
 PRINT "TRACK CRC32 "+STR$~(!C%)
-B%=&4000
 ENDPROC
 
 DEF PROCtcrc
@@ -258,7 +262,6 @@ PROCretry
 IF R%>1 THEN T%=V%(7) ELSE PRINT" "+STR$~(!C%);
 NEXT
 PRINT:IF R%>1 THEN PRINT"FAIL" ELSE PROCcrcf32(C%+4):PROCpcrc
-B%=&4000
 ENDPROC
 
 DEF PROCretry
@@ -291,7 +294,6 @@ IF R%<2 AND T%=V%(7) THEN PROCcrcf32(C%+4):!(B%+28)=!(C%+4)
 IF R%<2 THEN PROChfegy ELSE T%=V%(7)
 NEXT
 PRINT:IF R%>1 THEN PRINT"FAIL" ELSE PROCpcrc
-B%=&4000
 ENDPROC
 
 DEF PROChfegy
@@ -331,7 +333,7 @@ ENDPROC
 
 DEF PROCgtrk
 ?B%=G%(1):?(B%+1)=T%:?(B%+2)=?(Z%+4):?(B%+3)=?(Z%+5)
-PROCbufs(B%+&20,B%+&A0):PROCrids
+PROCbufs(B%+&20,B%+&A0):PROCs16(Z%+6,0):PROCs16(Z%+8,0):PROCrids
 REM More 1770 ghosts.
 IF S%=0 THEN R%=&18
 R%=R% AND &FF:?(B%+4)=R%:?(B%+5)=S%
@@ -373,7 +375,30 @@ IF N%=2 THEN PROCgtrky:R%=0 ELSE R%=2:I%=J%-1
 NEXT
 IF R%=0 AND ?(B%+8)=1 THEN R%=1
 REM 1770 sees ghosts.
-IF R%=2 AND ?(B%+4)<>0 THEN ?(B%+4)=&18:?(B%+5)=0:R%=1
+IF R%=2 AND ?(B%+4)<>0 THEN ?(B%+4)=&18:?(B%+5)=0:R%=1:ENDPROC
+IF R%=0 THEN ENDPROC
+REM Check for weak bits.
+FOR I%=0 TO J%-1
+IF FNcrcerr(I%) THEN PROCweak
+NEXT
+R%=1
+ENDPROC
+
+DEF PROCweak
+PROCrsec(I%)
+IF R%<>0 AND R%<>&E THEN ENDPROC
+A%=FNrsiz(I%):X%=FNssize(FNidsiz(I%))
+IF X%<A% THEN A%=X%
+PROCcmp(&4800,FNsaddr(I%)+1,A%)
+A%=B%+&E0+I%:X%=FNg16(W%)-&4800
+IF R%<>0 THEN ?A%=?A%+&20:PROCs16(B%+&F00+I%*2,X%)
+ENDPROC
+
+DEF PROCrsec(A%)
+K%=0:IF A%>0 THEN K%=FNstime(A%)
+PROCs16(Z%+6,K%):PROCs16(Z%+8,0):PROCbufs(&4800,&4700)
+V%(0)=FNidtrk(A%):V%(1)=FNidsec(A%):V%(2)=1:V%(3)=FNssize(FNidsiz(A%))
+PROCread:R%=R% AND &FF
 ENDPROC
 
 DEF PROCgtrky
@@ -407,7 +432,7 @@ R%=0:PROCs16(B%+6,S%)
 ENDPROC
 
 DEF PROCg8271
-PROCstor(B%+&200,&FF,3125):PROCstor(&4000,0,4096)
+PROCstor(B%+&200,&FF,3125):PROCstor(&4700,0,2304)
 K%=0
 FOR I%=0 TO J%-1
 REM Write in sector header and CRC.
@@ -416,7 +441,7 @@ M%=B%+&200+FNcstime(I%)-1
 PROCcrc16(M%,5):?(M%+5)=(R% AND &FF00) DIV 256:?(M%+6)=R%
 M%=M%+7+17
 PROCs16(Z%+6,K%):K%=FNstime(I%):PROCs16(Z%+8,0)
-PROCbufs(&4000,&4800)
+PROCbufs(&4800,&4700)
 V%(0)=FNidtrk(I%):V%(1)=FNidsec(I%):V%(2)=1:V%(3)=2048
 R%=0:IF V%(0)<>&FF AND (T%=0 OR V%(0)<>0) THEN PROCread:R%=R% AND &FF
 IF R%=&18 THEN PRINT"SECTOR READ FAILED: "+STR$~(V%(0))+" "+STR$~(V%(1)):END
@@ -425,7 +450,7 @@ IF R% AND &20 THEN ?M%=&F8 ELSE ?M%=&FB
 M%=M%+1
 IF I%=J%-1 THEN L%=3328 ELSE L%=FNcstime(I%+1)
 L%=L%-(M%-B%-&200)
-PROCcopy(M%,&4000,L%)
+PROCcopy(M%,&4800,L%)
 NEXT
 R%=0:PROCs16(B%+6,3125)
 ENDPROC

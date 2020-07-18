@@ -21,6 +21,10 @@ ABI_CRC16 = (BASE + 6)
 \\ (ZP+2 ZP+3)=source byte buffer
 \\ (ZP+4 ZP+5)=length, negated
 ABI_CRC32 = (BASE + 9)
+\\ (ZP+0 ZP+1)=source buffer 1
+\\ (ZP+2 ZP+3)=source buffer 2
+\\ (ZP+3 ZP+4)=length, negated
+ABI_CMP = (BASE + 12)
 
 ORG ZP
 GUARD (ZP + 32)
@@ -39,14 +43,16 @@ GUARD (BASE + &0200)
 
 .discutil_begin
 
-    \\ base + &00, store
+    \\ base + 0, store
     JMP entry_store
-    \\ base + &03, copy
+    \\ base + 3, copy
     JMP entry_copy
-    \\ base + &06, CRC16
+    \\ base + 6, CRC16
     JMP entry_crc16
-    \\ base + &09, CRC32
+    \\ base + 9, CRC32
     JMP entry_crc32
+    \\ base + 12, CRC32
+    JMP entry_cmp
 
 .entry_store
     TAY
@@ -203,6 +209,34 @@ GUARD (BASE + &0200)
     BEQ entry_crc32_done
     JMP entry_crc32_byte_loop
   .entry_crc32_done
+    RTS
+
+.entry_cmp
+    LDA var_zp_ABI_length
+    ORA var_zp_ABI_length + 1
+    BEQ entry_cmp_done
+    LDY #0
+  .entry_cmp_loop
+    LDA (var_zp_ABI_buf_1),Y
+    CMP (var_zp_ABI_buf_2),Y
+    BNE entry_cmp_not_equal
+    INC var_zp_ABI_buf_1
+    BNE entry_cmp_no_inc_hi_1
+    INC var_zp_ABI_buf_1 + 1
+  .entry_cmp_no_inc_hi_1
+    INC var_zp_ABI_buf_2
+    BNE entry_cmp_no_inc_hi_2
+    INC var_zp_ABI_buf_2 + 1
+  .entry_cmp_no_inc_hi_2
+    INC var_zp_ABI_length
+    BNE entry_cmp_loop
+    INC var_zp_ABI_length + 1
+    BNE entry_cmp_loop
+  .entry_cmp_done
+    LDA #0
+    RTS
+  .entry_cmp_not_equal
+    LDA #1
     RTS
 
 

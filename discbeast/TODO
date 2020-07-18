@@ -1,7 +1,6 @@
 General
 =======
 - Finalize HG2 fingerprint "algorithm".
-- Weak bits support (re-read tracks with CRC errors).
 
 1770
 ====

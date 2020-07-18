@@ -28,3 +28,5 @@ Each track is emitted as a 4096 byte chunk, compromised as follows:
 &180 - &1FF: track byte timings, every 128 bytes
 
 &200+      : track bytes
+
+&F00       : up to 32 indexes of weak bits start in sector
