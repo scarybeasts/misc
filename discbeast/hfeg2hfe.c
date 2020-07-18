@@ -188,20 +188,27 @@ load_trks_files(uint8_t* p_buf, const char* p_path_prefix) {
   return num_tracks;
 }
 
-static void
+static int
 fixup_marker(uint8_t* p_track_data, uint32_t pos) {
   uint32_t i;
+  int did_fixup = 0;
 
   if (pos < 6) {
     bail("marker too early");
   }
-  p_track_data[pos] |= 0xF0;
+  if ((p_track_data[pos] & 0xF0) != 0xF0) {
+    p_track_data[pos] |= 0xF0;
+    did_fixup = 1;
+  }
   if ((p_track_data[pos - 1] != 0) ||
       (p_track_data[pos - 2] != 0)) {
     for (i = 0; i < 6; ++i) {
       p_track_data[pos - 1 - i] = 0;
     }
+    did_fixup = 1;
   }
+
+  return did_fixup;
 }
 
 static void
@@ -236,6 +243,7 @@ convert_tracks(uint8_t* p_hfe_buf,
     uint8_t* p_out_track;
 
     uint32_t track_crc32 = 0xFFFFFFFF;
+    uint32_t track_fixups = 0;
 
     p_in_track = (p_trks_buf + (i * 4096));
     p_out_track = p_hfe_buf;
@@ -285,7 +293,7 @@ convert_tracks(uint8_t* p_hfe_buf,
       if ((data != 0xFE) && (data != 0xCE)) {
         bail("bad header marker byte 0x%.2X", data);
       }
-      fixup_marker(&p_in_track[0x200], pos);
+      track_fixups += fixup_marker(&p_in_track[0x200], pos);
       crc16_calc = 0xFFFF;
       do_crc16(&crc16_calc, (p_in_track + 0x200 + pos), 5);
       crc16_disc = ((p_in_track[0x200 + pos + 5]) << 8);
@@ -309,7 +317,7 @@ convert_tracks(uint8_t* p_hfe_buf,
           (data != 0xCB)) {
         bail("bad data marker byte 0x%.2X", data);
       }
-      fixup_marker(&p_in_track[0x200], pos);
+      track_fixups += fixup_marker(&p_in_track[0x200], pos);
       length = (p_in_track[0xe0 + j] & 7);
       if (length > 4) {
         bail("bad real sector length");
@@ -362,10 +370,11 @@ convert_tracks(uint8_t* p_hfe_buf,
       bail("beeb track CRC32 %.4X doesn't match %.4X", beeb_crc32, track_crc32);
     }
     if (s_is_verbose) {
-      (void) printf("Track %d sectors %d length %d CRC32 %X\n",
+      (void) printf("Track %d sectors %d length %d fixups %d CRC32 %X\n",
                     i,
                     num_sectors,
                     track_length,
+                    track_fixups,
                     track_crc32);
     }
     do_crc32(&disc_crc32, (uint8_t*) &track_crc32, 4);
