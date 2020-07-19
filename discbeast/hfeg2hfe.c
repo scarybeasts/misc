@@ -370,7 +370,7 @@ convert_tracks(uint8_t* p_hfe_buf,
       bail("beeb track CRC32 %.4X doesn't match %.4X", beeb_crc32, track_crc32);
     }
     if (s_is_verbose) {
-      (void) printf("Track %d sectors %d length %d fixups %d CRC32 %X\n",
+      (void) printf("Track %d sectors %d length %d fixups %d CRC32 %.8X\n",
                     i,
                     num_sectors,
                     track_length,
@@ -418,7 +418,7 @@ convert_tracks(uint8_t* p_hfe_buf,
   if (!s_is_no_check_beeb_crc && (beeb_crc32 != disc_crc32)) {
     bail("beeb disc CRC32 %.4X doesn't match %.4X", beeb_crc32, disc_crc32);
   }
-  (void) printf("Disc CRC32: %X\n", disc_crc32);
+  (void) printf("Disc CRC32: %.8X\n", disc_crc32);
 }
 
 int
