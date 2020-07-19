@@ -471,6 +471,7 @@ main(int argc, const char* argv[]) {
   if (num_tracks_drv2 > num_tracks) {
     num_tracks = num_tracks_drv2;
   }
+  (void) printf("HFE Grab version: %d\n", trks_buf_drv0[0x10]);
   (void) printf("Tracks: %d\n", num_tracks);
   if (num_tracks == 0) {
     bail("no tracks");

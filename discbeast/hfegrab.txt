@@ -11,6 +11,7 @@ Each track is emitted as a 4096 byte chunk, compromised as follows:
  &06, &07  : track length if known
  &08       : set to 1 if any CRC errors
  &0C       : track CRC32 as calculated on the beeb
+ &10       : HFE Grab version
  &1C       : (if final track) disc CRC32 as calculated on the beeb
 
  &20 -  &9F: up to 32 sector IDs, 4 bytes each

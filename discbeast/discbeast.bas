@@ -275,7 +275,7 @@ PROCcrca32(C%,4,C%+4)
 ENDPROC
 
 DEF PROChfeg
-PRINT:VDU132,157,134:PRINT"HFE Grab v0.2"
+PRINT:VDU132,157,134:PRINT"HFE Grab v0.3"
 !(C%+4)=-1
 V%(5)=V%(2)
 V%(6)=V%(0)
@@ -332,7 +332,7 @@ OSCLI("SAVE TRKS"+STR$(T% AND &FE)+" 5000 +2000")
 ENDPROC
 
 DEF PROCgtrk
-?B%=G%(1):?(B%+1)=T%:?(B%+2)=?(Z%+4):?(B%+3)=?(Z%+5)
+?B%=G%(1):?(B%+1)=T%:?(B%+2)=?(Z%+4):?(B%+3)=?(Z%+5):?(B%+&10)=3
 PROCbufs(B%+&20,B%+&A0):PROCs16(Z%+6,0):PROCs16(Z%+8,0):PROCrids
 REM More 1770 ghosts.
 IF S%=0 THEN R%=&18
