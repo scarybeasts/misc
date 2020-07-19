@@ -3,6 +3,10 @@ This is discbeast.
 Discbeast is a disc utility for the BBC Micro series of computers. It drives
 the disc controller chip directly to offer advanced read and write
 functionality, supporting the 8271 and 1770/2 disc controllers.
+Perhaps most usefully, it includes an "HFE Grab" command that can directly
+and accurately read all known BBC disc protection schemes on systems with 1770/2
+controllers. The resulting TRKS intermediate files can be reconstructed back
+into the modern HFE format.
 
 
 - Initialization and setup.
@@ -128,6 +132,17 @@ HFEG 0 80 (if 80 track disc)
 or to run the capture without writing output files, append a 0 parameter, e.g.
 HFEG 0 40 0
 
+Deciding whether to perform a 40 track or 80 track capture can be an annoyance.
+Some discs have a 40 track side and an 80 track side, making the decision easy.
+Other discs only have a 40 track side. But a large number of discs have a single
+side labeled 40/80 track compatible. This is often, but not always, a 40 track
+surface with special code logic to seek where a drive seek ends up. If the
+underlying disc is really 80 track, you might see a large patch of green blobs
+and a large patch of white blobs in the graphical capture display. It may be
+worth trying an 80 track capture. If every other track incurs retries (beeb and
+red exclamation mark) or is noted as unformatted (dark blue with exclamation
+mark) then it is probably a 40 track disc.
+
 A bunch of files starting with TRKS will be written, 8kB each and containing
 2 tracks each. These TRKS files can be rebuilt into an HFE file with C program
 hfeg2hfe.c. Just run that executable with the working directory set to where
@@ -138,3 +153,9 @@ is another disc (a Gotek drive perhaps), plan appropriately. A 40 track capture
 needs an 80 track destination disc, and an 80 track capture needs a double
 sided 80 track destination disc.
 
+
+- Caveats.
+
+When capturing a disc, discbeast might perform a large seek with a different
+step rate than you are used to hearing. You disc drive could sound very
+different! Do not worry, it is not broken.
