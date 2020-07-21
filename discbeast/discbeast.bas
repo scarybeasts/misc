@@ -31,28 +31,28 @@ P%=I%
 
 REM Buffers. &4700-&6FFF.
 B%=&5000:PROCbufs(B%,B%+4096):PROCs16(Z%+6,G%(3)):PROCs16(Z%+8,-G%(4))
-IF A$="INIT" THEN A$="":PROCsetup
-IF A$="OWRD" THEN A$="":PROCowrd
-IF A$="DUMP" THEN A$="":PROCdump(V%(0))
-IF A$="BFIL" THEN A$="":PROCbfil
-IF A$="BSET" THEN A$="":PROCbset
-IF A$="SEEK" THEN A$="":T%=V%(0):PROCseek
-IF A$="RIDS" THEN A$="":PROCclr:PROCrids:PROCres:PRINT"SECTOR HEADERS: "+STR$(S%):PROCdump(0)
-IF A$="READ" THEN A$="":PROCclr:PROCread:PROCres:PROCdtim:L%=FNg16(Z%)-B%:!C%=-1:PROCcrca32(B%,L%,C%):PROCcrcf32(C%):PRINT"CRC32 "+STR$(L%)+" BYTES: "+STR$~(!C%):PROCdump(0)
-IF A$="RTRK" THEN A$="":PROCclr:PROCrtrk:PROCres:PRINT"LEN: "+STR$(S%):PROCdump(0)
-IF A$="WRIT" THEN A$="":PROCwrit:PROCres
-IF A$="WTRK" THEN A$="":PROCwtrk:PROCres
-IF A$="TIME" THEN A$="":PROCtime:PRINT"DRIVE SPEED: "+STR$(FNdrvspd)
-IF A$="DTRK" THEN A$="":PROCdtrk
-IF A$="DCRC" THEN A$="":PROCdcrc
-IF A$="HFEG" THEN A$="":PROChfeg
+IF A$="INIT" THEN PROCsetup:A$=""
+IF A$="OWRD" THEN PROCowrd:A$=""
+IF A$="DUMP" THEN PROCdump(V%(0)):A$=""
+IF A$="BFIL" THEN PROCbfil:A$=""
+IF A$="BSET" THEN PROCbset:A$=""
+IF A$="SEEK" THEN T%=V%(0):PROCseek:A$=""
+IF A$="RIDS" THEN PROCclr:PROCrids:PROCres:PRINT"SECTOR HEADERS: "+STR$(S%):PROCdump(0):A$=""
+IF A$="READ" THEN PROCclr:PROCread:PROCres:PROCdtim:L%=FNg16(Z%)-B%:!C%=-1:PROCcrca32(B%,L%,C%):PROCcrcf32(C%):PRINT"CRC32 "+STR$(L%)+" BYTES: "+STR$~(!C%):PROCdump(0):A$=""
+IF A$="RTRK" THEN PROCclr:PROCrtrk:PROCres:PRINT"LEN: "+STR$(S%):PROCdump(0):A$=""
+IF A$="WRIT" THEN PROCwrit:PROCres:A$=""
+IF A$="WTRK" THEN PROCwtrk:PROCres:A$=""
+IF A$="TIME" THEN PROCtime:PRINT"DRIVE SPEED: "+STR$(FNdrvspd):A$=""
+IF A$="DTRK" THEN PROCdtrk:A$=""
+IF A$="DCRC" THEN PROCdcrc:A$=""
+IF A$="HFEG" THEN PROChfeg:A$=""
 IF A$="DBUG" THEN PROCgset(2):A$=""
 IF A$="STRT" THEN PROCgset(3):A$=""
 IF A$="BAIL" THEN PROCgset(4):A$=""
 IF A$="DSTP" THEN PROCgset(5):A$=""
 IF A$="FDRV" THEN PROCgset(6):A$=""
-IF A$="BFUN" THEN A$="":?(Z%+10)=V%(0)
-IF A$="FSYS" THEN A$="":F$=Q$:G%(6)=-1:PRINT"FSYS "+F$
+IF A$="BFUN" THEN ?(Z%+10)=V%(0):A$=""
+IF A$="FSYS" THEN F$=Q$:G%(6)=-1:PRINT"FSYS "+F$:A$=""
 
 IF A$<>"" THEN PRINT "UNKNOWN COMMAND"
 
