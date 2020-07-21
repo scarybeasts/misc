@@ -437,7 +437,7 @@ ENDPROC
 
 DEF PROCg8271
 PROCstor(B%+&200,&FF,3125):PROCstor(&4700,0,2304)
-K%=0
+PROCs16(B%+6,3125):J%=?(B%+5):K%=0
 FOR I%=0 TO J%-1
 REM Write in sector header and CRC.
 M%=B%+&200+FNcstime(I%)-1
@@ -455,8 +455,7 @@ M%=M%+1
 IF I%=J%-1 THEN L%=3328 ELSE L%=FNcstime(I%+1)
 L%=L%-(M%-B%-&200)
 PROCcopy(M%,&4800,L%)
-NEXT
-R%=0:PROCs16(B%+6,3125)
+NEXT:R%=0
 ENDPROC
 
 DEF PROCwait(A%)
