@@ -154,6 +154,28 @@ needs an 80 track destination disc, and an 80 track capture needs a double
 sided 80 track destination disc.
 
 
+- HFE Grab colors and symbols.
+
+When capturing a disc, HFE Grab displays a colored symbol for each track
+analyzed.
+  Main symbols:
+    Square blob              : normal data
+    Letter 'D'               : at least one sector of deleted data
+  Extra symbols:
+    Exclamation (dark blue)  : no sectors found
+    Exclamation (red)        : read error (will usually retry)
+    Number '1' - '9'         : non-standard number of sectors (i.e. not 10)
+    Plus                     : non-standard number of sectors (more than 10)
+  Colors:
+    Green                    : nothing remarkable
+    Dark blue                : no sectors found
+    Magenta                  : more than 2560 sector data bytes in track
+    Red                      : sector CRC16 error (header or data)
+    Yellow                   : sector physical / logical size mismatch
+    Cyan                     : logical track 0 on non-physical track 0
+    White                    : logical / physical track mismatch
+
+
 - Caveats.
 
 When capturing a disc, discbeast might perform a large seek with a different
