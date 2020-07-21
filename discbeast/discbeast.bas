@@ -1,4 +1,4 @@
-MODE7:HIMEM=&4700
+MODE7:HIMEM=&4800
 VDU129,157,131:PRINT"Disc BEAST v0.2.1":PRINT
 REM DISCBEAST code and zero page.
 D%=&7000+&100:Z%=&70
@@ -29,7 +29,7 @@ P$=RIGHT$(P$,LEN(P$)-J%)
 UNTIL LEN(P$)=0
 P%=I%
 
-REM Buffers. &4700-&6FFF.
+REM Buffers. &4800-&6FFF.
 B%=&5000:PROCbufs(B%,B%+4096):PROCs16(Z%+6,G%(3)):PROCs16(Z%+8,-G%(4))
 IF A$="INIT" THEN PROCsetup:A$=""
 IF A$="OWRD" THEN PROCowrd:A$=""
@@ -408,7 +408,7 @@ ENDPROC
 
 DEF PROCrsec(A%)
 K%=0:IF A%>0 THEN K%=FNstime(A%)
-PROCs16(Z%+6,K%):PROCs16(Z%+8,0):PROCbufs(&4800,&4700)
+PROCs16(Z%+6,K%):PROCs16(Z%+8,0):PROCbufs(&4800,&100)
 V%(0)=FNidtrk(A%):V%(1)=FNidsec(A%):V%(2)=1:V%(3)=FNssize(FNidsiz(A%))
 PROCread:R%=R% AND &FF
 ENDPROC
@@ -444,7 +444,7 @@ R%=0:PROCs16(B%+6,S%)
 ENDPROC
 
 DEF PROCg8271
-PROCstor(B%+&200,&FF,3125):PROCstor(&4700,0,2304)
+PROCstor(B%+&200,&FF,3125):PROCstor(&4800,0,2048)
 PROCs16(B%+6,3125):J%=?(B%+5):K%=0
 FOR I%=0 TO J%-1
 REM Write in sector header and CRC.
@@ -453,7 +453,7 @@ M%=B%+&200+FNcstime(I%)-1
 PROCcrc16(M%,5):?(M%+5)=(R% AND &FF00) DIV 256:?(M%+6)=R%
 M%=M%+7+17
 PROCs16(Z%+6,K%):K%=FNstime(I%):PROCs16(Z%+8,0)
-PROCbufs(&4800,&4700)
+PROCbufs(&4800,&100)
 V%(0)=FNidtrk(I%):V%(1)=FNidsec(I%):V%(2)=1:V%(3)=2048
 R%=0:IF V%(0)<>&FF AND (T%=0 OR V%(0)<>0) THEN PROCread:R%=R% AND &FF
 IF R%=&18 THEN PRINT"SECTOR READ FAILED: "+STR$~(V%(0))+" "+STR$~(V%(1)):END
