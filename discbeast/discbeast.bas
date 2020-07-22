@@ -1,15 +1,17 @@
 MODE7:HIMEM=&4800
 VDU129,157,131:PRINT"Disc BEAST v0.2.1":PRINT
-REM DISCBEAST code and zero page.
+REM BSTASM
 D%=&7000+&100:Z%=&70
-REM UTILS base and zero page.
+REM DUTLASM
 U%=&7A00:W%=&50
+REM Buffers.
+B%=&5000
 REM Command params, globals.
 DIM V%(8),G%(6)
-REM For OSWORD.
+REM OSWORD.
 DIM O% 15:PROCstor(O%,0,16)
 PROCs16(O%+1,B%)
-REM For CRC.
+REM CRC.
 DIM C% 11
 REM TRKS target.
 F$="DISC":G%(6)=1
