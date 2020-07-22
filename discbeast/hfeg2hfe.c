@@ -223,6 +223,7 @@ convert_tracks(uint8_t* p_hfe_buf,
   uint32_t beeb_crc32;
 
   uint32_t disc_crc32 = 0xFFFFFFFF;
+  uint32_t disc_crc32_double_step = 0xFFFFFFFF;
   uint8_t* p_in_track = NULL;
 
   expand_factor = 1;
@@ -378,6 +379,9 @@ convert_tracks(uint8_t* p_hfe_buf,
                     track_crc32);
     }
     do_crc32(&disc_crc32, (uint8_t*) &track_crc32, 4);
+    if (!(i & 1)) {
+      do_crc32(&disc_crc32_double_step, (uint8_t*) &track_crc32, 4);
+    }
 
     /* Per-track HFEv3 opcode set up. */
     hfe_track_pos = 0;
@@ -411,6 +415,7 @@ convert_tracks(uint8_t* p_hfe_buf,
     }
   }
   disc_crc32 = ~disc_crc32;
+  disc_crc32_double_step = ~disc_crc32_double_step;
   beeb_crc32 = p_in_track[28];
   beeb_crc32 += (p_in_track[29] << 8);
   beeb_crc32 += (p_in_track[30] << 16);
@@ -419,6 +424,9 @@ convert_tracks(uint8_t* p_hfe_buf,
     bail("beeb disc CRC32 %.4X doesn't match %.4X", beeb_crc32, disc_crc32);
   }
   (void) printf("Disc CRC32: %.8X\n", disc_crc32);
+  if (num_tracks > 41) {
+    (void) printf("Disc CRC32 (40 track): %.8X\n", disc_crc32_double_step);
+  }
 }
 
 int
