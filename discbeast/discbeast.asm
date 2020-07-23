@@ -54,9 +54,12 @@ WD_CMD_READ_ADDRESS = &C0
 WD_CMD_READ_TRACK_SETTLE = &E4
 WD_CMD_WRITE_TRACK_SETTLE = &F4
 
+WD_STATUS_BIT_MOTOR_ON = &80
 WD_STATUS_BIT_NOT_FOUND = &10
 WD_STATUS_BIT_CRC_ERROR = &08
 WD_STATUS_BIT_TYPE_II_III_LOST_BYTE = &04
+WD_STATUS_BIT_TYPE_I_INDEX = &02
+WD_STATUS_BIT_BUSY = &01
 
 ORG ZP
 GUARD (ZP + 32)
@@ -779,6 +782,14 @@ GUARD (BASE + 2048)
     RTS
 
 .wd_load
+    \\ Make sure the motor spins down before potentially selecting a different
+    \\ drive, otherwise spin-up on the new drive can be circumvented.
+    LDY #0
+  .wd_load_motor_off_loop
+    LDA (var_zp_wd_base),Y
+    AND #WD_STATUS_BIT_MOTOR_ON
+    BNE wd_load_motor_off_loop
+
     \\ Set control register. Drive 0 vs. 1 select is common to both variants.
     LDA var_zp_drive
     \\ Drive 0 -> 1, drive 1 -> 2.
@@ -1273,7 +1284,7 @@ GUARD (BASE + 2048)
     LDY #0
   .wd_wait_idle_loop
     LDA (var_zp_wd_base),Y
-    AND #1
+    AND #WD_STATUS_BIT_BUSY
     BNE wd_wait_idle_loop
     RTS
 
@@ -1287,7 +1298,7 @@ GUARD (BASE + 2048)
     LDY #0
   .wd_wait_no_index_pulse_loop
     LDA (var_zp_wd_base),Y
-    AND #&02
+    AND #WD_STATUS_BIT_TYPE_I_INDEX
     BNE wd_wait_no_index_pulse_loop
     RTS
 
@@ -1295,7 +1306,7 @@ GUARD (BASE + 2048)
     LDY #0
   .wd_wait_index_pulse_loop
     LDA (var_zp_wd_base),Y
-    AND #&02
+    AND #WD_STATUS_BIT_TYPE_I_INDEX
     BEQ wd_wait_index_pulse_loop
     RTS
 
