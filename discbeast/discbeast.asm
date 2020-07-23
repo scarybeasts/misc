@@ -1379,7 +1379,12 @@ GUARD (BASE + 2048)
     \\ System VIA IRQs off.
     LDA &FE4E
     STA var_zp_system_VIA_IER
-    LDA #&7F
+    \\ Select the shift register interrupt enable, to avoid ever setting IER to
+    \\ 0. Setting IER to 0 creates a window where a break will appear to the OS
+    \\ to be a power on reset and everything would get wiped.
+    LDA #&84
+    STA &FE4E
+    LDA #&7B
     STA &FE4E
     \\ Replace IRQ1V
     LDA IRQ1V
@@ -1403,6 +1408,8 @@ GUARD (BASE + 2048)
     SEI
     \\ Restore system VIA IER.
     LDA var_zp_system_VIA_IER
+    STA &FE4E
+    LDA #&04
     STA &FE4E
     \\ Restore IRQ1V.
     LDA var_zp_IRQ1V
