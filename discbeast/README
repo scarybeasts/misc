@@ -10,6 +10,9 @@ into the modern HFE format.
 
 
 - Initialization and setup.
+If you have a switchable 40/80 track drive, switch it to 80 tracks no matter
+what discs you intend to look at.
+
 The first command you need to supply is the INIT command to specify which
 drive and surface to operate on. For example:
 
@@ -23,19 +26,9 @@ All being well, discbeast will report something like:
 OK 1770
 DRIVE 0 SPEED: 3125
 
-A lot of discs are recorded as 40 track discs, including many 40/80 track dual
-format discs. And a lot of drives are 80 track drives, most being 40/80 track
-switchable.
-If you are analyzing a 40 track disc with a 40/80 track switchable drive, it is
-best to place the drive in 80 track mode and then use double stepping:
+It is assumed you have an 80 track drive. If you have a 40 track drive, specify:
 
-DSTP 1
-
-You will also need double stepping if you have a non-switchable 80 track drive
-operating on a 40 track disc.
-(The reason for putting a switchable drive into 80 track mode is that some
-drives prevent reading the one-past-the-end track with their internal double
-step logic, but work fine otherwise.)
+DR40 1
 
 If you are going to be capturing and saving discs with the HFE grab tool, you
 need to set up where the resulting TRKS<n> files will be saved to. By default,
@@ -65,7 +58,7 @@ d) Sectors with logical track 0, but not physical track 0.
 e) Sectors with logical track 255.
 
 The disc fingerprinting is designed so that it should work equally on an 8271
-or 1770 based system.
+or 1770 based system. The 8271 implementation is, however, less mature.
 
 
 - Basic commands.
@@ -80,6 +73,19 @@ RTRK            - read current track fully (1770 only)
 DTRK            - dump details about current track
 
 
+- Auto mode.
+By default, with an 80 track drive, the fingerprinting and capture tools will
+attempt to automatically detect 40 track vs. 80 track discs by having a little
+look at a few odd numbered tracks. To turn it off, you can use:
+
+AUTO 0
+
+And then manually specify double stepping (40 track disc in an 80 track drive)
+with:
+
+DSTP 1
+
+
 - Disc fingerprinting.
 
 One of the primary goals of discbeast is to permit owners of original discs to
@@ -92,8 +98,8 @@ original discs are becoming lost, or rotting away.
 
 This is the command to fingerprint a disc:
 
-DCRC (if 40 track)
-DCRC 80 (if 80 track)
+DCRC (auto)
+DCRC 0 9 (specified track range, inclusive)
 
 All being well, it'll crank away for a while, displaying a CRC for each track
 and finally a grand total CRC such as:
@@ -126,22 +132,9 @@ what, and understanding where the capture files will be written.
 
 Kicking off a capture is pretty easy:
 
-HFEG 0 40 (if 40 track disc)
-HFEG 0 80 (if 80 track disc)
-
-or to run the capture without writing output files, append a 0 parameter, e.g.
-HFEG 0 40 0
-
-Deciding whether to perform a 40 track or 80 track capture can be an annoyance.
-Some discs have a 40 track side and an 80 track side, making the decision easy.
-Other discs only have a 40 track side. But a large number of discs have a single
-side labeled 40/80 track compatible. This is often, but not always, a 40 track
-surface with special code logic to seek where a drive seek ends up. If the
-underlying disc is really 80 track, you might see a large patch of green blobs
-and a large patch of white blobs in the graphical capture display. It may be
-worth trying an 80 track capture. If every other track incurs retries (beeb and
-red exclamation mark) or is noted as unformatted (dark blue with exclamation
-mark) then it is probably a 40 track disc.
+HFEG (auto)
+HFEG 0 40 (manual track range)
+HFEG 0 40 0 (manual track range, do not save results)
 
 A bunch of files starting with TRKS will be written, 8kB each and containing
 2 tracks each. These TRKS files can be rebuilt into an HFE file with C program
@@ -174,6 +167,25 @@ analyzed.
     Yellow                   : sector physical / logical size mismatch
     Cyan                     : logical track 0 on non-physical track 0
     White                    : logical / physical track mismatch
+
+
+- 40 track vs. 80 track discs.
+
+Ideally, just use the default AUTO mode which will try and auto sense a 40
+track vs. 80 track disc. If you think it's wrong, or you just like manual
+control (AUTO 0), you can take the decision on yourself.
+
+Deciding whether to perform a 40 track or 80 track capture can be an annoyance.
+Some discs have a 40 track side and an 80 track side, making the decision easy.
+Other discs only have a 40 track side. But a large number of discs have a single
+side labeled 40/80 track compatible. This is often, but not always, a 40 track
+surface with special code logic to seek extra steps as required.
+If you do a 40 track capture and the underlying disc is really 80 track, you
+might see a large patch of green blobs and a large patch of white blobs in the
+graphical capture display.
+If you do an 80 track capture and the underlying disc is really 40 track,
+every other track might incur retries (beeb and red exclamation mark) or may be
+noted as unformatted (dark blue with exclamation mark).
 
 
 - Caveats.
