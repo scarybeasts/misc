@@ -299,7 +299,7 @@ V%(4)=5
 REPEAT
 V%(4)=V%(4)-1
 PROCtrk
-IF R%<>0 THEN VDU7,129,33,8,8:PROCwait(100):I%=T%:T%=0:PROCseek:T%=I%:PROCseek
+IF R%<>0 THEN VDU7,129,33,8,8:IF V%(4)<>0 THEN PROCwait(100):T%=T%-1:PROCseek:T%=T%+1:PROCseek
 UNTIL R%=0 OR V%(4)=0
 PROCcrca32(C%,4,C%+4)
 ENDPROC
