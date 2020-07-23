@@ -784,11 +784,7 @@ GUARD (BASE + 2048)
 .wd_load
     \\ Make sure the motor spins down before potentially selecting a different
     \\ drive, otherwise spin-up on the new drive can be circumvented.
-    LDY #0
-  .wd_load_motor_off_loop
-    LDA (var_zp_wd_base),Y
-    AND #WD_STATUS_BIT_MOTOR_ON
-    BNE wd_load_motor_off_loop
+    JSR wd_reset
 
     \\ Set control register. Drive 0 vs. 1 select is common to both variants.
     LDA var_zp_drive
