@@ -225,6 +225,7 @@ convert_tracks(uint8_t* p_hfe_buf,
   uint32_t disc_crc32 = 0xFFFFFFFF;
   uint32_t disc_crc32_double_step = 0xFFFFFFFF;
   uint8_t* p_in_track = NULL;
+  uint8_t* p_first_sector_data = NULL;
 
   expand_factor = 1;
   if (do_expand) {
@@ -277,6 +278,7 @@ convert_tracks(uint8_t* p_hfe_buf,
     /* Build a list of where the markers are and check CRCs / weak bits. */
     (void) memset(is_marker, '\0', sizeof(is_marker));
     (void) memset(is_weak, '\0', sizeof(is_weak));
+    p_first_sector_data = NULL;
     for (j = 0; j < num_sectors; ++j) {
       uint16_t pos;
       uint16_t crc16_calc;
@@ -311,6 +313,9 @@ convert_tracks(uint8_t* p_hfe_buf,
         bail("overlapping marker");
       }
       is_marker[pos] = 1;
+      if (j == 0) {
+        p_first_sector_data = (p_in_track + 0x200 + pos + 1);
+      }
       data = p_in_track[0x200 + pos];
       if ((data != 0xF8) &&
           (data != 0xC8) &&
@@ -414,6 +419,17 @@ convert_tracks(uint8_t* p_hfe_buf,
       }
     }
   }
+
+  if ((p_first_sector_data != NULL) &&
+      ((i == 41) || (i == 81)) &&
+      !memcmp(p_first_sector_data, "\x01\x02\x03\x04\x05", 5)) {
+    (void) printf("Disc birthday (YY/MM/DD): %.2X/%.2X/%.2X\n",
+                  p_first_sector_data[14],
+                  p_first_sector_data[15],
+                  p_first_sector_data[16]);
+    (void) printf("Disc extra info: %s\n", (p_first_sector_data + 23));
+  }
+
   disc_crc32 = ~disc_crc32;
   disc_crc32_double_step = ~disc_crc32_double_step;
   beeb_crc32 = p_in_track[28];
