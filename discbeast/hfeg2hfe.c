@@ -470,11 +470,24 @@ main(int argc, const char* argv[]) {
 
   p_hfe_buf = malloc(hfe_buf_size);
 
-  for (i = 0; i < (uint32_t) argc; ++i) {
+  for (i = 1; i < (uint32_t) argc; ++i) {
     if (!strcmp(argv[i], "-v")) {
       s_is_verbose = 1;
     } else if (!strcmp(argv[i], "-n")) {
       s_is_no_check_beeb_crc = 1;
+    } else if (!strcmp(argv[i], "-h") ||
+               !strcmp(argv[i], "-help") ||
+               !strcmp(argv[i], "--help")) {
+      (void) printf("Usage: hfeg2hfe [-v] [-n] [-h]\n");
+      (void) printf("The TRKS files should be in the current directory.\n");
+      (void) printf("(Or use drv0 and drv2 subdirectories for dual sides.)\n");
+      (void) printf("  -h    Show this help text.\n");
+      (void) printf("  -v    Verbose output.\n");
+      (void) printf("  -n    Don't cross-check CRC32s (for old TRKS files).\n");
+      exit(0);
+    } else {
+      (void) printf("Unknown option: %s\n", argv[i]);
+      exit(1);
     }
   }
 
