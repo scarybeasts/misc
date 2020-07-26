@@ -525,6 +525,7 @@ main(int argc, const char* argv[]) {
     } else if (!strcmp(argv[i], "-h") ||
                !strcmp(argv[i], "-help") ||
                !strcmp(argv[i], "--help")) {
+      (void) printf("HFE Grab to HFE v0.2\n");
       (void) printf("Usage: hfeg2hfe [-v] [-n] [-h]\n");
       (void) printf("The TRKS files should be in the current directory.\n");
       (void) printf("(Or use drv0 and drv2 subdirectories for dual sides.)\n");
