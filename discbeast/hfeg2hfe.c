@@ -7,6 +7,7 @@
 
 static int s_is_verbose;
 static int s_is_no_check_beeb_crc;
+static int s_is_double_step;
 
 static const uint32_t k_max_num_tracks = 82;
 /* Each block is 512 bytes, 256 per side. */
@@ -217,10 +218,13 @@ convert_tracks(uint8_t* p_hfe_buf,
                int is_second_side,
                uint8_t* p_trks_buf,
                int do_expand,
+               int do_double_step,
                uint32_t num_tracks) {
   uint32_t i;
   uint32_t expand_factor;
+  uint32_t shrink_factor;
   uint32_t beeb_crc32;
+  uint32_t step_count;
 
   uint32_t disc_crc32 = 0xFFFFFFFF;
   uint32_t disc_crc32_double_step = 0xFFFFFFFF;
@@ -231,6 +235,10 @@ convert_tracks(uint8_t* p_hfe_buf,
   if (do_expand) {
     assert((num_tracks * 2) <= k_max_num_tracks);
     expand_factor = 2;
+  }
+  shrink_factor = 1;
+  if (do_double_step) {
+    shrink_factor = 2;
   }
 
   for (i = 0; i < num_tracks; ++i) {
@@ -246,11 +254,15 @@ convert_tracks(uint8_t* p_hfe_buf,
 
     uint32_t track_crc32 = 0xFFFFFFFF;
     uint32_t track_fixups = 0;
+    int is_odd_track = (i & 1);
 
     p_in_track = (p_trks_buf + (i * 4096));
     p_out_track = p_hfe_buf;
     p_out_track += 1024;
-    p_out_track += (i * expand_factor * k_hfe_blocks_per_track * 512);
+    p_out_track += (i *
+                    expand_factor /
+                    shrink_factor *
+                    (k_hfe_blocks_per_track * 512));
     if (is_second_side) {
       p_out_track += 256;
     }
@@ -272,8 +284,6 @@ convert_tracks(uint8_t* p_hfe_buf,
     if ((track_length < 3000) || (track_length > 3190)) {
       bail("bad track length");
     }
-
-    p_track_lengths[i] = track_length;
 
     /* Build a list of where the markers are and check CRCs / weak bits. */
     (void) memset(is_marker, '\0', sizeof(is_marker));
@@ -384,38 +394,42 @@ convert_tracks(uint8_t* p_hfe_buf,
                     track_crc32);
     }
     do_crc32(&disc_crc32, (uint8_t*) &track_crc32, 4);
-    if (!(i & 1)) {
+    if (!is_odd_track) {
       do_crc32(&disc_crc32_double_step, (uint8_t*) &track_crc32, 4);
     }
 
-    /* Per-track HFEv3 opcode set up. */
-    hfe_track_pos = 0;
-    /* Index. */
-    hfe_add(p_out_track, &hfe_track_pos, flip(0xF1));
-    /* Set bitrate to 250kbit. */
-    hfe_add(p_out_track, &hfe_track_pos, flip(0xF2));
-    hfe_add(p_out_track, &hfe_track_pos, flip(72));
+    if (!do_double_step || !is_odd_track) {
+      p_track_lengths[i / shrink_factor] = track_length;
 
-    /* Copy over the data and calculated clocks into the HFE. */
-    for (j = 0; j < track_length; ++j) {
-      uint8_t hfe_bits[4];
+      /* Per-track HFEv3 opcode set up. */
+      hfe_track_pos = 0;
+      /* Index. */
+      hfe_add(p_out_track, &hfe_track_pos, flip(0xF1));
+      /* Set bitrate to 250kbit. */
+      hfe_add(p_out_track, &hfe_track_pos, flip(0xF2));
+      hfe_add(p_out_track, &hfe_track_pos, flip(72));
 
-      if (is_weak[j]) {
-        uint32_t k;
-        for (k = 0; k < 4; ++k) {
-          hfe_add(p_out_track, &hfe_track_pos, flip(0xF4));
+      /* Copy over the data and calculated clocks into the HFE. */
+      for (j = 0; j < track_length; ++j) {
+        uint8_t hfe_bits[4];
+
+        if (is_weak[j]) {
+          uint32_t k;
+          for (k = 0; k < 4; ++k) {
+            hfe_add(p_out_track, &hfe_track_pos, flip(0xF4));
+          }
+        } else {
+          clocks = 0xFF;
+          data = p_in_track[0x200 + j];
+          if (is_marker[j]) {
+            clocks = 0xC7;
+          }
+          hfe_convert_to_bits(hfe_bits, data, clocks);
+          hfe_add(p_out_track, &hfe_track_pos, hfe_bits[0]);
+          hfe_add(p_out_track, &hfe_track_pos, hfe_bits[1]);
+          hfe_add(p_out_track, &hfe_track_pos, hfe_bits[2]);
+          hfe_add(p_out_track, &hfe_track_pos, hfe_bits[3]);
         }
-      } else {
-        clocks = 0xFF;
-        data = p_in_track[0x200 + j];
-        if (is_marker[j]) {
-          clocks = 0xC7;
-        }
-        hfe_convert_to_bits(hfe_bits, data, clocks);
-        hfe_add(p_out_track, &hfe_track_pos, hfe_bits[0]);
-        hfe_add(p_out_track, &hfe_track_pos, hfe_bits[1]);
-        hfe_add(p_out_track, &hfe_track_pos, hfe_bits[2]);
-        hfe_add(p_out_track, &hfe_track_pos, hfe_bits[3]);
       }
     }
   }
@@ -475,6 +489,8 @@ main(int argc, const char* argv[]) {
       s_is_verbose = 1;
     } else if (!strcmp(argv[i], "-n")) {
       s_is_no_check_beeb_crc = 1;
+    } else if (!strcmp(argv[i], "-d")) {
+      s_is_double_step = 1;
     } else if (!strcmp(argv[i], "-h") ||
                !strcmp(argv[i], "-help") ||
                !strcmp(argv[i], "--help")) {
@@ -484,6 +500,7 @@ main(int argc, const char* argv[]) {
       (void) printf("  -h    Show this help text.\n");
       (void) printf("  -v    Verbose output.\n");
       (void) printf("  -n    Don't cross-check CRC32s (for old TRKS files).\n");
+      (void) printf("  -d    Skip odd numbered tracks.\n");
       exit(0);
     } else {
       (void) printf("Unknown option: %s\n", argv[i]);
@@ -541,6 +558,7 @@ main(int argc, const char* argv[]) {
                  0,
                  trks_buf_drv0,
                  do_expand_drv0,
+                 s_is_double_step,
                  num_tracks_drv0);
   if (num_tracks_drv2 > 0) {
     convert_tracks(p_hfe_buf,
@@ -548,7 +566,15 @@ main(int argc, const char* argv[]) {
                    1,
                    trks_buf_drv2,
                    do_expand_drv2,
+                   s_is_double_step,
                    num_tracks_drv2);
+  }
+
+  if (s_is_double_step) {
+    if (num_tracks & 1) {
+      num_tracks++;
+    }
+    num_tracks /= 2;
   }
 
   /* Write HFE track position metadata. */
