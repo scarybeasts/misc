@@ -230,6 +230,8 @@ convert_tracks(uint8_t* p_hfe_buf,
   uint32_t disc_crc32_double_step = 0xFFFFFFFF;
   uint8_t* p_in_track = NULL;
   uint8_t* p_first_sector_data = NULL;
+  uint8_t* p_t0_s0_data = NULL;
+  uint8_t* p_t0_s1_data = NULL;
 
   expand_factor = 1;
   if (do_expand) {
@@ -295,6 +297,8 @@ convert_tracks(uint8_t* p_hfe_buf,
       uint16_t crc16_disc;
       uint32_t length;
       int is_data_crc_error;
+      uint8_t logical_track;
+      uint8_t logical_sector;
 
       /* Sector header. */
       pos = get16(p_in_track + 0x100 + (j * 2));
@@ -316,6 +320,8 @@ convert_tracks(uint8_t* p_hfe_buf,
                       i,
                       j);
       }
+      logical_track = p_in_track[0x200 + pos + 1];
+      logical_sector = p_in_track[0x200 + pos + 3];
 
       /* Sector data. */
       pos = get16(p_in_track + 0x140 + (j * 2));
@@ -323,9 +329,6 @@ convert_tracks(uint8_t* p_hfe_buf,
         bail("overlapping marker");
       }
       is_marker[pos] = 1;
-      if (j == 0) {
-        p_first_sector_data = (p_in_track + 0x200 + pos + 1);
-      }
       data = p_in_track[0x200 + pos];
       if ((data != 0xF8) &&
           (data != 0xC8) &&
@@ -359,6 +362,16 @@ convert_tracks(uint8_t* p_hfe_buf,
           /* Ignore. */
         } else {
           do_crc32(&track_crc32, (p_in_track + 0x200 + pos), (length + 1));
+        }
+      }
+      if (j == 0) {
+        p_first_sector_data = (p_in_track + 0x200 + pos + 1);
+      }
+      if ((i == 0) && (logical_track == 0)) {
+        if (logical_sector == 0) {
+          p_t0_s0_data = (p_in_track + 0x200 + pos + 1);
+        } else if (logical_sector == 1) {
+          p_t0_s1_data = (p_in_track + 0x200 + pos + 1);
         }
       }
 
@@ -434,8 +447,26 @@ convert_tracks(uint8_t* p_hfe_buf,
     }
   }
 
+  if ((p_t0_s0_data != NULL) && (p_t0_s1_data != NULL)) {
+    char dfs_title[13];
+    dfs_title[12] = '\0';
+    (void) memcpy(dfs_title, p_t0_s0_data, 8);
+    (void) memcpy((dfs_title + 8), p_t0_s1_data, 4);
+    (void) printf("Disc DFS title: %s\n", dfs_title);
+    for (i = 0; i < 12; ++i) {
+      char c = dfs_title[i];
+      if (c == '\0') {
+        break;
+      }
+      if (!isprint(c)) {
+        dfs_title[i] = '?';
+      }
+    }
+    (void) printf("Disc DFS title (printable): %s\n", dfs_title);
+    (void) printf("Disc DFS cycle number: %.2X\n", p_t0_s1_data[4]);
+  }
   if ((p_first_sector_data != NULL) &&
-      ((i == 41) || (i == 81)) &&
+      ((num_tracks == 41) || (num_tracks == 81)) &&
       !memcmp(p_first_sector_data, "\x01\x02\x03\x04\x05", 5)) {
     (void) printf("Disc birthday (YY/MM/DD): %.2X/%.2X/%.2X\n",
                   p_first_sector_data[14],
