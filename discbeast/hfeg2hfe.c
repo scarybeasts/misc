@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <ctype.h>
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -316,9 +317,12 @@ convert_tracks(uint8_t* p_hfe_buf,
       crc16_disc = ((p_in_track[0x200 + pos + 5]) << 8);
       crc16_disc |= p_in_track[0x200 + pos + 6];
       if (crc16_calc != crc16_disc) {
-        (void) printf("Header CRC error, physical track / sector %d / %d\n",
+        (void) printf("Header CRC error, physical track / sector %d / %d"
+                      " (%.4X vs. %.4X expected)\n",
                       i,
-                      j);
+                      j,
+                      crc16_calc,
+                      crc16_disc);
       }
       logical_track = p_in_track[0x200 + pos + 1];
       logical_sector = p_in_track[0x200 + pos + 3];
@@ -348,9 +352,12 @@ convert_tracks(uint8_t* p_hfe_buf,
       crc16_disc |= p_in_track[0x200 + pos + length + 2];
       is_data_crc_error = (crc16_calc != crc16_disc);
       if (is_data_crc_error) {
-        (void) printf("Data CRC error, physical track / sector %d / %d\n",
+        (void) printf("Data CRC error, physical track / sector %d / %d"
+                      " (%.4X vs. %.4X expected)\n",
                       i,
-                      j);
+                      j,
+                      crc16_calc,
+                      crc16_disc);
       } else {
         uint8_t logical_track = p_in_track[0x20 + (j * 4)];
         /* 8271 has problems with logical track 0 not on physical track 0 so
