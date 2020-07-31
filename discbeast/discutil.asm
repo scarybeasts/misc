@@ -27,7 +27,7 @@ ABI_CRC32 = (BASE + 9)
 ABI_CMP = (BASE + 12)
 
 ORG ZP
-GUARD (ZP + 32)
+GUARD (ZP + 16)
 
 .var_zp_ABI_buf_1 SKIP 2
 .var_zp_ABI_buf_2 SKIP 2

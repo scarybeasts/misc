@@ -1,9 +1,8 @@
 \\ discbeast.asm
 \\ It works with discs. It's a bit of a beast.
 
-SCRATCH = &7000
 BASE = &7100
-ZP = &70
+ZP = &60
 
 ABI_SETUP = (BASE + 0)
 ABI_REINIT = (BASE + 3)
@@ -62,7 +61,7 @@ WD_STATUS_BIT_TYPE_I_INDEX = &02
 WD_STATUS_BIT_BUSY = &01
 
 ORG ZP
-GUARD (ZP + 32)
+GUARD (ZP + 48)
 
 \\ 0
 .var_zp_ABI_buf_1 SKIP 2
@@ -76,6 +75,8 @@ GUARD (ZP + 32)
 .var_zp_ABI_bail_bytes SKIP 2
 \\ 10
 .var_zp_ABI_bail_function SKIP 1
+\\ 11
+.var_zp_ABI_buf_3 SKIP 2
 .var_zp_drive SKIP 1
 .var_zp_side SKIP 1
 .var_zp_drive_side_bits SKIP 1
@@ -854,11 +855,18 @@ GUARD (BASE + 2048)
     STA var_zp_param_2
     LDA var_zp_ABI_buf_1 + 1
     STA var_zp_param_3
-    LDA #LO(SCRATCH)
+    LDA var_zp_ABI_buf_3
     STA var_zp_ABI_buf_1
-    LDA #HI(SCRATCH)
+    LDA var_zp_ABI_buf_3 + 1
     STA var_zp_ABI_buf_1 + 1
-    JSR clear_scratch
+
+    \\ Clear scratch page.
+    LDA #0
+    LDY #0
+  .wd_read_ids_clear_scratch_loop
+    STA (var_zp_ABI_buf_3),Y
+    DEY
+    BNE wd_read_ids_clear_scratch_loop
 
     JSR timer_enter
 
@@ -908,27 +916,24 @@ GUARD (BASE + 2048)
     STA var_zp_ABI_buf_1
     LDA var_zp_param_3
     STA var_zp_ABI_buf_1 + 1
-    LDX #0
+    CLC
     LDY #0
   .wd_copy_ids_loop
-    LDA SCRATCH,X
+    LDA (var_zp_ABI_buf_3),Y
     STA (var_zp_ABI_buf_1),Y
-    INX
     INY
-    LDA SCRATCH,X
+    LDA (var_zp_ABI_buf_3),Y
     STA (var_zp_ABI_buf_1),Y
-    INX
     INY
-    LDA SCRATCH,X
+    LDA (var_zp_ABI_buf_3),Y
     STA (var_zp_ABI_buf_1),Y
-    INX
     INY
-    LDA SCRATCH,X
+    LDA (var_zp_ABI_buf_3),Y
     STA (var_zp_ABI_buf_1),Y
-    INX
     INY
-    INX
-    INX
+    LDA var_zp_ABI_buf_3
+    ADC #2
+    STA var_zp_ABI_buf_3
     CPY #128
     BNE wd_copy_ids_loop
 
@@ -1455,15 +1460,6 @@ GUARD (BASE + 2048)
     \\ One shot will now have shot, clear IFR.
     LDA #&7F
     STA &FE4D
-    RTS
-
-.clear_scratch
-    LDA #0
-    LDX #0
-  .clear_scratch_loop
-    STA SCRATCH,X
-    DEX
-    BNE clear_scratch_loop
     RTS
 
 .discbeast_end
