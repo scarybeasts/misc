@@ -233,6 +233,7 @@ DEF PROCtcrc
 J%=?(B%+5)
 IF J%=0 THEN !C%=0:ENDPROC
 FOR I%=0 TO J%-1
+VDU8,48+I%
 K%=1
 IF FNcrcerr(I%) THEN K%=0
 L%=FNidtrk(I%)
@@ -247,7 +248,7 @@ PROCcrcf32(C%)
 ENDPROC
 
 DEF PROCtrk:IF T% AND 1 THEN B%=&6C00 ELSE B%=&5C00
-PROCclr:PROCseek:PROCgtrk:PROCtcrc:!(B%+12)=!C%
+VDU135,46:PROCclr:VDU8,83:PROCseek:PROCgtrk:PROCtcrc:!(B%+12)=!C%:VDU8,8
 ENDPROC
 
 DEF PROCpcrc:VDU130:PRINT "DISC CRC32 "+STR$~(!(C%+4))
@@ -303,7 +304,6 @@ FOR T%=V%(6) TO V%(7)
 IF (T% AND 1)=0 THEN PROCstor(&5C00,0,8192)
 IF (T% MOD 10)=0 THEN PRINT:PRINT STR$(T%)+" ";
 IF T%=0 THEN PRINT" ";
-VDU135,46
 PROCretry
 IF R%<>2 AND T%=V%(7) THEN PROCcrcf32(C%+4):!(B%+28)=!(C%+4)
 IF R%<>2 THEN PROChfegy ELSE T%=V%(7)
@@ -320,7 +320,7 @@ IF A%>10 THEN J%=43
 L%=?(B%+4)
 IF L%=&18 THEN I%=4:J%=33
 IF A%>0 THEN PROChfegs
-VDU8,8,128+I%,K%,J%
+VDU128+I%,K%,J%
 PROCsave:PROCreinit
 ENDPROC
 
@@ -348,7 +348,7 @@ ENDPROC
 
 DEF PROCgtrk
 ?B%=G%(1):?(B%+1)=T%:?(B%+2)=?(Z%+4):?(B%+3)=?(Z%+5):?(B%+&10)=3
-PROCbufs(B%+&20,B%+&A0):PROCs16(Z%+6,0):PROCs16(Z%+8,0):PROCrids
+PROCbufs(B%+&20,B%+&A0):PROCs16(Z%+6,0):PROCs16(Z%+8,0):VDU8,73:PROCrids
 REM More 1770 ghosts.
 IF S%=0 THEN R%=&18
 R%=R% AND &FF:?(B%+4)=R%:?(B%+5)=S%
@@ -356,7 +356,7 @@ IF R%=&18 THEN R%=0:ENDPROC
 
 IF R%<>0 THEN ?(B%+8)=1
 IF R%<>0 AND G%(1)=1 THEN R%=1:ENDPROC
-IF G%(1)=1 THEN PROCg8271 ELSE PROCg1770
+VDU8,82:IF G%(1)=1 THEN PROCg8271 ELSE PROCg1770
 IF R%<>0 THEN ENDPROC
 
 REM Timing based sector sizes.
@@ -374,6 +374,7 @@ NEXT
 
 REM Parse sectors.
 FOR I%=0 TO J%-1
+VDU8,48+I%
 IF I%=0 THEN M%=FNcstime(I%)-1 ELSE M%=FNg16(B%+&100+(I%-1)*2)+FNcstime(I%)-FNcstime(I%-1)
 P%=!(B%+&20+I%*4)
 N%=0
