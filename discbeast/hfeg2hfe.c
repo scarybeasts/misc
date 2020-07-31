@@ -225,7 +225,6 @@ convert_tracks(uint8_t* p_hfe_buf,
   uint32_t expand_factor;
   uint32_t shrink_factor;
   uint32_t beeb_crc32;
-  uint32_t step_count;
 
   uint32_t disc_crc32 = 0xFFFFFFFF;
   uint32_t disc_crc32_double_step = 0xFFFFFFFF;
