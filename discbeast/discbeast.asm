@@ -1,7 +1,7 @@
 \\ discbeast.asm
 \\ It works with discs. It's a bit of a beast.
 
-BASE = &7100
+BASE = &4A00
 ZP = &60
 
 ABI_SETUP = (BASE + 0)
@@ -96,7 +96,7 @@ GUARD (ZP + 48)
 .var_zp_wd_dden_bit SKIP 1
 
 ORG BASE
-GUARD (BASE + 2048)
+GUARD (BASE + &0800)
 
 .discbeast_begin
 
@@ -1465,6 +1465,6 @@ GUARD (BASE + 2048)
 .discbeast_end
 
 SAVE "BSTASM", discbeast_begin, discbeast_end
-PUTFILE "DUTLASM", "DUTLASM", &7A00
+PUTFILE "DUTLASM", "DUTLASM", &5200
 PUTTEXT "boot.txt", "!BOOT", 0
 PUTBASIC "discbeast.bas", "DISCBST"

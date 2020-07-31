@@ -1,7 +1,7 @@
 \\ discutil.asm
 \\ Useful utilities when working with discs and buffers.
 
-BASE = &7A00
+BASE = &5200
 ZP = &50
 
 \\ A=byte to store

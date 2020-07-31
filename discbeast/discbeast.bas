@@ -1,17 +1,11 @@
-MODE7:HIMEM=&4800
+MODE7:HIMEM=&4A00
 VDU129,157,131:PRINT"Disc BEAST v0.3.1":PRINT
-REM BSTASM
-D%=&7100:Z%=&60
-REM DUTLASM
-U%=&7A00:W%=&50
-REM Buffers.
-B%=&5000
-REM Command params, globals.
+REM BSTASM, DUTLASM, Buffers.
+D%=&4A00:Z%=&60:U%=&5200:W%=&50:B%=&5C00
+REM Params, globals.
 DIM V%(8),G%(8)
-REM OSWORD.
-DIM O% 15:PROCstor(O%,0,16)
-PROCs16(O%+1,B%)
-REM CRC.
+REM OSWORD, CRC.
+DIM O% 15:PROCstor(O%,0,16):PROCs16(O%+1,B%)
 DIM C% 11
 F$="DISC":G%(6)=1:G%(7)=1
 
@@ -30,8 +24,8 @@ P$=RIGHT$(P$,LEN(P$)-J%)
 UNTIL LEN(P$)=0
 P%=I%
 
-REM Buffers. &4800-&6FFF.
-B%=&5000:PROCbufs(B%,B%+4096):PROCs16(Z%+6,G%(3)):PROCs16(Z%+8,-G%(4))
+REM Buffers. &5400-&7BFF.
+B%=&5C00:PROCbufs(B%,B%+4096):PROCs16(Z%+6,G%(3)):PROCs16(Z%+8,-G%(4))
 IF A$="INIT" THEN PROCsetup:A$=""
 IF A$="OWRD" THEN PROCowrd:A$=""
 IF A$="DUMP" THEN PROCdump(V%(0)):A$=""
@@ -252,7 +246,7 @@ NEXT
 PROCcrcf32(C%)
 ENDPROC
 
-DEF PROCtrk:IF T% AND 1 THEN B%=&6000 ELSE B%=&5000
+DEF PROCtrk:IF T% AND 1 THEN B%=&6C00 ELSE B%=&5C00
 PROCclr:PROCseek:PROCgtrk:PROCtcrc:!(B%+12)=!C%
 ENDPROC
 
@@ -306,7 +300,7 @@ PRINT:VDU132,157,134:PRINT"HFE Grab v0.3"
 PRINT"TRACKS "+STR$(V%(6))+" TO "+STR$(V%(7))
 IF V%(5)=0 THEN PRINT"(NOT SAVING)"
 FOR T%=V%(6) TO V%(7)
-IF (T% AND 1)=0 THEN PROCstor(&5000,0,8192)
+IF (T% AND 1)=0 THEN PROCstor(&5C00,0,8192)
 IF (T% MOD 10)=0 THEN PRINT:PRINT STR$(T%)+" ";
 IF T%=0 THEN PRINT" ";
 VDU135,46
@@ -349,7 +343,7 @@ IF (T% AND 1)=0 AND T%<>V%(7) THEN ENDPROC
 OSCLI(F$)
 A%=G%(6):IF T%>40 THEN A%=A%+2
 IF G%(6)>-1 THEN OSCLI("DR."+STR$(A%))
-OSCLI("SAVE TRKS"+STR$(T% AND &FE)+" 5000 +2000")
+OSCLI("SAVE TRKS"+STR$(T% AND &FE)+" 5C00 +2000")
 ENDPROC
 
 DEF PROCgtrk
@@ -410,14 +404,14 @@ PROCrsec(I%)
 IF R%<>0 AND R%<>&E THEN ENDPROC
 A%=FNrsiz(I%):X%=FNssize(FNidsiz(I%))
 IF X%<A% THEN A%=X%
-PROCcmp(&4800,FNsaddr(I%)+1,A%)
-A%=B%+&E0+I%:X%=FNg16(W%)-&4800
+PROCcmp(&5400,FNsaddr(I%)+1,A%)
+A%=B%+&E0+I%:X%=FNg16(W%)-&5400
 IF R%<>0 THEN ?A%=?A%+&20:PROCs16(B%+&F00+I%*2,X%)
 ENDPROC
 
 DEF PROCrsec(A%)
 K%=0:IF A%>0 THEN K%=FNstime(A%)
-PROCs16(Z%+6,K%):PROCs16(Z%+8,0):PROCbufs(&4800,&100)
+PROCs16(Z%+6,K%):PROCs16(Z%+8,0):PROCbufs(&5400,&100)
 V%(0)=FNidtrk(A%):V%(1)=FNidsec(A%):V%(2)=1:V%(3)=FNssize(FNidsiz(A%))
 PROCread:R%=R% AND &FF
 ENDPROC
@@ -453,7 +447,7 @@ R%=0:PROCs16(B%+6,S%)
 ENDPROC
 
 DEF PROCg8271
-PROCstor(B%+&200,&FF,3125):PROCstor(&4800,0,2048)
+PROCstor(B%+&200,&FF,3125):PROCstor(&5400,0,2048)
 PROCs16(B%+6,3125):J%=?(B%+5):K%=0
 FOR I%=0 TO J%-1
 REM Write in sector header and CRC.
@@ -462,7 +456,7 @@ M%=B%+&200+FNcstime(I%)-1
 PROCcrc16(M%,5):?(M%+5)=(R% AND &FF00) DIV 256:?(M%+6)=R%
 M%=M%+7+17
 PROCs16(Z%+6,K%):K%=FNstime(I%):PROCs16(Z%+8,0)
-PROCbufs(&4800,&100)
+PROCbufs(&5400,&100)
 V%(0)=FNidtrk(I%):V%(1)=FNidsec(I%):V%(2)=1:V%(3)=2048
 R%=0:IF V%(0)<>&FF AND (T%=0 OR V%(0)<>0) THEN PROCread:R%=R% AND &FF
 IF R%=&18 THEN PRINT"SECTOR READ FAILED: "+STR$~(V%(0))+" "+STR$~(V%(1)):END
@@ -471,7 +465,7 @@ IF R% AND &20 THEN ?M%=&F8 ELSE ?M%=&FB
 M%=M%+1
 IF I%=J%-1 THEN L%=3328 ELSE L%=FNcstime(I%+1)
 L%=L%-(M%-B%-&200)
-PROCcopy(M%,&4800,L%)
+PROCcopy(M%,&5400,L%)
 NEXT:R%=0
 ENDPROC
 
