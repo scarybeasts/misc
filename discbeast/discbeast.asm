@@ -767,8 +767,7 @@ GUARD (BASE + &0800)
   .intel_reset_wait_loop
     DEX
     BNE intel_reset_wait_loop
-    LDA #0
-    STA &FE82
+    STX &FE82
     RTS
 
 .intel_wait_idle
@@ -800,7 +799,7 @@ GUARD (BASE + &0800)
 
     \\ Restore track register -- there's only one for both drives.
     LDA var_zp_track
-    LDY #1
+    INY
     STA (var_zp_wd_base),Y
 
     RTS
@@ -827,7 +826,11 @@ GUARD (BASE + &0800)
     RTS
 
 .wd_read_track
+    STA var_zp_param_1
+
     JSR timer_enter
+
+    JSR wd_set_dden
 
     JSR wd_read_loop_fast_setup
 
@@ -836,6 +839,9 @@ GUARD (BASE + &0800)
     JSR wd_do_command
 
     JSR wd_read_loop_fast
+
+    \\ Put back control register.
+    JSR wd_reset_dden
 
     JSR timer_exit
 
@@ -1090,7 +1096,11 @@ GUARD (BASE + &0800)
     RTS
 
 .wd_write_track
+    STA var_zp_param_1
+
     JSR timer_enter
+
+    JSR wd_set_dden
 
     \\ Write track, spin up, head settle.
     LDA #WD_CMD_WRITE_TRACK_SETTLE
@@ -1098,9 +1108,29 @@ GUARD (BASE + &0800)
 
     JSR wd_write_loop
 
+    \\ Put back control register.
+    JSR wd_reset_dden
+
     JSR timer_exit
 
     JSR wd_set_result_type_2_3
+    RTS
+
+.wd_set_dden
+    LDA var_zp_drive_side_bits
+    LDX var_zp_param_1
+    CPX #1
+    BNE wd_write_track_not_dden
+    EOR var_zp_wd_dden_bit
+  .wd_write_track_not_dden
+    LDY #0
+    STA (var_zp_wd_drvctrl),Y
+    RTS
+
+.wd_reset_dden
+    LDA var_zp_drive_side_bits
+    LDY #0
+    STA (var_zp_wd_drvctrl),Y
     RTS
 
 .wd_do_command
@@ -1255,7 +1285,7 @@ GUARD (BASE + &0800)
 
 .wd_reset
     LDA #0
-    LDY #0
+    TAY
     STA (var_zp_wd_drvctrl),Y
     JSR wd_delay
     RTS
