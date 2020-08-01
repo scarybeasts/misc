@@ -9,7 +9,7 @@ ZP = &50
 \\ (ZP+3 ZP+4)=length, negated
 ABI_STORE = (BASE + 0)
 \\ (ZP+0 ZP+1)=destination buffer
-\\ (ZP+2 ZP+3)=destination buffer
+\\ (ZP+2 ZP+3)=source buffer
 \\ (ZP+3 ZP+4)=length, negated
 ABI_COPY = (BASE + 3)
 \\ X=CRC16 hi byte
@@ -23,8 +23,12 @@ ABI_CRC16 = (BASE + 6)
 ABI_CRC32 = (BASE + 9)
 \\ (ZP+0 ZP+1)=source buffer 1
 \\ (ZP+2 ZP+3)=source buffer 2
-\\ (ZP+3 ZP+4)=length, negated
+\\ (ZP+4 ZP+5)=length, negated
 ABI_CMP = (BASE + 12)
+\\ (ZP+0 ZP+1)=destination buffer
+\\ (ZP+2 ZP+3)=source buffer
+\\ (ZP+4 ZP+5)=length, negated
+ABI_FM_TO_MFM = (BASE + 15)
 
 ORG ZP
 GUARD (ZP + 16)
@@ -32,7 +36,7 @@ GUARD (ZP + 16)
 .var_zp_ABI_buf_1 SKIP 2
 .var_zp_ABI_buf_2 SKIP 2
 .var_zp_ABI_length SKIP 2
-.var_zp_temp SKIP 1
+.var_zp_temp_1 SKIP 1
 .var_zp_temp_2 SKIP 1
 .var_zp_temp_3 SKIP 1
 .var_zp_temp_4 SKIP 1
@@ -53,6 +57,8 @@ GUARD (BASE + &0200)
     JMP entry_crc32
     \\ base + 12, CRC32
     JMP entry_cmp
+    \\ base + 15, FM to MFM
+    JMP entry_fm_to_mfm
 
 .entry_store
     TAY
@@ -237,6 +243,48 @@ GUARD (BASE + &0200)
     RTS
   .entry_cmp_not_equal
     LDA #1
+    RTS
+
+.fm_to_mfm_table
+EQUB &AA,&AB,&AE,&AF,&BA,&BB,&BE,&BF,&EA,&EB,&EE,&EF,&FA,&FB,&FE,&FF
+
+.entry_fm_to_mfm
+    LDA var_zp_ABI_length
+    ORA var_zp_ABI_length + 1
+    BEQ entry_fm_to_mfm_done
+
+  .entry_fm_to_mfm_loop
+    LDY #0
+    LDA (var_zp_ABI_buf_2),Y
+    STA var_zp_temp_1
+    LSR A:LSR A:LSR A:LSR A
+    TAX
+    LDA fm_to_mfm_table,X
+    STA (var_zp_ABI_buf_1),Y
+    LDA var_zp_temp_1
+    AND #&0F
+    TAX
+    LDA fm_to_mfm_table,X
+    INY
+    STA (var_zp_ABI_buf_1),Y
+
+    INC var_zp_ABI_buf_2
+    BNE entry_fm_to_mfm_no_inc_hi_2
+    INC var_zp_ABI_buf_2 + 1
+  .entry_fm_to_mfm_no_inc_hi_2
+    LDA var_zp_ABI_buf_1
+    CLC
+    ADC #2
+    STA var_zp_ABI_buf_1
+    BCC entry_fm_to_mfm_no_inc_hi_1
+    INC var_zp_ABI_buf_1 + 1
+  .entry_fm_to_mfm_no_inc_hi_1
+    INC var_zp_ABI_length
+    BNE entry_fm_to_mfm_loop
+    INC var_zp_ABI_length + 1
+    BNE entry_fm_to_mfm_loop
+
+  .entry_fm_to_mfm_done
     RTS
 
 
