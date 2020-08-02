@@ -1,19 +1,11 @@
-MODE7:HIMEM=&4A00
-VDU129,157,131:PRINT"Disc BEAST v0.3.2":PRINT
-REM BSTASM, DUTLASM, Buffers.
-D%=&4A00:Z%=&60:U%=&5200:W%=&50:B%=&5C00
-REM Params, globals.
-DIM V%(8),G%(8)
-REM CRC.
-DIM C% 11
+MODE7:HIMEM=&4A00:VDU129,157,131:PRINT"Disc BEAST v0.3.2":PRINT
+D%=&4A00:Z%=&60:U%=&5200:W%=&50:DIM V%(8),G%(8):DIM C% 11
 F$="DISC":G%(6)=1:G%(7)=1
 
 REPEAT
-
 INPUT A$:IF LEN(A$)<4 THEN A$="????"
 P$=MID$(A$,5):A$=LEFT$(A$,4)
 FOR I%=0 TO 8:V%(I%)=-1:NEXT
-
 I%=0
 REPEAT
 J%=INSTR(P$," "):IF J%=0 THEN J%=LEN(P$)
@@ -22,15 +14,14 @@ IF LEN(Q$)<>0 AND Q$<>" " AND Q$<"A" THEN V%(I%)=EVAL(Q$):I%=I%+1
 P$=RIGHT$(P$,LEN(P$)-J%)
 UNTIL LEN(P$)=0
 P%=I%
-
-REM Buffers. &5400-&7BFF.
+REM Bufs, &5400-&7BFF
 B%=&5C00:PROCbufs(B%,B%+4096):PROCs16(Z%+6,G%(3)):PROCs16(Z%+8,-G%(4))
 IF A$="INIT" THEN PROCsetup:A$=""
 IF A$="DUMP" THEN PROCdump(V%(0)):A$=""
 IF A$="BFIL" THEN PROCbfil:A$=""
 IF A$="BSET" THEN PROCbset:A$=""
 IF A$="SEEK" THEN T%=V%(0):PROCseek:A$=""
-IF A$="RIDS" THEN PROCclr:PROCrids:PROCres:PRINT"SECTOR HEADERS: "+STR$(S%):PROCdump(0):A$=""
+IF A$="RIDS" THEN PROCclr:PROCrids:PROCres:PRINT"HEADERS: "+STR$(S%):PROCdump(0):A$=""
 IF A$="READ" THEN PROCclr:PROCread:PROCres:PROCdtim:L%=FNg16(Z%)-B%:!C%=-1:PROCcrca32(B%,L%,C%):PROCcrcf32(C%):PRINT"CRC32 "+STR$(L%)+" BYTES: "+STR$~(!C%):PROCdump(0):A$=""
 IF A$="RTRK" THEN PROCclr:PROCrtrk:PROCres:PRINT"LEN: "+STR$(S%):PROCdump(0):A$=""
 IF A$="WRIT" THEN PROCwrit:PROCres:A$=""
@@ -40,30 +31,24 @@ IF A$="DTRK" THEN PROCdtrk:A$=""
 IF A$="DCRC" THEN PROCdcrc:A$=""
 IF A$="HFEG" THEN PROChfeg:A$=""
 IF A$="HFEP" THEN PROChfep:A$=""
-IF A$="DBUG" THEN PROCgset(2):A$=""
-IF A$="STRT" THEN PROCgset(3):A$=""
-IF A$="BAIL" THEN PROCgset(4):A$=""
-IF A$="DSTP" THEN PROCgset(5):A$=""
-IF A$="FDRV" THEN PROCgset(6):A$=""
-IF A$="AUTO" THEN PROCgset(7):A$=""
-IF A$="DR40" THEN PROCgset(8):A$=""
+IF A$="DBUG" THEN PROCg(2)
+IF A$="STRT" THEN PROCg(3)
+IF A$="BAIL" THEN PROCg(4)
+IF A$="DSTP" THEN PROCg(5)
+IF A$="FDRV" THEN PROCg(6)
+IF A$="AUTO" THEN PROCg(7)
+IF A$="DR40" THEN PROCg(8)
 IF A$="BFUN" THEN ?(Z%+10)=V%(0):A$=""
 IF A$="FSYS" THEN F$=Q$:G%(6)=-1:PRINT"FSYS "+F$:A$=""
 IF A$="CMFM" THEN PROCcmfm:A$=""
-
-IF A$<>"" THEN PRINT "UNKNOWN COMMAND"
-
+IF A$<>"" THEN PRINT "???"
 UNTIL FALSE
 
-DEF PROCgset(A%)
-G%(A%)=V%(0):PRINT A$+" "+STR$(V%(0))
-ENDPROC
+DEF PROCg(A%):G%(A%)=V%(0):PRINT A$;:PRINT V%(0):A$="":ENDPROC
 
 DEF PROCsetup
-A%=V%(0):T%=0
-IF A%<0 THEN A%=0
-G%(0)=A%
-A%=USR(D%) AND &FF
+A%=V%(0):T%=0:IF A%<0 THEN A%=0
+G%(0)=A%:A%=USR(D%) AND &FF
 IF A%=0 THEN PRINT"FAIL":END
 IF A%=1 THEN PRINT"OK 8271"
 IF A%=2 THEN PRINT"OK 1770"
@@ -79,8 +64,7 @@ DEF PROCclr:PROCstor(B%,0,4096):ENDPROC
 DEF PROCbfil
 A%=0:X%=0
 IF V%(1)<>-1 THEN A%=V%(0):X%=V%(1) ELSE X%=V%(0)
-Y%=4096-A%
-PROCstor(B%+A%,X%,Y%)
+Y%=4096-A%:PROCstor(B%+A%,X%,Y%)
 ENDPROC
 
 DEF PROCbset
@@ -97,18 +81,9 @@ PRINT"RESULT: &" + STR$~(I%);
 IF I%<>J% THEN PRINT" (&"+STR$~(J%)+")" ELSE PRINT
 ENDPROC
 
-DEF PROCdtim
-A%=V%(3)/128
-X%=FNg16(B%+4096)
-Y%=FNg16(B%+4096+A%*2)
-PRINT"TIME: "+STR$(Y%-X%)
-ENDPROC
+DEF PROCdtim:A%=V%(3)/128:X%=FNg16(B%+4096):Y%=FNg16(B%+4096+A%*2):PRINT"TIME: "+STR$(Y%-X%):ENDPROC
 
-DEF PROCstor(A%,X%,Y%)
-PROCs16(W%,A%)
-Y%=-Y%:PROCs16(W%+4,Y%)
-A%=X%:CALL U%
-ENDPROC
+DEF PROCstor(A%,X%,Y%):PROCs16(W%,A%):Y%=-Y%:PROCs16(W%+4,Y%):A%=X%:CALL U%:ENDPROC
 
 DEF PROCcopy(A%,X%,Y%):PROCs16(W%,A%):PROCs16(W%+2,X%):Y%=-Y%:PROCs16(W%+4,Y%):CALL U%+3:ENDPROC
 
@@ -116,27 +91,11 @@ DEF PROCmfm(A%,X%,Y%):PROCs16(W%,A%):PROCs16(W%+2,X%):Y%=-Y%:PROCs16(W%+4,Y%):CA
 
 DEF PROCcmp(A%,X%,Y%):PROCs16(W%,A%):PROCs16(W%+2,X%):Y%=-Y%:PROCs16(W%+4,Y%):R%=USR(U%+12) AND &FF:ENDPROC
 
-DEF PROCcrc16(A%,X%)
-PROCs16(W%+2,A%)
-X%=-X%:PROCs16(W%+4,X%)
-X%=&FF:Y%=&FF
-R%=USR(U%+6):X%=(R% AND &FF00) DIV &100:Y%=(R% AND &FF0000) DIV &10000
-R%=X%*256+Y%
-ENDPROC
+DEF PROCcrc16(A%,X%):PROCs16(W%+2,A%):X%=-X%:PROCs16(W%+4,X%):X%=&FF:Y%=&FF:R%=USR(U%+6):X%=(R% AND &FF00) DIV &100:Y%=(R% AND &FF0000) DIV &10000:R%=X%*256+Y%:ENDPROC
 
-DEF PROCcrca32(A%,X%,Y%)
-PROCs16(W%,Y%):PROCs16(W%+2,A%)
-X%=-X%:PROCs16(W%+4,X%)
-CALL U%+9
-ENDPROC
+DEF PROCcrca32(A%,X%,Y%):PROCs16(W%,Y%):PROCs16(W%+2,A%):X%=-X%:PROCs16(W%+4,X%):CALL U%+9:ENDPROC
 
-DEF PROCcrcf32(A%)
-!(C%+8)=!A% EOR &FFFFFFFF
-?A%=?(C%+11)
-?(A%+1)=?(C%+10)
-?(A%+2)=?(C%+9)
-?(A%+3)=?(C%+8)
-ENDPROC
+DEF PROCcrcf32(A%):!(C%+8)=!A% EOR &FFFFFFFF:?A%=?(C%+11):?(A%+1)=?(C%+10):?(A%+2)=?(C%+9):?(A%+3)=?(C%+8):ENDPROC
 
 DEF PROCbufs(A%,Y%):PROCs16(Z%,A%):PROCs16(Z%+2,Y%):PROCs16(Z%+11,&7000):ENDPROC
 
@@ -147,12 +106,9 @@ CALL D%+9
 ENDPROC
 
 DEF PROCrids
-K%=FNg16(Z%+2)
-R%=USR(D%+15)
-S%=0
+K%=FNg16(Z%+2):R%=USR(D%+15):S%=0
 IF (R% AND &FF)=&18 THEN ENDPROC
 J%=FNdrvspd
-REM Sectors in one rev.
 FOR I%=0 TO 31
 L%=FNg16(K%+I%*2)
 IF L%>0 AND L%<J% THEN S%=S%+1 ELSE I%=31
@@ -178,12 +134,12 @@ DEF PROCread:PROCrw(18):ENDPROC
 DEF PROCwrit:PROCrw(24):ENDPROC
 
 DEF PROCrtrk
-IF G%(1)<>2 THEN PRINT"RTRK 1770 ONLY":ENDPROC
+IF G%(1)<>2 THEN PRINT"1770 ONLY":ENDPROC
 S%=FNg16(Z%):A%=V%(0):R%=USR(D%+12):S%=FNg16(Z%)-S%
 ENDPROC
 
 DEF PROCwtrk
-IF G%(1)<>2 THEN PRINT"WTRK 1770 ONLY":ENDPROC
+IF G%(1)<>2 THEN PRINT"1770 ONLY":ENDPROC
 A%=V%(0):R%=USR(D%+27)
 ENDPROC
 
@@ -250,7 +206,7 @@ DEF PROCauto
 V%(6)=V%(0):IF V%(0)=-1 THEN V%(6)=0
 V%(7)=V%(1):IF V%(1)=-1 THEN V%(7)=40
 IF G%(7)=0 OR G%(8) THEN ENDPROC
-IF G%(1)<>2 THEN PRINT"AUTO 1770 ONLY":ENDPROC
+IF G%(1)<>2 THEN ENDPROC
 PRINT"WARN: DRIVE MUST BE 80 TRACK":G%(5)=0
 FOR T%=1 TO 21 STEP 20
 PROCseek:PROCbufs(B%,B%+4096):PROCrids:R%=R% AND &FF:PRINT"TRACK "+STR$(T%)+" READ IDS: &"+STR$~(R%)
@@ -412,7 +368,7 @@ IF R%=0 AND ?(B%+8)=1 THEN R%=1
 REM 1770 sees ghosts.
 IF R%=2 AND ?(B%+4)<>0 THEN ?(B%+4)=&18:?(B%+5)=0:R%=3:ENDPROC
 IF R%<>1 THEN ENDPROC
-REM Check for weak bits.
+REM Weak bits.
 FOR I%=0 TO J%-1
 IF FNcrcerr(I%) THEN PROCweak
 NEXT
@@ -438,7 +394,7 @@ ENDPROC
 
 DEF PROCgtrky
 K%=B%+&E0+I%:M%=?K%+1
-REM Try other sector sizes if CRC16 fails.
+REM Try other sizes if CRC16 fails.
 REPEAT:M%=M%-1
 A%=FNssize(M%)+1
 N%=?L%:?L%=N% OR &F0:PROCcrc16(L%,A%):?L%=N%
@@ -479,7 +435,7 @@ PROCs16(Z%+6,K%):K%=FNstime(I%):PROCs16(Z%+8,0)
 PROCbufs(&5400,&100)
 V%(0)=FNidtrk(I%):V%(1)=FNidsec(I%):V%(2)=1:V%(3)=2048
 R%=0:IF V%(0)<>&FF AND (T%=0 OR V%(0)<>0) THEN PROCread:R%=R% AND &FF
-IF R%=&18 THEN PRINT"SECTOR READ FAILED: "+STR$~(V%(0))+" "+STR$~(V%(1)):END
+IF R%=&18 THEN PRINT"READ FAILED: "+STR$~(V%(0))+" "+STR$~(V%(1)):END
 REM Copy in sector data.
 IF R% AND &20 THEN ?M%=&F8 ELSE ?M%=&FB
 M%=M%+1
@@ -489,9 +445,7 @@ PROCcopy(M%,&5400,L%)
 NEXT:R%=0
 ENDPROC
 
-DEF PROCwait(A%)
-X%=TIME:REPEAT:UNTIL TIME>X%+A%
-ENDPROC
+DEF PROCwait(A%):X%=TIME:REPEAT:UNTIL TIME>X%+A%:ENDPROC
 
 DEF FNhex(A%)
 A$=STR$~(A%)
@@ -518,8 +472,6 @@ DEF FNsaddr(A%):=B%+&200+FNg16(B%+&140+A%*2)
 DEF FNstime(A%):=FNg16(B%+&A0+A%*2)
 DEF FNtlen:=FNg16(B%+6)
 
-DEF FNcstime(A%)
-A%=FNstime(A%)
-=A%*(FNtlen/FNdrvspd)
+DEF FNcstime(A%):A%=FNstime(A%):=A%*(FNtlen/FNdrvspd)
 
 DEF FNdrvspd:=FNg16(Z%+4)
