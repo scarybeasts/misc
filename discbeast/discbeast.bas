@@ -1,5 +1,5 @@
 MODE7:HIMEM=&4A00:VDU129,157,131:PRINT"Disc BEAST v0.3.2":PRINT
-D%=&4A00:Z%=&60:U%=&5200:W%=&50:DIM V%(8),G%(8):DIM C% 11
+D%=&4A00:Z%=&60:U%=&5200:W%=&50:DIM V%(8),G%(9):DIM C% 11
 F$="DISC":G%(6)=1:G%(7)=1
 
 REPEAT
@@ -31,13 +31,13 @@ IF A$="DTRK" THEN PROCdtrk:A$=""
 IF A$="DCRC" THEN PROCdcrc:A$=""
 IF A$="HFEG" THEN PROChfeg:A$=""
 IF A$="HFEP" THEN PROChfep:A$=""
-IF A$="DBUG" THEN PROCg(2)
 IF A$="STRT" THEN PROCg(3)
 IF A$="BAIL" THEN PROCg(4)
 IF A$="DSTP" THEN PROCg(5)
 IF A$="FDRV" THEN PROCg(6)
 IF A$="AUTO" THEN PROCg(7)
 IF A$="DR40" THEN PROCg(8)
+IF A$="CRCO" THEN PROCg(9)
 IF A$="BFUN" THEN ?(Z%+10)=V%(0):A$=""
 IF A$="FSYS" THEN F$=Q$:G%(6)=-1:PRINT"FSYS "+F$:A$=""
 IF A$="CMFM" THEN PROCcmfm:A$=""
@@ -170,18 +170,14 @@ PRINT "TRACK CRC32 "+STR$~(!C%)
 ENDPROC
 
 DEF PROCtcrc
+!C%=0
+IF G%(9) AND 1 THEN ENDPROC
+J%=?(B%+5):IF J%=0 THEN ENDPROC
 !C%=-1
-J%=?(B%+5)
-IF J%=0 THEN !C%=0:ENDPROC
 FOR I%=0 TO J%-1
-VDU8,48+I%
-K%=1
-IF FNcrcerr(I%) THEN K%=0
-L%=FNidtrk(I%)
-IF L%=&FF OR (L%=0 AND T%<>0) THEN K%=0
-L%=FNrsiz(I%)+1
-M%=FNsaddr(I%)
-N%=?M%:?M%=N% OR &F0
+VDU8,48+I%:K%=1:IF FNcrcerr(I%) THEN K%=0
+L%=FNidtrk(I%):IF L%=&FF OR (L%=0 AND T%<>0) THEN K%=0
+L%=FNrsiz(I%)+1:M%=FNsaddr(I%):N%=?M%:?M%=N% OR &F0
 IF K%=1 THEN PROCcrca32(M%,L%,C%)
 ?M%=N%
 NEXT
@@ -233,7 +229,7 @@ V%(4)=5
 REPEAT:V%(4)=V%(4)-1:PROCtrk
 S%=0:IF R%=1 OR R%=2 THEN VDU7,129,33,8,8:IF V%(4)<>0 THEN PROCwait(100):T%=T%-1:PROCseek:T%=T%+1:PROCseek:S%=1
 UNTIL S%=0 OR V%(4)=0
-PROCcrca32(C%,4,C%+4)
+IF G%(9) AND 1 THEN PROCcrca32(C%,4,C%+4)
 ENDPROC
 
 DEF PROChfeg
@@ -351,18 +347,17 @@ REM Parse sectors.
 FOR I%=0 TO J%-1
 VDU8,48+I%
 IF I%=0 THEN M%=FNcstime(I%)-1 ELSE M%=FNg16(B%+&100+(I%-1)*2)+FNcstime(I%)-FNcstime(I%-1)
-P%=!(B%+&20+I%*4)
-N%=0
-FOR K%=-10 TO 10
-L%=B%+&200+M%+K%
-IF (?L%=&FE OR ?L%=&CE) AND !(L%+1)=P% THEN N%=1:M%=M%+K%:PROCs16(B%+&100+I%*2,M%):K%=10
+P%=!(B%+&20+I%*4):N%=0:L%=B%+&200+M%-10
+FOR K%=0 TO 20
+IF (?L%=&FE OR ?L%=&CE) AND !(L%+1)=P% THEN K%=100 ELSE L%=L%+1
 NEXT
-IF G%(2) AND N%=0 THEN PRINT"DBUG: HDR "+STR$~(X%):PROCdump(&200+M%-32)
-FOR K%=14 TO 30
-L%=B%+&200+M%+K%
-IF ?L%=&FB OR ?L%=&CB OR ?L%=&F8 OR ?L%=&C8 THEN N%=N%+1:M%=M%+K%:PROCs16(B%+&140+I%*2,M%):K%=30
+IF K%=101 THEN N%=1:M%=L%-B%-&200:PROCs16(B%+&100+I%*2,M%)
+L%=B%+&200+M%+14
+FOR K%=0 TO 16
+IF ?L%=&FB OR ?L%=&CB OR ?L%=&F8 OR ?L%=&C8 THEN K%=100 ELSE L%=L%+1
 NEXT
-IF N%=2 THEN PROCgtrky:R%=0 ELSE R%=2:I%=J%-1
+IF K%=101 THEN N%=N%+1:M%=L%-B%-&200:PROCs16(B%+&140+I%*2,M%)
+IF N%=2 THEN PROCgtrky:R%=0 ELSE R%=2:I%=J%
 NEXT
 IF R%=0 AND ?(B%+8)=1 THEN R%=1
 REM 1770 sees ghosts.
@@ -393,6 +388,7 @@ PROCread:R%=R% AND &FF
 ENDPROC
 
 DEF PROCgtrky
+IF G%(9) AND 2 THEN ENDPROC
 K%=B%+&E0+I%:M%=?K%+1
 REM Try other sizes if CRC16 fails.
 REPEAT:M%=M%-1
