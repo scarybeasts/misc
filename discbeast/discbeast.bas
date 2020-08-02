@@ -345,9 +345,10 @@ FOR I%=0 TO J%-1
 VDU8,48+I%
 IF I%=0 THEN M%=-1 ELSE M%=FNl(B%+&100+(I%-1)*2)
 M%=M%-O%:O%=FNcstime(I%):M%=M%+O%
-P%=!(B%+&20+I%*4):N%=0:L%=B%+&200+M%-10
+P%=!(B%+&20+I%*4):N%=0:L%=B%+&200+M%
 FOR K%=0 TO 20
-IF (?L%=&FE OR ?L%=&CE) AND !(L%+1)=P% THEN K%=100 ELSE L%=L%+1
+IF K% AND 1 THEN L%=L%+K% ELSE L%=L%-K%
+IF (?L%=&FE OR ?L%=&CE) AND !(L%+1)=P% THEN K%=100
 NEXT
 IF K%=101 THEN N%=1:M%=L%-B%-&200:PROCp(B%+&100+I%*2,M%)
 L%=B%+&200+M%+14
