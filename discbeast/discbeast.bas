@@ -296,11 +296,7 @@ J%=?(B%+5):IF J%>0 THEN PROChfef
 PROCp(W%,M%):PROCp(W%+4,-6656):CALL U%+18
 REM Helps long tracks
 N%=0:IF FNl(B%+6)>3145 THEN REPEAT:N%=N%+1:UNTIL ?(M%+N%)=&AA
-PROCseek
-REPEAT
-PROCbufs(M%+N%,&5400):V%(0)=1:PROCwtrk:R%=R% AND &FF
-IF R%=&A THEN VDU42
-UNTIL R%<>&A
+PROCseek:PROCbufs(M%+N%,&5400):PROCp(Z%+8,0):V%(0)=1:PROCwtrk:R%=R% AND &FF
 IF R%<>0 THEN PROCres
 NEXT
 ENDPROC
