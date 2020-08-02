@@ -4,8 +4,7 @@ REM BSTASM, DUTLASM, Buffers.
 D%=&4A00:Z%=&60:U%=&5200:W%=&50:B%=&5C00
 REM Params, globals.
 DIM V%(8),G%(8)
-REM OSWORD, CRC.
-DIM O% 15:PROCstor(O%,0,16):PROCs16(O%+1,B%)
+REM CRC.
 DIM C% 11
 F$="DISC":G%(6)=1:G%(7)=1
 
@@ -27,7 +26,6 @@ P%=I%
 REM Buffers. &5400-&7BFF.
 B%=&5C00:PROCbufs(B%,B%+4096):PROCs16(Z%+6,G%(3)):PROCs16(Z%+8,-G%(4))
 IF A$="INIT" THEN PROCsetup:A$=""
-IF A$="OWRD" THEN PROCowrd:A$=""
 IF A$="DUMP" THEN PROCdump(V%(0)):A$=""
 IF A$="BFIL" THEN PROCbfil:A$=""
 IF A$="BSET" THEN PROCbset:A$=""
@@ -70,7 +68,6 @@ IF A%=0 THEN PRINT"FAIL":END
 IF A%=1 THEN PRINT"OK 8271"
 IF A%=2 THEN PRINT"OK 1770"
 G%(1)=A%
-?O%=A%
 PRINT"DRIVE "+STR$(G%(0))+" SPEED: "+STR$(FNdrvspd)
 PRINT"ENSURE DRIVE IN 80 TRACK MODE"
 ENDPROC
@@ -139,14 +136,6 @@ DEF PROCcrcf32(A%)
 ?(A%+1)=?(C%+10)
 ?(A%+2)=?(C%+9)
 ?(A%+3)=?(C%+8)
-ENDPROC
-
-DEF PROCowrd
-?(O%+5)=P%-1
-?(O%+6)=V%(0)
-IF P%>1 THEN FOR I%=2 TO P%:?(O%+5+I%)=V%(I%-1):NEXT
-A%=&7F:X%=O%:Y%=O% DIV 256:CALL&FFF1:R%=?(O%+6+P%)
-PRINT"OSWORD &7F: &"+STR$~(R%)
 ENDPROC
 
 DEF PROCbufs(A%,Y%):PROCs16(Z%,A%):PROCs16(Z%+2,Y%):PROCs16(Z%+11,&7000):ENDPROC
