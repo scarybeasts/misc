@@ -29,6 +29,9 @@ ABI_CMP = (BASE + 12)
 \\ (ZP+2 ZP+3)=source buffer
 \\ (ZP+4 ZP+5)=length, negated
 ABI_FM_TO_MFM = (BASE + 15)
+\\ (ZP+0 ZP+1)=source + destination buffer
+\\ (ZP+4 ZP+5)=length, negated
+ABI_NIBBLE_SHIFT = (BASE + 18)
 
 ORG ZP
 GUARD (ZP + 16)
@@ -59,6 +62,8 @@ GUARD (BASE + &0200)
     JMP entry_cmp
     \\ base + 15, FM to MFM
     JMP entry_fm_to_mfm
+    \\ base + 18, nibble shift
+    JMP entry_nibble_shift
 
 .entry_store
     TAY
@@ -285,6 +290,35 @@ EQUB &AA,&AB,&AE,&AF,&BA,&BB,&BE,&BF,&EA,&EB,&EE,&EF,&FA,&FB,&FE,&FF
     BNE entry_fm_to_mfm_loop
 
   .entry_fm_to_mfm_done
+    RTS
+
+.entry_nibble_shift
+    LDA var_zp_ABI_length
+    ORA var_zp_ABI_length + 1
+    BEQ entry_nibble_shift_done
+
+  .entry_nibble_shift_loop
+    LDY #0
+    LDA (var_zp_ABI_buf_1),Y
+    ASL A:ASL A:ASL A:ASL A
+    STA var_zp_temp_1
+    INY
+    LDA (var_zp_ABI_buf_1),Y
+    LSR A:LSR A:LSR A:LSR A
+    ORA var_zp_temp_1
+    DEY
+    STA (var_zp_ABI_buf_1),Y
+
+    INC var_zp_ABI_buf_1
+    BNE entry_nibble_shift_no_inc_hi_1
+    INC var_zp_ABI_buf_1 + 1
+  .entry_nibble_shift_no_inc_hi_1
+    INC var_zp_ABI_length
+    BNE entry_nibble_shift_loop
+    INC var_zp_ABI_length + 1
+    BNE entry_nibble_shift_loop
+
+  .entry_nibble_shift_done
     RTS
 
 
