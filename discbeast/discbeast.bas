@@ -287,25 +287,34 @@ DEF PROChfep
 V%(6)=V%(0):IF V%(0)=-1 THEN V%(6)=0
 V%(7)=V%(1):IF V%(1)=-1 THEN V%(7)=40
 PRINT"HFE PUT TRACKS "+STR$(V%(6))+" TO "+STR$(V%(7))
+M%=&5E00
 FOR T%=V%(6) TO V%(7)
 VDU46:PROCfsel:OSCLI("LOAD TRKS"+STR$(T% AND &FE)+" 5C00"):CALL D%+3
 IF T% AND 1 THEN PROCcopy(&5C00,&6C00,4096)
-PROCcopy(&5B00,&6B00,256):PROCcopy(&6E00,&5E00,3328):PROCmfm(&5E00,&6E00,3328)
+PROCcopy(&5B00,&6B00,256):PROCcopy(&6E00,M%,3328):PROCmfm(M%,&6E00,3328)
 J%=?(B%+5):IF J%>0 THEN PROChfef
-PROCp(W%,&5E00):PROCp(W%+4,-6656):CALL U%+18
+PROCp(W%,M%):PROCp(W%+4,-6656):CALL U%+18
+REM Helps long tracks
+N%=0:IF FNl(B%+6)>3145 THEN REPEAT:N%=N%+1:UNTIL ?(M%+N%)=&AA
 PROCseek
 REPEAT
-PROCbufs(&5E00,&5400):V%(0)=1:PROCwtrk:R%=R% AND &FF
+PROCbufs(M%+N%,&5400):V%(0)=1:PROCwtrk:R%=R% AND &FF
 IF R%=&A THEN VDU42
 UNTIL R%<>&A
 IF R%<>0 THEN PROCres
 NEXT
 ENDPROC
 
-DEF PROChfef:FOR I%=0 TO J%-1:PROChfet(FNl(B%+&100+I%*2)):PROChfet(FNl(B%+&140+I%*2)):NEXT:ENDPROC
+DEF PROChfef
+FOR I%=0 TO J%-1
+PROChfet(FNl(B%+&100+I%*2)):PROChfet(FNl(B%+&140+I%*2))
+REM Weak bits
+K%=FNl(&5B00+I%*2):IF K%>0 THEN K%=FNsaddr(I%)+1+K%:K%=(K%-M%)*2:K%=K%+M%:FOR L%=0 TO 32:?(K%+L%)=&55+L%:NEXT
+NEXT
+ENDPROC
 
 DEF PROChfet(A%)
-A%=A%*2+&5E00:?A%=&F5:A%=A%+1
+A%=A%*2+M%:?A%=&F5:A%=A%+1
 IF ?A%=&FE THEN ?A%=&7E
 IF ?A%=&EF THEN ?A%=&6F
 IF ?A%=&EA THEN ?A%=&6A
