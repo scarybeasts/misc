@@ -94,6 +94,7 @@ GUARD (ZP + 48)
 .var_zp_wd_base SKIP 2
 .var_zp_wd_drvctrl SKIP 2
 .var_zp_wd_dden_bit SKIP 1
+.var_zp_wd_side_bit SKIP 1
 
 ORG BASE
 GUARD (BASE + &0800)
@@ -125,13 +126,7 @@ GUARD (BASE + &0800)
     BRK
 
 .entry_setup
-    TAX
-    AND #1
-    STA var_zp_drive
-    TXA
-    AND #2
-    LSR A
-    STA var_zp_side
+    JSR store_drive_and_side
 
     LDA #0
     STA var_zp_track
@@ -238,16 +233,13 @@ GUARD (BASE + &0800)
     STA var_zp_wd_base
     LDA #&80
     STA var_zp_wd_drvctrl
-    LDA #0
-    LDX var_zp_side
-    BEQ detected_wd_fe8x_not_side_1
-    LDA #&04
-  .detected_wd_fe8x_not_side_1
-    \\ No reset, single density.
-    ORA #&28
-    STA var_zp_drive_side_bits
     LDA #&08
     STA var_zp_wd_dden_bit
+    LDA #&04
+    STA var_zp_wd_side_bit
+    \\ No reset.
+    LDA #&20
+    STA var_zp_drive_side_bits
     JMP detected_wd_common
 
 .detected_wd_fe2x
@@ -255,16 +247,13 @@ GUARD (BASE + &0800)
     STA var_zp_wd_base
     LDA #&24
     STA var_zp_wd_drvctrl
-    LDA #0
-    LDX var_zp_side
-    BEQ detected_wd_fe2x_not_side_1
-    LDA #&10
-  .detected_wd_fe2x_not_side_1
-    \\ Single density, no reset.
-    ORA #&24
-    STA var_zp_drive_side_bits
     LDA #&20
     STA var_zp_wd_dden_bit
+    LDA #&10
+    STA var_zp_wd_side_bit
+    \\ No reset.
+    LDA #&04
+    STA var_zp_drive_side_bits
     JMP detected_wd_common
 
 .detected_wd_common
@@ -334,6 +323,16 @@ GUARD (BASE + &0800)
     LDA var_zp_param_1
     RTS
 
+.store_drive_and_side
+    TAX
+    AND #1
+    STA var_zp_drive
+    TXA
+    AND #2
+    LSR A
+    STA var_zp_side
+    RTS
+
 .disable_dfs
     \\ *FX 140,0, aka. *TAPE
     LDA #&8C
@@ -347,6 +346,7 @@ GUARD (BASE + &0800)
     RTS
 
 .entry_reinit
+    JSR store_drive_and_side
     JSR disable_dfs
     JSR timer_stop
     JSR ABI_LOAD
@@ -786,13 +786,28 @@ GUARD (BASE + &0800)
     \\ drive, otherwise spin-up on the new drive can be circumvented.
     JSR wd_reset
 
-    \\ Set control register. Drive 0 vs. 1 select is common to both variants.
+    \\ Set control register.
+    \\ Clean out DDEN, SIDE, drive bits.
+    LDA #3
+    ORA var_zp_wd_dden_bit
+    ORA var_zp_wd_side_bit
+    EOR #&FF
+    AND var_zp_drive_side_bits
+    STA var_zp_drive_side_bits
+    \\ And put in the new ones.
+    \\ Drive 0 vs. 1 select is common to both variants.
     LDA var_zp_drive
     \\ Drive 0 -> 1, drive 1 -> 2.
     CLC
     ADC #1
-    \\ Add in reset, density and side.
     ORA var_zp_drive_side_bits
+    LDX var_zp_side
+    BEQ wd_load_no_upper_side
+    ORA var_zp_wd_side_bit
+  .wd_load_no_upper_side
+    \\ DDEN is active low, so raise it for no DDEN (plain FM).
+    ORA var_zp_wd_dden_bit
+
     STA var_zp_drive_side_bits
     LDY #0
     STA (var_zp_wd_drvctrl),Y
