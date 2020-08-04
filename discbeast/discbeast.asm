@@ -77,11 +77,12 @@ GUARD (ZP + 48)
 .var_zp_ABI_bail_function SKIP 1
 \\ 11
 .var_zp_ABI_buf_3 SKIP 2
+\\ 12
+.var_zp_ABI_track SKIP 1
 .var_zp_drive SKIP 1
 .var_zp_side SKIP 1
 .var_zp_drive_side_bits SKIP 1
 .var_zp_drive_bits SKIP 1
-.var_zp_track SKIP 1
 .var_zp_temp SKIP 1
 .var_zp_param_1 SKIP 1
 .var_zp_param_2 SKIP 1
@@ -129,7 +130,7 @@ GUARD (BASE + &0800)
     JSR store_drive_and_side
 
     LDA #0
-    STA var_zp_track
+    STA var_zp_ABI_track
     STA var_zp_ABI_drive_speed
     STA var_zp_ABI_drive_speed + 1
     STA var_zp_ABI_start
@@ -420,18 +421,18 @@ GUARD (BASE + &0800)
     BEQ intel_unset_track_not_drive_1
     LDA #INTEL_PARAM_TRACK_DRIVE_1
   .intel_unset_track_not_drive_1
-    LDX var_zp_track
+    LDX var_zp_ABI_track
     JSR intel_set_param
     RTS
 
 .intel_seek
-    STA var_zp_track
+    STA var_zp_ABI_track
 
     JSR intel_wait_ready
 
     LDA #INTEL_CMD_SEEK
     JSR intel_do_cmd
-    LDA var_zp_track
+    LDA var_zp_ABI_track
     JSR intel_do_param
 
     JSR intel_wait_idle
@@ -452,7 +453,7 @@ GUARD (BASE + &0800)
     LDA #INTEL_CMD_READ_IDS
     JSR intel_do_cmd
     \\ Track.
-    LDA var_zp_track
+    LDA var_zp_ABI_track
     JSR intel_do_param
     \\ Always zero.
     LDA #0
@@ -813,14 +814,14 @@ GUARD (BASE + &0800)
     STA (var_zp_wd_drvctrl),Y
 
     \\ Restore track register -- there's only one for both drives.
-    LDA var_zp_track
+    LDA var_zp_ABI_track
     INY
     STA (var_zp_wd_base),Y
 
     RTS
 
 .wd_seek
-    STA var_zp_track
+    STA var_zp_ABI_track
     CMP #0
     BEQ wd_seek_to_0
     \\ Desired track goes in data register.
@@ -1032,7 +1033,7 @@ GUARD (BASE + &0800)
     INC var_zp_ABI_buf_2
 
     \\ Put back track register.
-    LDA var_zp_track
+    LDA var_zp_ABI_track
     LDY #1
     STA (var_zp_wd_base),Y
 
@@ -1101,7 +1102,7 @@ GUARD (BASE + &0800)
     JSR timer_stop
 
     \\ Put back track register.
-    LDA var_zp_track
+    LDA var_zp_ABI_track
     LDY #1
     STA (var_zp_wd_base),Y
 
