@@ -17,13 +17,13 @@ P%=I%
 REM Bufs, &5400-&7BFF
 B%=&5C00:PROCbufs(B%,B%+4096)
 IF A$="INIT" THEN PROCini:A$=""
-IF A$="DUMP" THEN PROCdump(V%(0)):A$=""
+IF A$="DUMP" THEN PROCd(V%(0)):A$=""
 IF A$="BFIL" THEN PROCbfil:A$=""
 IF A$="BSET" THEN PROCbset:A$=""
 IF A$="SEEK" THEN T%=V%(0):PROCs:A$=""
-IF A$="RIDS" THEN PROCclr:PROCrids:PROCr:PRINT"HEADERS: "+STR$(S%):PROCdump(0):A$=""
-IF A$="READ" THEN PROCclr:PROCread:PROCr:PROCdtim:L%=FNl(Z%)-B%:!C%=-1:PROCc32(B%,L%,C%):PROCc32f(C%):PRINT"CRC32 "+STR$(L%)+" BYTES: "+STR$~(!C%):PROCdump(0):A$=""
-IF A$="RTRK" THEN PROCclr:PROCrtrk:PROCr:PRINT"LEN: "+STR$(S%):PROCdump(0):A$=""
+IF A$="RIDS" THEN PROCclr:PROCrids:PROCr:PRINT"HEADERS: "+STR$(S%):PROCd(0):A$=""
+IF A$="READ" THEN PROCclr:PROCread:PROCr:PROCdtim:L%=FNl(Z%)-B%:!C%=-1:PROCc32(B%,L%,C%):PROCc32f(C%):PRINT"CRC32 "+STR$(L%)+" BYTES: "+STR$~(!C%):PROCd(0):A$=""
+IF A$="RTRK" THEN PROCclr:PROCrtrk:PROCr:PRINT"LEN: "+STR$(S%):PROCd(0):A$=""
 IF A$="WRIT" THEN PROCwrit:PROCr:A$=""
 IF A$="WTRK" THEN PROCwtrk:PROCr:A$=""
 IF A$="TIME" THEN CALL D%+21:PRINT"DRIVE SPEED: "+STR$(FNl(Z%+4)):A$=""
@@ -139,11 +139,11 @@ ENDPROC
 
 DEF PROCcmfm:PROCc(B%+4096,B%,4096):PROCmfm(B%,B%+4096,4096):ENDPROC
 
-DEF PROCdump(A%)
-IF A%<0 THEN A%=0
+DEF PROCd(A%)
+A$="":IF A%<0 THEN A%=0
 FOR I%=0 TO 63
-PRINT" "+FNhex(?(B%+A%+I%));
-IF I% MOD 8=7 THEN PRINT
+X%=?(B%+A%+I%):PRINT" "+FNhex(X%);:IF X%<32 OR X%>126 THEN A$=A$+"." ELSE A$=A$+CHR$(X%)
+IF I% MOD 8=7 THEN PRINT"  "+A$:A$=""
 NEXT
 ENDPROC
 
@@ -453,10 +453,8 @@ ENDPROC
 
 DEF PROCw(A%):X%=TIME:REPEAT:UNTIL TIME>X%+A%:ENDPROC
 
-DEF FNhex(A%)
-A$=STR$~(A%)
-IF LEN(A$)=1 THEN A$="0"+A$
-=A$
+DEF FNhex(A%):P$=STR$~(A%):IF LEN(P$)=1 THEN P$="0"+P$
+=P$
 
 DEF FNl(A%):=?A%+?(A%+1)*256
 DEF PROCp(A%,X%):?A%=X%:?(A%+1)=(X% AND &FF00) DIV 256:ENDPROC
