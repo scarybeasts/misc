@@ -42,6 +42,7 @@ IF A$="BFUN" THEN ?(Z%+10)=V%(0):A$=""
 IF A$="FSYS" THEN F$=Q$:G%(6)=-1:PRINT"FSYS "+F$:A$=""
 IF A$="CMFM" THEN PROCcmfm:A$=""
 IF A$="SCRC" THEN PROCscrc:A$=""
+IF A$="FCRC" THEN PROCfcrc:A$=""
 IF A$<>"" THEN PRINT "???"
 UNTIL FALSE
 
@@ -161,10 +162,22 @@ PRINT "TRACK CRC32 "+STR$~(!C%)
 ENDPROC
 
 DEF PROCscrc:I%=V%(0):J%=V%(1):!C%=-1:V%(2)=1:V%(3)=256
-REPEAT:T%=I%/10:PROCs:V%(0)=T%:V%(1)=I% MOD 10:PROCbufs(B%,B%+4096):PROCread:R%=R% AND &FF:IF R%<>0 THEN PROCr
+REPEAT:T%=I%/10:PROCs:V%(0)=T%:V%(1)=I% MOD 10:PROCbufs(B%,B%+256):PROCread:R%=R% AND &FF:IF R%<>0 THEN PROCr
 K%=J%:IF K%>256 THEN K%=256
 PROCc32(B%,K%,C%):I%=I%+1:J%=J%-K%:UNTIL J%=0
 PROCc32f(C%):PRINT"CRC32 "+STR$~(!C%)
+ENDPROC
+
+DEF PROCfcrc
+T%=0:PROCs:V%(0)=0:V%(1)=0:V%(2)=2:V%(3)=256:PROCbufs(B%+512,B%+1024):PROCread:R%=R% AND &FF:IF R%<>0 THEN PROCr
+L%=?(B%+&305)/8:IF L%=0 THEN ENDPROC
+FOR M%=0 TO L%-1
+J%=B%+&208+M%*8
+FOR I%=0 TO 6:K%=?(J%+I%):IF K%<32 OR K%>126 THEN VDU46 ELSE VDU K%
+NEXT
+I%=B%+&30C+M%*8:V%(0)=?(I%+3)+(?(I%+2) AND 3)*256:V%(1)=FNl(I%)
+PRINT"  "+STR$~(V%(0))+" "+STR$~(V%(1))+" ";:PROCscrc
+NEXT
 ENDPROC
 
 DEF PROCtcrc
