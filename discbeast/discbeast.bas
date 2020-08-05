@@ -15,17 +15,17 @@ P$=RIGHT$(P$,LEN(P$)-J%)
 UNTIL LEN(P$)=0
 P%=I%
 REM Bufs, &5400-&7BFF
-B%=&5C00:PROCbufs(B%,B%+4096):PROCp(Z%+6,G%(3)):PROCp(Z%+8,-G%(4))
+B%=&5C00:PROCbufs(B%,B%+4096)
 IF A$="INIT" THEN PROCini:A$=""
 IF A$="DUMP" THEN PROCdump(V%(0)):A$=""
 IF A$="BFIL" THEN PROCbfil:A$=""
 IF A$="BSET" THEN PROCbset:A$=""
-IF A$="SEEK" THEN T%=V%(0):PROCseek:A$=""
-IF A$="RIDS" THEN PROCclr:PROCrids:PROCres:PRINT"HEADERS: "+STR$(S%):PROCdump(0):A$=""
-IF A$="READ" THEN PROCclr:PROCread:PROCres:PROCdtim:L%=FNl(Z%)-B%:!C%=-1:PROCcrca32(B%,L%,C%):PROCcrcf32(C%):PRINT"CRC32 "+STR$(L%)+" BYTES: "+STR$~(!C%):PROCdump(0):A$=""
-IF A$="RTRK" THEN PROCclr:PROCrtrk:PROCres:PRINT"LEN: "+STR$(S%):PROCdump(0):A$=""
-IF A$="WRIT" THEN PROCwrit:PROCres:A$=""
-IF A$="WTRK" THEN PROCwtrk:PROCres:A$=""
+IF A$="SEEK" THEN T%=V%(0):PROCs:A$=""
+IF A$="RIDS" THEN PROCclr:PROCrids:PROCr:PRINT"HEADERS: "+STR$(S%):PROCdump(0):A$=""
+IF A$="READ" THEN PROCclr:PROCread:PROCr:PROCdtim:L%=FNl(Z%)-B%:!C%=-1:PROCc32(B%,L%,C%):PROCc32f(C%):PRINT"CRC32 "+STR$(L%)+" BYTES: "+STR$~(!C%):PROCdump(0):A$=""
+IF A$="RTRK" THEN PROCclr:PROCrtrk:PROCr:PRINT"LEN: "+STR$(S%):PROCdump(0):A$=""
+IF A$="WRIT" THEN PROCwrit:PROCr:A$=""
+IF A$="WTRK" THEN PROCwtrk:PROCr:A$=""
 IF A$="TIME" THEN CALL D%+21:PRINT"DRIVE SPEED: "+STR$(FNl(Z%+4)):A$=""
 IF A$="DTRK" THEN PROCdtrk:A$=""
 IF A$="DCRC" THEN PROCdcrc:A$=""
@@ -73,18 +73,13 @@ IF V%(I%)<>-1 THEN ?(B%+A%+I%-1)=V%(I%)
 NEXT
 ENDPROC
 
-DEF PROCres
-I%=R% AND &FF
-J%=(R% AND &FF00) DIV 256
-PRINT"RESULT: &" + STR$~(I%);
-IF I%<>J% THEN PRINT" (&"+STR$~(J%)+")" ELSE PRINT
-ENDPROC
+DEF PROCr:I%=R% AND &FF:J%=(R% AND &FF00) DIV 256:PRINT"RESULT: &"+STR$~(I%)+" (&"+STR$~(J%)+")":ENDPROC
 
 DEF PROCdtim:A%=V%(3)/128:X%=FNl(B%+4096):Y%=FNl(B%+4096+A%*2):PRINT"TIME: "+STR$(Y%-X%):ENDPROC
 
 DEF PROCstor(A%,X%,Y%):PROCp(W%,A%):Y%=-Y%:PROCp(W%+4,Y%):A%=X%:CALL U%:ENDPROC
 
-DEF PROCcopy(A%,X%,Y%):PROCp(W%,A%):PROCp(W%+2,X%):Y%=-Y%:PROCp(W%+4,Y%):CALL U%+3:ENDPROC
+DEF PROCc(A%,X%,Y%):PROCp(W%,A%):PROCp(W%+2,X%):Y%=-Y%:PROCp(W%+4,Y%):CALL U%+3:ENDPROC
 
 DEF PROCmfm(A%,X%,Y%):PROCp(W%,A%):PROCp(W%+2,X%):Y%=-Y%:PROCp(W%+4,Y%):CALL U%+15:ENDPROC
 
@@ -92,13 +87,13 @@ DEF PROCcmp(A%,X%,Y%):PROCp(W%,A%):PROCp(W%+2,X%):Y%=-Y%:PROCp(W%+4,Y%):R%=USR(U
 
 DEF PROCcrc16(A%,X%):PROCp(W%+2,A%):X%=-X%:PROCp(W%+4,X%):X%=&FF:Y%=&FF:R%=USR(U%+6):X%=(R% AND &FF00) DIV &100:Y%=(R% AND &FF0000) DIV &10000:R%=X%*256+Y%:ENDPROC
 
-DEF PROCcrca32(A%,X%,Y%):PROCp(W%,Y%):PROCp(W%+2,A%):X%=-X%:PROCp(W%+4,X%):CALL U%+9:ENDPROC
+DEF PROCc32(A%,X%,Y%):PROCp(W%,Y%):PROCp(W%+2,A%):X%=-X%:PROCp(W%+4,X%):CALL U%+9:ENDPROC
 
-DEF PROCcrcf32(A%):!(C%+8)=!A% EOR &FFFFFFFF:?A%=?(C%+11):?(A%+1)=?(C%+10):?(A%+2)=?(C%+9):?(A%+3)=?(C%+8):ENDPROC
+DEF PROCc32f(A%):!(C%+8)=!A% EOR &FFFFFFFF:?A%=?(C%+11):?(A%+1)=?(C%+10):?(A%+2)=?(C%+9):?(A%+3)=?(C%+8):ENDPROC
 
-DEF PROCbufs(A%,Y%):PROCp(Z%,A%):PROCp(Z%+2,Y%):PROCp(Z%+11,&7000):ENDPROC
+DEF PROCbufs(A%,Y%):PROCp(Z%,A%):PROCp(Z%+2,Y%):PROCp(Z%+11,&7000):PROCp(Z%+6,G%(3)):PROCp(Z%+8,-G%(4)):ENDPROC
 
-DEF PROCseek
+DEF PROCs
 A%=T%:IF A%=-1 THEN A%=0
 IF G%(5) THEN A%=A%*2
 CALL D%+9
@@ -142,7 +137,7 @@ IF G%(1)<>2 THEN PRINT"1770 ONLY":ENDPROC
 A%=V%(0):R%=USR(D%+27)
 ENDPROC
 
-DEF PROCcmfm:PROCcopy(B%+4096,B%,4096):PROCmfm(B%,B%+4096,4096):ENDPROC
+DEF PROCcmfm:PROCc(B%+4096,B%,4096):PROCmfm(B%,B%+4096,4096):ENDPROC
 
 DEF PROCdump(A%)
 IF A%<0 THEN A%=0
@@ -166,10 +161,10 @@ PRINT "TRACK CRC32 "+STR$~(!C%)
 ENDPROC
 
 DEF PROCscrc:I%=V%(0):J%=V%(1):!C%=-1:V%(2)=1:V%(3)=256
-REPEAT:T%=I%/10:PROCseek:V%(0)=T%:V%(1)=I% MOD 10:PROCbufs(B%,B%+4096):PROCread:R%=R% AND &FF:IF R%<>0 THEN PROCres
+REPEAT:T%=I%/10:PROCs:V%(0)=T%:V%(1)=I% MOD 10:PROCbufs(B%,B%+4096):PROCread:R%=R% AND &FF:IF R%<>0 THEN PROCr
 K%=J%:IF K%>256 THEN K%=256
-PROCcrca32(B%,K%,C%):I%=I%+1:J%=J%-K%:UNTIL J%=0
-PROCcrcf32(C%):PRINT"CRC32 "+STR$~(!C%)
+PROCc32(B%,K%,C%):I%=I%+1:J%=J%-K%:UNTIL J%=0
+PROCc32f(C%):PRINT"CRC32 "+STR$~(!C%)
 ENDPROC
 
 DEF PROCtcrc
@@ -181,14 +176,14 @@ FOR I%=0 TO J%-1
 VDU8,48+I%:K%=1:IF FNcrcerr(I%) THEN K%=0
 L%=FNidtrk(I%):IF L%=&FF OR (L%=0 AND T%<>0) THEN K%=0
 L%=FNrsiz(I%)+1:M%=FNsaddr(I%):N%=?M%:?M%=N% OR &F0
-IF K%=1 THEN PROCcrca32(M%,L%,C%)
+IF K%=1 THEN PROCc32(M%,L%,C%)
 ?M%=N%
 NEXT
-PROCcrcf32(C%)
+PROCc32f(C%)
 ENDPROC
 
 DEF PROCtrk:IF T% AND 1 THEN B%=&6C00 ELSE B%=&5C00
-VDU135,46:PROCclr:VDU8,83:PROCseek:PROCgtrk:PROCtcrc:!(B%+12)=!C%:VDU8,8
+VDU135,46:PROCclr:VDU8,83:PROCs:PROCgtrk:PROCtcrc:!(B%+12)=!C%:VDU8,8
 ENDPROC
 
 DEF PROCcrcp:VDU130:PRINT "DISC CRC32 "+STR$~(!(C%+4))
@@ -208,7 +203,7 @@ IF G%(7)=0 OR G%(8) THEN ENDPROC
 IF G%(1)<>2 THEN ENDPROC
 PRINT"WARN: DRIVE MUST BE 80 TRACK":G%(5)=0
 FOR T%=1 TO 21 STEP 20
-PROCseek:PROCbufs(B%,B%+4096):PROCrids:R%=R% AND &FF:PRINT"TRACK "+STR$(T%)+" READ IDS: &"+STR$~(R%)
+PROCs:PROCbufs(B%,B%+4096):PROCrids:R%=R% AND &FF:PRINT"TRACK "+STR$(T%)+" READ IDS: &"+STR$~(R%)
 IF R%=0 THEN T%=100
 NEXT
 IF T%=41 THEN G%(5)=1
@@ -217,22 +212,21 @@ IF V%(1)=-1 THEN V%(7)=I%
 ENDPROC
 
 DEF PROCdcrc
-PROCauto:PROCchks
-!(C%+4)=-1
+PROCauto:PROCchks:!(C%+4)=-1
 FOR T%=V%(6) TO V%(7)
 IF (T% AND 3)=0 THEN PRINT:PRINT STR$(T%);
-PROCretry
+PROCtry
 IF R%=2 THEN T%=V%(7) ELSE PRINT" "+STR$~(!C%);
 NEXT
-PRINT:IF R%=2 THEN PRINT"FAIL" ELSE PROCcrcf32(C%+4):PROCcrcp
+PRINT:IF R%=2 THEN PRINT"FAIL" ELSE PROCc32f(C%+4):PROCcrcp
 ENDPROC
 
-DEF PROCretry
+DEF PROCtry
 V%(4)=5
 REPEAT:V%(4)=V%(4)-1:PROCtrk
-S%=0:IF R%=1 OR R%=2 THEN VDU7,129,33,8,8:IF V%(4)<>0 THEN PROCwait(100):T%=T%-1:PROCseek:T%=T%+1:PROCseek:S%=1
+S%=0:IF R%=1 OR R%=2 THEN VDU7,129,33,8,8:IF V%(4)<>0 THEN PROCw(100):T%=T%-1:PROCs:T%=T%+1:PROCs:S%=1
 UNTIL S%=0 OR V%(4)=0
-IF (G%(9) AND 1)=0 THEN PROCcrca32(C%,4,C%+4)
+IF (G%(9) AND 1)=0 THEN PROCc32(C%,4,C%+4)
 ENDPROC
 
 DEF PROChfeg
@@ -245,8 +239,8 @@ FOR T%=V%(6) TO V%(7)
 IF (T% AND 1)=0 THEN PROCstor(&5C00,0,8192)
 IF (T% MOD 10)=0 THEN PRINT:PRINT STR$(T%)+" ";
 IF T%=0 THEN VDU32
-PROCretry
-IF R%<>2 AND T%=V%(7) THEN PROCcrcf32(C%+4):!(B%+28)=!(C%+4)
+PROCtry
+IF R%<>2 AND T%=V%(7) THEN PROCc32f(C%+4):!(B%+28)=!(C%+4)
 IF R%<>2 THEN PROChfegy ELSE T%=V%(7)
 NEXT
 PRINT:IF R%=2 THEN PRINT"FAIL" ELSE PROCcrcp
@@ -284,7 +278,7 @@ ENDPROC
 
 DEF PROCdrv
 A%=G%(6):CALL D%+3
-IF T%=0 THEN PROCseek ELSE T%=T%+1:PROCseek:T%=T%-1:?(Z%+12)=T%
+IF T%=0 THEN PROCs ELSE T%=T%+1:PROCs:T%=T%-1:?(Z%+12)=T%
 PROCwmfm
 ENDPROC
 
@@ -304,14 +298,14 @@ PROCwmfm
 NEXT
 ENDPROC
 
-DEF PROCwmfm:IF T% AND 1 THEN PROCcopy(&5C00,&6C00,4096)
-PROCcopy(&5B00,&6B00,256):PROCcopy(&6E00,M%,3328):PROCmfm(M%,&6E00,3328)
+DEF PROCwmfm:IF T% AND 1 THEN PROCc(&5C00,&6C00,4096)
+PROCc(&5B00,&6B00,256):PROCc(&6E00,M%,3328):PROCmfm(M%,&6E00,3328)
 J%=?(B%+5):IF J%>0 THEN PROChfef
 PROCp(W%,M%):PROCp(W%+4,-6656):CALL U%+18
 REM Long tracks
 N%=0:IF FNl(B%+6)>3145 THEN REPEAT:N%=N%+1:UNTIL ?(M%+N%)=&AA
-PROCseek:PROCbufs(M%+N%,&5400):PROCp(Z%+8,0):V%(0)=1:PROCwtrk:R%=R% AND &FF
-IF R%<>0 THEN PROCres
+PROCs:PROCbufs(M%+N%,&5400):V%(0)=1:PROCwtrk:R%=R% AND &FF
+IF R%<>0 THEN PROCr
 ENDPROC
 
 DEF PROChfef
@@ -333,7 +327,7 @@ ENDPROC
 
 DEF PROCgtrk
 ?B%=G%(1):?(B%+1)=T%:?(B%+2)=?(Z%+4):?(B%+3)=?(Z%+5):?(B%+&10)=3
-PROCbufs(B%+&20,B%+&A0):PROCp(Z%+6,0):PROCp(Z%+8,0):VDU8,73:PROCrids
+PROCbufs(B%+&20,B%+&A0):VDU8,73:PROCrids
 REM More 1770 ghosts
 IF S%=0 THEN R%=&18
 R%=R% AND &FF:?(B%+4)=R%:?(B%+5)=S%
@@ -399,7 +393,7 @@ ENDPROC
 
 DEF PROCrsec(A%)
 K%=0:IF A%>0 THEN K%=FNstime(A%)
-PROCp(Z%+6,K%):PROCp(Z%+8,0):PROCbufs(&5400,&100)
+PROCbufs(&5400,&100):PROCp(Z%+6,K%)
 V%(0)=FNidtrk(A%):V%(1)=FNidsec(A%):V%(2)=1:V%(3)=FNssize(FNidsiz(A%))
 PROCread:R%=R% AND &FF
 ENDPROC
@@ -422,7 +416,7 @@ DEF PROCg1770
 FOR I%=1 TO 32
 FOR J%=1 TO 4
 PROCbufs(B%+&200,B%+&180):V%(0)=0:PROCrtrk:R%=R% AND &FF
-IF R%<>0 THEN PROCres
+IF R%<>0 THEN PROCr
 IF R%=0 THEN J%=4
 NEXT
 K%=0
@@ -444,8 +438,8 @@ M%=B%+&200+FNcstime(I%)-1
 ?M%=&FE:!(M%+1)=!(B%+&20+I%*4)
 PROCcrc16(M%,5):?(M%+5)=(R% AND &FF00) DIV 256:?(M%+6)=R%
 M%=M%+7+17
-PROCp(Z%+6,K%):K%=FNstime(I%):PROCp(Z%+8,0)
 PROCbufs(&5400,&100)
+PROCp(Z%+6,K%):K%=FNstime(I%)
 V%(0)=FNidtrk(I%):V%(1)=FNidsec(I%):V%(2)=1:V%(3)=2048
 R%=0:IF V%(0)<>&FF AND (T%=0 OR V%(0)<>0) THEN PROCread:R%=R% AND &FF
 IF R%=&18 THEN PRINT"READ FAILED: "+STR$~(V%(0))+" "+STR$~(V%(1)):END
@@ -453,12 +447,11 @@ REM Sector data
 IF R% AND &20 THEN ?M%=&F8 ELSE ?M%=&FB
 M%=M%+1
 IF I%=J%-1 THEN L%=3328 ELSE L%=FNcstime(I%+1)
-L%=L%-(M%-B%-&200)
-PROCcopy(M%,&5400,L%)
+L%=L%-(M%-B%-&200):PROCc(M%,&5400,L%)
 NEXT:R%=0
 ENDPROC
 
-DEF PROCwait(A%):X%=TIME:REPEAT:UNTIL TIME>X%+A%:ENDPROC
+DEF PROCw(A%):X%=TIME:REPEAT:UNTIL TIME>X%+A%:ENDPROC
 
 DEF FNhex(A%)
 A$=STR$~(A%)
