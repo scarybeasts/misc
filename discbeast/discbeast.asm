@@ -77,7 +77,7 @@ GUARD (ZP + 48)
 .var_zp_ABI_bail_function SKIP 1
 \\ 11
 .var_zp_ABI_buf_3 SKIP 2
-\\ 12
+\\ 13
 .var_zp_ABI_track SKIP 1
 .var_zp_drive SKIP 1
 .var_zp_side SKIP 1
