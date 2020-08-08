@@ -43,6 +43,7 @@ IF A$="FSYS" THEN F$=Q$:G%(6)=-1:PRINT"FSYS "+F$:A$=""
 IF A$="CMFM" THEN PROCcmfm:A$=""
 IF A$="SCRC" THEN PROCscrc:A$=""
 IF A$="FCRC" THEN PROCfcrc:A$=""
+IF A$="OCLI" THEN OSCLI(Q$):A$=""
 IF A$<>"" THEN PRINT "???"
 UNTIL FALSE
 
