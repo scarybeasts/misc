@@ -263,22 +263,22 @@ DEF PROChfegy
 I%=2:J%=32:K%=255:A%=?(B%+5)
 IF A%<10 THEN J%=48+A%
 IF A%>10 THEN J%=43
-L%=?(B%+4):IF L%=&18 THEN I%=4:J%=33
+IF ?(B%+4)=&18 THEN I%=4:J%=33
 IF A%>0 THEN PROChfegs
 VDU128+I%,K%,J%:PROCsave:A%=G%(0):CALL D%+3
 ENDPROC
 
-DEF PROChfegs
-Y%=0
+DEF PROChfegs:Y%=0:L%=0
 FOR X%=0 TO A%-1
 IF FNidtrk(X%)<>T% THEN I%=7
 IF FNidtrk(X%)=0 AND T%<>0 THEN I%=6
 IF FNsizem(X%) THEN I%=3
-IF FNcrcerr(X%) THEN I%=1
-IF ?FNsaddr(X%)=&F8 OR ?FNsaddr(X%)=&C8 THEN K%=68
+IF FNcrcerr(X%) THEN L%=1
+IF (?FNsaddr(X%) AND &F)=&8 THEN K%=68
 Y%=Y%+FNrsiz(X%)
 NEXT
 IF Y%>2560 THEN I%=5
+IF L%=1 THEN I%=1
 ENDPROC
 
 DEF PROCsave
