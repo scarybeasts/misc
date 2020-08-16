@@ -267,12 +267,13 @@ ENDPROC
 
 DEF PROChfegs:Y%=0:L%=0
 FOR X%=0 TO A%-1
+M%=FNrsiz(X%):IF X%=0 THEN N%=M%
 IF FNidtrk(X%)<>T% THEN I%=7
 IF FNidtrk(X%)=0 AND T%<>0 THEN I%=6
 IF FNsizem(X%) THEN I%=3
 IF FNcrcerr(X%) THEN L%=1
-IF (?FNsaddr(X%) AND &F)=&8 THEN K%=68
-Y%=Y%+FNrsiz(X%)
+IF (?FNsaddr(X%) AND &F)=&8 AND K%=255 THEN K%=68
+Y%=Y%+M%:IF M%<>N% THEN K%=42
 NEXT
 IF Y%>2560 THEN I%=5
 IF L%=1 THEN I%=1

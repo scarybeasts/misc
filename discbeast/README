@@ -154,6 +154,7 @@ analyzed.
   Main symbols:
     Square blob              : normal data
     Letter 'D'               : at least one sector of deleted data
+    Asterisk                 : track has sectors of different physical size
   Extra symbols:
     Exclamation (dark blue)  : no sectors found
     Exclamation (red)        : read error (will usually retry)
