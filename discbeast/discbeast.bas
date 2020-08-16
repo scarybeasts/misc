@@ -116,12 +116,7 @@ IF V%(0)=-1 THEN V%(0)=T%
 IF V%(1)=-1 THEN V%(1)=0
 IF V%(2)=-1 THEN V%(2)=1
 IF V%(3)=-1 THEN V%(3)=256
-X%=V%(1):Y%=V%(2):A%=V%(3)
-IF A%=256 THEN Y%=Y%+&20
-IF A%=512 THEN Y%=Y%+&40
-IF A%=1024 THEN Y%=Y%+&60
-IF A%=2048 THEN Y%=Y%+&80
-IF A%=4096 THEN Y%=Y%+&A0
+X%=V%(1):Y%=V%(2)-&20:A%=V%(3):REPEAT:Y%=Y%+&20:A%=A%/2:UNTIL A%<=64
 A%=V%(0):O%=USR(D%+I%):R%=O% AND &FF
 ENDPROC
 
