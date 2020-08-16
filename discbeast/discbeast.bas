@@ -339,12 +339,7 @@ J%=?(B%+5):O%=FNcstime(0)
 FOR I%=0 TO J%-1
 L%=-24-O%
 IF I%=J%-1 THEN L%=L%+FNl(B%+6) ELSE O%=FNcstime(I%+1):L%=L%+O%
-A%=4
-IF L%<2048 THEN A%=3
-IF L%<1024 THEN A%=2
-IF L%<512 THEN A%=1
-IF L%<256 THEN A%=0
-?(B%+&E0+I%)=A%
+A%=5:M%=4096:REPEAT:A%=A%-1:M%=M%/2:UNTIL L%>=M%:?(B%+&E0+I%)=A%
 NEXT
 
 REM Parse sectors
