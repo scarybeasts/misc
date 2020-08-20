@@ -107,24 +107,21 @@ GUARD (BASE + &0800)
     \\ base + 3, reinit
     JMP entry_reinit
     \\ base + 6, load
-    JMP entry_not_set
+    JMP wd_load
     \\ base + 9, seek
-    JMP entry_not_set
+    JMP wd_seek
     \\ base + 12, read track
-    JMP entry_not_set
+    JMP wd_read_track
     \\ base + 15, read ids
-    JMP entry_not_set
+    JMP wd_read_ids
     \\ base + 18, read sectors
-    JMP entry_not_set
+    JMP wd_read_sectors
     \\ base + 21, time drive
-    JMP entry_not_set
+    JMP wd_time_drive
     \\ base + 24, write sectors
-    JMP entry_not_set
+    JMP wd_write_sectors
     \\ base + 27, write track
-    JMP entry_not_set
-
-.entry_not_set
-    BRK
+    JMP wd_write_track
 
 .entry_setup
     JSR store_drive_and_side
@@ -265,40 +262,7 @@ GUARD (BASE + &0800)
     STA wd_write_loop_patch_data_register + 1
     STA wd_read_loop_fast_nmi_patch_data_register + 1
 
-    \\ Set up vectors.
-    LDA #LO(wd_load)
-    STA ABI_LOAD + 1
-    LDA #HI(wd_load)
-    STA ABI_LOAD + 2
-    LDA #LO(wd_seek)
-    STA ABI_SEEK + 1
-    LDA #HI(wd_seek)
-    STA ABI_SEEK + 2
-    LDA #LO(wd_read_track)
-    STA ABI_READ_TRACK + 1
-    LDA #HI(wd_read_track)
-    STA ABI_READ_TRACK + 2
-    LDA #LO(wd_read_ids)
-    STA ABI_READ_IDS + 1
-    LDA #HI(wd_read_ids)
-    STA ABI_READ_IDS + 2
-    LDA #LO(wd_read_sectors)
-    STA ABI_READ_SECTORS + 1
-    LDA #HI(wd_read_sectors)
-    STA ABI_READ_SECTORS + 2
-    LDA #LO(wd_time_drive)
-    STA ABI_TIME_DRIVE + 1
-    LDA #HI(wd_time_drive)
-    STA ABI_TIME_DRIVE + 2
-    LDA #LO(wd_write_sectors)
-    STA ABI_WRITE_SECTORS + 1
-    LDA #HI(wd_write_sectors)
-    STA ABI_WRITE_SECTORS + 2
-    LDA #LO(wd_write_track)
-    STA ABI_WRITE_TRACK + 1
-    LDA #HI(wd_write_track)
-    STA ABI_WRITE_TRACK + 2
-
+    \\ Vectors default to the wd versions so no need to write them.
     LDA #DETECTED_WD
     STA var_zp_param_1
     JMP detected_common
