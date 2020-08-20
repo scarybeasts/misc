@@ -256,11 +256,13 @@ GUARD (BASE + &0800)
     STA wd_read_loop_patch_status_register + 1
     STA wd_write_loop_patch_status_register + 1
     STA wd_read_loop_fast_patch_status_register + 1
+    STA wd_write_loop_fast_patch_status_register + 1
     CLC
     ADC #3
     STA wd_read_loop_patch_data_register + 1
     STA wd_write_loop_patch_data_register + 1
     STA wd_read_loop_fast_nmi_patch_data_register + 1
+    STA wd_write_loop_fast_patch_data_register + 1
 
     \\ Vectors default to the wd versions so no need to write them.
     LDA #DETECTED_WD
@@ -1079,8 +1081,16 @@ GUARD (BASE + &0800)
     LDA #WD_CMD_WRITE_TRACK_SETTLE
     JSR wd_do_command
 
+    LDA var_zp_param_1
+    CMP #1
+    BNE wd_write_track_fm
+    \\ Use a faster variant, with no bail counter, for MFM.
+    JSR wd_write_loop_fast
+    JMP wd_write_track_post_write
+  .wd_write_track_fm
     JSR wd_write_loop
 
+  .wd_write_track_post_write
     \\ Put back control register.
     JSR wd_reset_dden
 
@@ -1230,6 +1240,27 @@ GUARD (BASE + &0800)
     JMP wd_write_loop_loop
   .wd_write_loop_done
     RTS
+
+.wd_write_loop_fast
+    LDY #0
+  .wd_write_loop_fast_loop_load
+    LDA (var_zp_ABI_buf_1),Y
+    TAX
+  .wd_write_loop_fast_loop
+  .wd_write_loop_fast_patch_status_register
+    LDA &FEFF
+    LSR A
+    AND #1
+    BNE wd_write_loop_fast_need_byte
+    BCC wd_write_loop_done
+    JMP wd_write_loop_fast_loop
+  .wd_write_loop_fast_need_byte
+  .wd_write_loop_fast_patch_data_register
+    STX &FEFF
+    INY
+    BNE wd_write_loop_fast_loop_load
+    INC var_zp_ABI_buf_1 + 1
+    JMP wd_write_loop_fast_loop_load
 
 .wd_bail
     LDA var_zp_ABI_bail_function
