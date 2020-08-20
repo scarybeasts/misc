@@ -130,14 +130,13 @@ GUARD (BASE + &0800)
     JSR store_drive_and_side
 
     LDA #0
-    STA var_zp_ABI_track
-    STA var_zp_ABI_drive_speed
-    STA var_zp_ABI_drive_speed + 1
-    STA var_zp_ABI_start
-    STA var_zp_ABI_start + 1
-    STA var_zp_ABI_bail_bytes
-    STA var_zp_ABI_bail_bytes + 1
-    STA var_zp_ABI_bail_function
+    TAX
+    LDY #48
+  .entry_setup_clear_loop
+    STA ZP,X
+    INX
+    DEY
+    BNE entry_setup_clear_loop
 
     \\ Try and make DFS safe.
     JSR disable_dfs
@@ -145,19 +144,13 @@ GUARD (BASE + &0800)
     \\ Set up timing.
     JSR timer_stop
 
-    \\ Set up default buffer to &C000.
-    LDA #0
-    STA var_zp_ABI_buf_1
-    LDA #&C0
-    STA var_zp_ABI_buf_1 + 1
-
     \\ Detect 8271 vs. 1770 on model B.
     \\ On i8271, &FE84 - &FE87 all map to the same data register.
     \\ On wd1770, &FE85 is the track register and &FE86 the sector register.
-    LDA #42
-    STA &FE85
-    LDA #43
-    STA &FE86
+    LDX #42
+    STX &FE85
+    INX
+    STX &FE86
 
     JSR wd_delay
 
@@ -884,7 +877,7 @@ GUARD (BASE + &0800)
 
     \\ Clear scratch page.
     LDA #0
-    LDY #0
+    TAY
   .wd_read_ids_clear_scratch_loop
     STA (var_zp_ABI_buf_3),Y
     DEY
@@ -1362,7 +1355,7 @@ GUARD (BASE + &0800)
     LDA (var_zp_wd_base),Y
     TAX
     \\ Always success in 8271 terms for now.
-    LDA #0
+    TYA
     RTS
 
 .wd_set_result_type_2_3
