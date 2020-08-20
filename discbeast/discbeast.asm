@@ -1215,6 +1215,9 @@ GUARD (BASE + &0800)
 
 .wd_write_loop
     LDY #0
+  .wd_write_loop_load
+    LDA (var_zp_ABI_buf_1),Y
+    TAX
   .wd_write_loop_loop
   .wd_write_loop_patch_status_register
     LDA &FEFF
@@ -1224,9 +1227,8 @@ GUARD (BASE + &0800)
     BCC wd_write_loop_done
     JMP wd_write_loop_loop
   .wd_write_loop_need_byte
-    LDA (var_zp_ABI_buf_1),Y
   .wd_write_loop_patch_data_register
-    STA &FEFF
+    STX &FEFF
     INC var_zp_ABI_bail_bytes
     BNE wd_write_loop_no_bail
     INC var_zp_ABI_bail_bytes + 1
@@ -1234,10 +1236,10 @@ GUARD (BASE + &0800)
     \\ Bail mid-way through command.
     JMP wd_bail
   .wd_write_loop_no_bail
-    INC var_zp_ABI_buf_1
-    BNE wd_write_loop_loop
+    INY
+    BNE wd_write_loop_load
     INC var_zp_ABI_buf_1 + 1
-    JMP wd_write_loop_loop
+    JMP wd_write_loop_load
   .wd_write_loop_done
     RTS
 
