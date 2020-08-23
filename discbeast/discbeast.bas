@@ -5,6 +5,7 @@ F$="DISC":G%(6)=1:G%(7)=1
 REPEAT
 INPUT A$:IF LEN(A$)<4 THEN A$="????"
 P$=MID$(A$,5):A$=LEFT$(A$,4)
+IF A$="OCLI" THEN OSCLI(P$):UNTIL FALSE
 FOR I%=0 TO 8:V%(I%)=-1:NEXT
 I%=0
 REPEAT
@@ -43,7 +44,6 @@ IF A$="FSYS" THEN F$=Q$:G%(6)=-1:PRINT"FSYS "+F$:A$=""
 IF A$="CMFM" THEN PROCcmfm:A$=""
 IF A$="SCRC" THEN PROCscrc:A$=""
 IF A$="FCRC" THEN PROCfcrc:A$=""
-IF A$="OCLI" THEN OSCLI(Q$):A$=""
 IF A$<>"" THEN PRINT "???"
 UNTIL FALSE
 
