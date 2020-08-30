@@ -124,7 +124,7 @@ GUARD (BASE + &0800)
     JMP wd_write_track
 
 .entry_setup
-    JSR store_drive_and_side
+    PHA
 
     LDA #0
     TAX
@@ -134,6 +134,9 @@ GUARD (BASE + &0800)
     INX
     DEY
     BNE entry_setup_clear_loop
+
+    PLA
+    JSR store_drive_and_side
 
     \\ Try and make DFS safe.
     JSR disable_dfs
