@@ -22,6 +22,7 @@ Each track is emitted as a 4096 byte chunk, compromised as follows:
              sizes (0 = 128, 1 = 256, ...)
              bad CRC (+0x80)
              track mismatch (+0x40)
+             weak bits (+0x20)
 
 &100 - &13F: up to 32 byte indexes for sector ID markers
 &140 - &17F: up to 32 byte indexes for sector data markers
