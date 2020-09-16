@@ -308,7 +308,10 @@ convert_tracks(uint8_t* p_hfe_buf,
       is_marker[pos] = 1;
       data = p_in_track[0x200 + pos];
       if ((data != 0xFE) && (data != 0xCE)) {
-        bail("bad header marker byte 0x%.2X", data);
+        bail("bad header marker byte 0x%.2X @0x%X sector %d",
+             data,
+             (0x200 + pos),
+             j);
       }
       track_fixups += fixup_marker(&p_in_track[0x200], pos);
       crc16_calc = 0xFFFF;
