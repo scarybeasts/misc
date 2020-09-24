@@ -173,10 +173,10 @@ load_trks_files(uint8_t* p_buf, const char* p_path_prefix) {
         bail("fclose failed");
       }
       if (fread_ret != 1) {
-        bail("incorrect TRKS file size");
+        bail("incorrect TRKS file size: %s", path);
       }
       if (p_buf[0] == 0) {
-        bail("empty TRKS file");
+        bail("empty TRKS file: %s", path);
       }
       num_tracks++;
       if (p_buf[4096] == 0) {
@@ -308,9 +308,10 @@ convert_tracks(uint8_t* p_hfe_buf,
       is_marker[pos] = 1;
       data = p_in_track[0x200 + pos];
       if ((data != 0xFE) && (data != 0xCE)) {
-        bail("bad header marker byte 0x%.2X @0x%X sector %d",
+        bail("bad header marker byte 0x%.2X @0x%X track %d sector %d",
              data,
              (0x200 + pos),
+             i,
              j);
       }
       track_fixups += fixup_marker(&p_in_track[0x200], pos);
@@ -340,7 +341,11 @@ convert_tracks(uint8_t* p_hfe_buf,
           (data != 0xC8) &&
           (data != 0xFB) &&
           (data != 0xCB)) {
-        bail("bad data marker byte 0x%.2X", data);
+        bail("bad data marker byte 0x%.2X @0x%X track %d sector %d",
+             data,
+             (0x200 + pos),
+             i,
+             j);
       }
       track_fixups += fixup_marker(&p_in_track[0x200], pos);
       length = (p_in_track[0xe0 + j] & 7);
