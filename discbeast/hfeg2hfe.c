@@ -284,7 +284,7 @@ convert_tracks(uint8_t* p_hfe_buf,
       track_length = k_standard_track_length;
     }
     if ((track_length < 3000) || (track_length > 3190)) {
-      bail("bad track length");
+      bail("bad track length %d, track %d", track_length, i);
     }
 
     /* Build a list of where the markers are and check CRCs / weak bits. */
