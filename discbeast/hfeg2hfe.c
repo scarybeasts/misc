@@ -12,9 +12,7 @@ static int s_is_double_step;
 
 static const uint32_t k_max_num_tracks = 82;
 /* Each block is 512 bytes, 256 per side. */
-static const uint32_t k_hfe_blocks_per_track = 50;
-/* NOTE: cannot be increased without re-evaluating k_hfe_blocks_per_track. */
-static const uint32_t k_max_track_length = 3190;
+static const uint32_t k_default_hfe_blocks_per_track = 50;
 
 static const uint32_t k_standard_track_length = 3125;
 
@@ -220,11 +218,14 @@ convert_tracks(uint8_t* p_hfe_buf,
                uint8_t* p_trks_buf,
                int do_expand,
                int do_double_step,
-               uint32_t num_tracks) {
+               uint32_t num_tracks,
+               uint32_t blocks_per_track) {
   uint32_t i;
   uint32_t expand_factor;
   uint32_t shrink_factor;
   uint32_t beeb_crc32;
+  uint8_t* p_is_marker;
+  uint8_t* p_is_weak;
 
   uint32_t disc_crc32 = 0xFFFFFFFF;
   uint32_t disc_crc32_double_step = 0xFFFFFFFF;
@@ -232,6 +233,7 @@ convert_tracks(uint8_t* p_hfe_buf,
   uint8_t* p_first_sector_data = NULL;
   uint8_t* p_t0_s0_data = NULL;
   uint8_t* p_t0_s1_data = NULL;
+  uint32_t max_track_length = (((512 * blocks_per_track) / 8) - 10);
 
   expand_factor = 1;
   if (do_expand) {
@@ -243,9 +245,10 @@ convert_tracks(uint8_t* p_hfe_buf,
     shrink_factor = 2;
   }
 
+  p_is_marker = malloc(max_track_length);
+  p_is_weak = malloc(max_track_length);
+
   for (i = 0; i < num_tracks; ++i) {
-    uint8_t is_marker[k_max_track_length];
-    uint8_t is_weak[k_max_track_length];
     uint32_t num_sectors;
     uint32_t track_length;
     uint32_t j;
@@ -264,7 +267,7 @@ convert_tracks(uint8_t* p_hfe_buf,
     p_out_track += (i *
                     expand_factor /
                     shrink_factor *
-                    (k_hfe_blocks_per_track * 512));
+                    (blocks_per_track * 512));
     if (is_second_side) {
       p_out_track += 256;
     }
@@ -283,13 +286,13 @@ convert_tracks(uint8_t* p_hfe_buf,
     if ((track_length == 0) || (p_in_track[4] == 0x18)) {
       track_length = k_standard_track_length;
     }
-    if ((track_length < 3000) || (track_length > 3190)) {
+    if ((track_length < 3000) || (track_length > max_track_length)) {
       bail("bad track length %d, track %d", track_length, i);
     }
 
     /* Build a list of where the markers are and check CRCs / weak bits. */
-    (void) memset(is_marker, '\0', sizeof(is_marker));
-    (void) memset(is_weak, '\0', sizeof(is_weak));
+    (void) memset(p_is_marker, '\0', max_track_length);
+    (void) memset(p_is_weak, '\0', max_track_length);
     p_first_sector_data = NULL;
     for (j = 0; j < num_sectors; ++j) {
       uint16_t pos;
@@ -302,10 +305,13 @@ convert_tracks(uint8_t* p_hfe_buf,
 
       /* Sector header. */
       pos = get16(p_in_track + 0x100 + (j * 2));
-      if (is_marker[pos]) {
+      if (pos >= max_track_length) {
+        bail("out of bounds marker");
+      }
+      if (p_is_marker[pos]) {
         bail("overlapping marker");
       }
-      is_marker[pos] = 1;
+      p_is_marker[pos] = 1;
       data = p_in_track[0x200 + pos];
       if ((data != 0xFE) && (data != 0xCE)) {
         bail("bad header marker byte 0x%.2X @0x%X track %d sector %d",
@@ -332,10 +338,13 @@ convert_tracks(uint8_t* p_hfe_buf,
 
       /* Sector data. */
       pos = get16(p_in_track + 0x140 + (j * 2));
-      if (is_marker[pos]) {
+      if (pos >= max_track_length) {
+        bail("out of bounds marker");
+      }
+      if (p_is_marker[pos]) {
         bail("overlapping marker");
       }
-      is_marker[pos] = 1;
+      p_is_marker[pos] = 1;
       data = p_in_track[0x200 + pos];
       if ((data != 0xF8) &&
           (data != 0xC8) &&
@@ -397,8 +406,11 @@ convert_tracks(uint8_t* p_hfe_buf,
                       weak_index,
                       i,
                       j);
+        if (weak_index >= max_track_length) {
+          bail("out of bounds weak bits");
+        }
         for (k = weak_index; k < length; ++k) {
-          is_weak[pos + 1 + k] = 1;
+          p_is_weak[pos + 1 + k] = 1;
         }
       }
     }
@@ -440,7 +452,7 @@ convert_tracks(uint8_t* p_hfe_buf,
       for (j = 0; j < track_length; ++j) {
         uint8_t hfe_bits[4];
 
-        if (is_weak[j]) {
+        if (p_is_weak[j]) {
           uint32_t k;
           for (k = 0; k < 4; ++k) {
             hfe_add(p_out_track, &hfe_track_pos, flip(0xF4));
@@ -448,7 +460,7 @@ convert_tracks(uint8_t* p_hfe_buf,
         } else {
           clocks = 0xFF;
           data = p_in_track[0x200 + j];
-          if (is_marker[j]) {
+          if (p_is_marker[j]) {
             clocks = 0xC7;
           }
           hfe_convert_to_bits(hfe_bits, data, clocks);
@@ -502,6 +514,9 @@ convert_tracks(uint8_t* p_hfe_buf,
   if (num_tracks > 41) {
     (void) printf("Disc CRC32 (40 track): %.8X\n", disc_crc32_double_step);
   }
+
+  free(p_is_marker);
+  free(p_is_weak);
 }
 
 int
@@ -518,16 +533,14 @@ main(int argc, const char* argv[]) {
   uint32_t hfe_length;
   uint32_t num_tracks;
   uint32_t num_sides;
+  uint32_t hfe_buf_size;
 
   int do_expand_drv0 = 0;
   int do_expand_drv2 = 0;
   uint32_t num_tracks_drv0 = 0;
   uint32_t num_tracks_drv2 = 0;
   const char* p_capture_chip = NULL;
-  uint32_t hfe_buf_size = ((k_max_num_tracks * k_hfe_blocks_per_track * 512) +
-                           1024);
-
-  p_hfe_buf = malloc(hfe_buf_size);
+  uint32_t blocks_per_track = k_default_hfe_blocks_per_track;
 
   for (i = 1; i < (uint32_t) argc; ++i) {
     if (!strcmp(argv[i], "-v")) {
@@ -536,6 +549,8 @@ main(int argc, const char* argv[]) {
       s_is_no_check_beeb_crc = 1;
     } else if (!strcmp(argv[i], "-d")) {
       s_is_double_step = 1;
+    } else if (!strcmp(argv[i], "-e")) {
+      blocks_per_track++;
     } else if (!strcmp(argv[i], "-h") ||
                !strcmp(argv[i], "-help") ||
                !strcmp(argv[i], "--help")) {
@@ -553,6 +568,9 @@ main(int argc, const char* argv[]) {
       exit(1);
     }
   }
+
+  hfe_buf_size = ((k_max_num_tracks * blocks_per_track * 512) + 1024);
+  p_hfe_buf = malloc(hfe_buf_size);
 
   (void) memset(trks_buf_drv0, '\0', sizeof(trks_buf_drv0));
   (void) memset(trks_buf_drv2, '\0', sizeof(trks_buf_drv2));
@@ -605,7 +623,8 @@ main(int argc, const char* argv[]) {
                  trks_buf_drv0,
                  do_expand_drv0,
                  s_is_double_step,
-                 num_tracks_drv0);
+                 num_tracks_drv0,
+                 blocks_per_track);
   if (num_tracks_drv2 > 0) {
     convert_tracks(p_hfe_buf,
                    track_lengths_drv2,
@@ -613,7 +632,8 @@ main(int argc, const char* argv[]) {
                    trks_buf_drv2,
                    do_expand_drv2,
                    s_is_double_step,
-                   num_tracks_drv2);
+                   num_tracks_drv2,
+                   blocks_per_track);
   }
 
   if (s_is_double_step) {
@@ -629,7 +649,7 @@ main(int argc, const char* argv[]) {
     if (track_lengths_drv2[i] > track_length) {
       track_length = track_lengths_drv2[i];
     }
-    put16((p_hfe_buf + 512 + (i * 4)), (2 + (i * k_hfe_blocks_per_track)));
+    put16((p_hfe_buf + 512 + (i * 4)), (2 + (i * blocks_per_track)));
     put16((p_hfe_buf + 512 + (i * 4) + 2), ((track_length * 8) + 6));
   }
 
@@ -660,7 +680,7 @@ main(int argc, const char* argv[]) {
   if (f == NULL) {
     bail("couldn't open output file");
   }
-  hfe_length = ((num_tracks * k_hfe_blocks_per_track * 512) + 1024);
+  hfe_length = ((num_tracks * blocks_per_track * 512) + 1024);
   fwrite_ret = fwrite(p_hfe_buf, hfe_length, 1, f);
   if (fwrite_ret != 1) {
     bail("fwrite failed");
