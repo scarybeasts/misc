@@ -314,7 +314,7 @@ DEF PROChfef
 FOR I%=0 TO J%-1
 PROChfet(FNl(B%+&100+I%*2)):PROChfet(FNl(B%+&140+I%*2))
 REM Weak bits
-K%=FNl(&5B00+I%*2):IF K%>0 THEN K%=FNsaddr(I%)+1+K%:K%=(K%-M%)*2:K%=K%+M%:FOR L%=0 TO 32:?(K%+L%)=&55+L%:NEXT
+K%=FNl(&5B00+I%*2):IF K%>0 THEN K%=FNsaddr(I%)+1+K%:K%=(K%-M%)*2:K%=K%+M%:FOR L%=0 TO 64:?(K%+L%)=&55+L%:NEXT
 NEXT
 ENDPROC
 
