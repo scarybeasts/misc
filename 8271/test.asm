@@ -4,12 +4,30 @@
 BASE = &2800
 ZP = &70
 
+ORG ZP
+.var_zp_param_track_buf SKIP 2
+.var_zp_param_marker_buf SKIP 2
+.var_zp_param_drive_speed SKIP 2
+GUARD (ZP + 15)
+
+ORG (ZP + 16)
+GUARD (ZP + 32)
+.var_zp_A SKIP 1
+.var_zp_X SKIP 1
+.var_zp_Y SKIP 1
+.var_zp_count SKIP 1
+.var_zp_lead_in_length SKIP 2
+.var_zp_track_length SKIP 2
+.var_zp_marker_buf SKIP 2
+.var_zp_marker_count SKIP 2
+.var_zp_marker SKIP 1
+
 ORG BASE
 
 .i8271_begin
 
-    \\ base + &00, setup
-    JMP entry_setup
+    \\ base + &00, load
+    JMP entry_load
     \\ base + &03, seek
     JMP i8271_seek
     \\ base + &06, format
@@ -20,19 +38,19 @@ ORG BASE
     JMP i8271_set_track_register
     \\ base + &0F, read
     JMP i8271_read
-    \\ base + &12, writefm
-    JMP entry_write_fm
+    \\ base + &12, write fm test
+    JMP entry_write_fm_test
     \\ base + &15, read ids
     JMP i8271_read_ids
+    \\ base + &18, write track
+    JMP entry_write_track
+    \\ base + &1B, reset
+    JMP i8271_reset
 
-.entry_setup
-    \\ NMI vector to RTI.
-    LDA #&40
-    STA &0D00
+.entry_load
+    JSR i8271_reset
     JSR i8271_spin_up
     JSR i8271_wait_ready
-    LDA #0
-    JSR i8271_seek
     RTS
 
 .i8271_spin_up
@@ -87,6 +105,29 @@ ORG BASE
     TXA
     AND #&04
     BEQ i8271_wait_ready
+    RTS
+
+.i8271_reset
+    LDA #1
+    STA &FE82
+    NOP:NOP:NOP:NOP:NOP:NOP:NOP:NOP:NOP:NOP
+    LDA #0
+    STA &FE82
+
+    \\ Select *TAPE.
+    LDA #&8C
+    LDX #0
+    LDY #0
+    JSR &FFF4
+
+    \\ NMI vector to RTI.
+    LDA #&40
+    STA &0D00
+
+    \\ Reset clobbers the no DMA setting. Put it back.
+    LDA #&17
+    LDX #&C1
+    JSR i8271_wsr
     RTS
 
 .i8271_seek
@@ -190,13 +231,21 @@ ORG BASE
     JSR i8271_wsr
     RTS
 
-.entry_write_fm
+.entry_write_fm_test
     STA &80
     STX &81
     STY &82
+    \\ Patch first jump state.
+    LDA #LO(nmi_write_fm_test_wait_1)
+    STA nmi_write_fm_test + 2
+    LDA #HI(nmi_write_fm_test_wait_1)
+    STA nmi_write_fm_test + 3
+    \\ Wait count.
+    LDA #4
+    STA var_zp_count
     \\ Kick off the write at the start of the track.
     JSR i8271_wait_index
-    JSR nmi_write_fm_setup
+    JSR nmi_write_fm_test_setup
     LDA #&4B
     JSR i8271_cmd
     LDA &80
@@ -204,6 +253,60 @@ ORG BASE
     LDA &81
     JSR i8271_param
     LDA &82
+    JSR i8271_param
+    \\ Write is now running.
+    \\ All the fun happens in the NMI callbacks.
+    JSR i8271_wait_cmd
+    RTS
+
+.entry_write_track
+    STA &80
+    \\ Set up write track buffer.
+    LDA var_zp_param_track_buf
+    STA nmi_write_track + 5
+    LDA var_zp_param_track_buf + 1
+    STA nmi_write_track + 6
+    \\ Set up markers buffer.
+    LDA var_zp_param_marker_buf
+    STA var_zp_marker_buf
+    LDA var_zp_param_marker_buf + 1
+    STA var_zp_marker_buf + 1
+    \\ Set up count-up for to re-start of track.
+    LDA &74
+    CLC
+    ADC #(16 + 6 + 7 + 11 + 6 + 1)
+    STA var_zp_lead_in_length
+    LDA &75
+    ADC #0
+    STA var_zp_lead_in_length + 1
+    \\ Set up count-up for the full track write.
+    LDA &74
+    STA var_zp_track_length
+    LDA &75
+    STA var_zp_track_length + 1
+    \\ Set up first state for the actual track write.
+    JSR nmi_write_track_setup_wait
+
+    \\ NMI vector to JMP nmi_write_track_lead_in
+    LDA #&40
+    STA &0D00
+    LDA #LO(nmi_write_track_lead_in)
+    STA &0D01
+    LDA #HI(nmi_write_track_lead_in)
+    STA &0D02
+    LDA #&4C
+    STA &0D00
+
+    \\ Kick off the write at the start of the track.
+    JSR i8271_wait_index
+    LDA #&4B
+    JSR i8271_cmd
+    LDA &80
+    JSR i8271_param
+    LDA #&DB
+    JSR i8271_param
+    \\ 1 sector, 8192 bytes.
+    LDA #&C1
     JSR i8271_param
     \\ Write is now running.
     \\ All the fun happens in the NMI callbacks.
@@ -227,9 +330,9 @@ ORG BASE
 
 .nmi_write_setup
     \\ Patch nmi_write with buffer address.
-    LDA &70
+    LDA var_zp_param_track_buf
     STA nmi_write + 2
-    LDA &71
+    LDA var_zp_param_track_buf + 1
     STA nmi_write + 3
     \\ NMI vector to JMP nmi_write.
     LDA #&40
@@ -244,9 +347,9 @@ ORG BASE
 
 .nmi_read_setup
     \\ Patch nmi_read with buffer address.
-    LDA &70
+    LDA var_zp_param_track_buf
     STA nmi_read + 5
-    LDA &71
+    LDA var_zp_param_track_buf + 1
     STA nmi_read + 6
     \\ NMI vector to JMP nmi_read.
     LDA #&40
@@ -259,29 +362,27 @@ ORG BASE
     STA &0D00
     RTS
 
-.nmi_write_fm_setup
-    \\ Patch nmi_write_fm with buffer address.
-    LDA &70
-    STA nmi_write_fm + 5
-    LDA &71
-    STA nmi_write_fm + 6
-    \\ Patch first jump state.
-    LDA #LO(nmi_write_fm_wait_1)
-    STA nmi_write_fm + 2
-    LDA #HI(nmi_write_fm_wait_1)
-    STA nmi_write_fm + 3
-    \\ Wait count.
-    LDA #4
-    STA &72
-    \\ NMI vector to JMP nmi_write_fm.
+.nmi_write_fm_test_setup
+    \\ Patch nmi_write_fm_test with buffer address.
+    LDA var_zp_param_track_buf
+    STA nmi_write_fm_test + 5
+    LDA var_zp_param_track_buf + 1
+    STA nmi_write_fm_test + 6
+    \\ NMI vector to JMP nmi_write_fm_test.
     LDA #&40
     STA &0D00
-    LDA #LO(nmi_write_fm)
+    LDA #LO(nmi_write_fm_test)
     STA &0D01
-    LDA #HI(nmi_write_fm)
+    LDA #HI(nmi_write_fm_test)
     STA &0D02
     LDA #&4C
     STA &0D00
+    RTS
+
+.nmi_write_track_setup_wait
+    JSR nmi_write_track_state_specify_reload_1
+    JSR nmi_write_track_state_specify_reload_2
+    JSR nmi_write_track_state_specify_reload_3
     RTS
 
 .nmi_write
@@ -306,77 +407,209 @@ ORG BASE
     PLA
     RTI
 
-.nmi_write_fm
+.nmi_write_fm_test
     PHA
     JSR &FFFF
     LDA &FFFF
     STA &FE84
-    INC nmi_write_fm + 5
-    BNE nmi_write_fm_done
-    INC nmi_write_fm + 6
-  .nmi_write_fm_done
+    INC nmi_write_fm_test + 5
+    BNE nmi_write_fm_test_done
+    INC nmi_write_fm_test + 6
+  .nmi_write_fm_test_done
     PLA
     RTI
 
-.nmi_write_fm_wait_1
-    DEC &72
-    BEQ nmi_write_fm_wait_1_done
+.nmi_write_track_lead_in
+    PHA
+    LDA #&FF
+    STA &FE84
+    INC var_zp_lead_in_length
+    BNE nmi_write_track_lead_in_done
+    INC var_zp_lead_in_length + 1
+    BNE nmi_write_track_lead_in_done
+    \\ Should be hitting start of track, so start writing actual bytes.
+    LDA #LO(nmi_write_track)
+    STA &0D01
+    LDA #HI(nmi_write_track)
+    STA &0D02
+  .nmi_write_track_lead_in_done
+    PLA
+    RTI
+
+.nmi_write_track
+    PHA
+    JSR &FFFF
+    LDA &FFFF
+    STA &FE84
+    INC nmi_write_track + 5
+    BNE nmi_write_track_count
+    INC nmi_write_track + 6
+  .nmi_write_track_count
+    INC var_zp_track_length
+    BNE nmi_write_track_rti
+    INC var_zp_track_length + 1
+    BNE nmi_write_track_rti
+    JSR i8271_reset
+  .nmi_write_track_rti
+    PLA
+    RTI
+
+.nmi_write_fm_test_wait_1
+    DEC var_zp_count
+    BEQ nmi_write_fm_test_wait_1_done
     RTS
-  .nmi_write_fm_wait_1_done
-    LDA #LO(nmi_write_fm_specify_cmd)
-    STA nmi_write_fm + 2
-    LDA #HI(nmi_write_fm_specify_cmd)
-    STA nmi_write_fm + 3
+  .nmi_write_fm_test_wait_1_done
+    LDA #LO(nmi_write_fm_test_specify_cmd)
+    STA nmi_write_fm_test + 2
+    LDA #HI(nmi_write_fm_test_specify_cmd)
+    STA nmi_write_fm_test + 3
     RTS
 
-.nmi_write_fm_specify_cmd
+.nmi_write_fm_test_specify_cmd
     LDA #&75
     STA &FE80
-    LDA #LO(nmi_write_fm_specify_post_cmd)
-    STA nmi_write_fm + 2
-    LDA #HI(nmi_write_fm_specify_post_cmd)
-    STA nmi_write_fm + 3
+    LDA #LO(nmi_write_fm_test_specify_post_cmd)
+    STA nmi_write_fm_test + 2
+    LDA #HI(nmi_write_fm_test_specify_post_cmd)
+    STA nmi_write_fm_test + 3
     RTS
 
-.nmi_write_fm_specify_post_cmd
-    LDA #LO(nmi_write_fm_specify_target)
-    STA nmi_write_fm + 2
-    LDA #HI(nmi_write_fm_specify_target)
-    STA nmi_write_fm + 3
+.nmi_write_fm_test_specify_post_cmd
+    LDA #LO(nmi_write_fm_test_specify_target)
+    STA nmi_write_fm_test + 2
+    LDA #HI(nmi_write_fm_test_specify_target)
+    STA nmi_write_fm_test + 3
     RTS
 
-.nmi_write_fm_specify_target
+.nmi_write_fm_test_specify_target
     LDA #&24
     STA &FE81
-    LDA #LO(nmi_write_fm_wait_2)
-    STA nmi_write_fm + 2
-    LDA #HI(nmi_write_fm_wait_2)
-    STA nmi_write_fm + 3
+    LDA #LO(nmi_write_fm_test_wait_2)
+    STA nmi_write_fm_test + 2
+    LDA #HI(nmi_write_fm_test_wait_2)
+    STA nmi_write_fm_test + 3
     LDA #16
-    STA &72
+    STA var_zp_count
     RTS
 
-.nmi_write_fm_wait_2
-    DEC &72
-    BEQ nmi_write_fm_wait_2_done
+.nmi_write_fm_test_wait_2
+    DEC var_zp_count
+    BEQ nmi_write_fm_test_wait_2_done
     RTS
-  .nmi_write_fm_wait_2_done
-    LDA #LO(nmi_write_fm_specify_clocks)
-    STA nmi_write_fm + 2
-    LDA #HI(nmi_write_fm_specify_clocks)
-    STA nmi_write_fm + 3
+  .nmi_write_fm_test_wait_2_done
+    LDA #LO(nmi_write_fm_test_specify_clocks)
+    STA nmi_write_fm_test + 2
+    LDA #HI(nmi_write_fm_test_specify_clocks)
+    STA nmi_write_fm_test + 3
     RTS
 
-.nmi_write_fm_specify_clocks
+.nmi_write_fm_test_specify_clocks
     LDA #&C7
     STA &FE81
-    LDA #LO(nmi_write_fm_idle)
-    STA nmi_write_fm + 2
-    LDA #HI(nmi_write_fm_idle)
-    STA nmi_write_fm + 3
+    LDA #LO(nmi_write_fm_test_idle)
+    STA nmi_write_fm_test + 2
+    LDA #HI(nmi_write_fm_test_idle)
+    STA nmi_write_fm_test + 3
     RTS
 
-.nmi_write_fm_idle
+.nmi_write_fm_test_idle
+    RTS
+
+.nmi_write_track_state_wait
+    INC var_zp_marker_count
+    BNE nmi_write_track_state_wait_rts
+    INC var_zp_marker_count + 1
+    BNE nmi_write_track_state_wait_rts
+    LDA #LO(nmi_write_track_state_specify_cmd)
+    STA nmi_write_track + 2
+    LDA #HI(nmi_write_track_state_specify_cmd)
+    STA nmi_write_track + 3
+  .nmi_write_track_state_wait_rts
+    RTS
+
+.nmi_write_track_state_specify_cmd
+    LDA #&75
+    STA &FE80
+    LDA #LO(nmi_write_track_state_specify_post_cmd_wait)
+    STA nmi_write_track + 2
+    LDA #HI(nmi_write_track_state_specify_post_cmd_wait)
+    STA nmi_write_track + 3
+    RTS
+
+.nmi_write_track_state_specify_post_cmd_wait
+    LDA #LO(nmi_write_track_state_specify_target)
+    STA nmi_write_track + 2
+    LDA #HI(nmi_write_track_state_specify_target)
+    STA nmi_write_track + 3
+    RTS
+
+.nmi_write_track_state_specify_target
+    LDA #&24
+    STA &FE81
+    LDA #LO(nmi_write_track_state_specify_post_target_wait)
+    STA nmi_write_track + 2
+    LDA #HI(nmi_write_track_state_specify_post_target_wait)
+    STA nmi_write_track + 3
+    LDA #8
+    STA var_zp_count
+    RTS
+
+.nmi_write_track_state_specify_post_target_wait
+    DEC var_zp_count
+    BNE nmi_write_track_state_specify_post_target_wait_rts
+    LDA #LO(nmi_write_track_state_specify_marker)
+    STA nmi_write_track + 2
+    LDA #HI(nmi_write_track_state_specify_marker)
+    STA nmi_write_track + 3
+  .nmi_write_track_state_specify_post_target_wait_rts
+    RTS
+
+.nmi_write_track_state_specify_marker
+    LDA var_zp_marker
+    STA &FE81
+    LDA #LO(nmi_write_track_state_specify_reload_1)
+    STA nmi_write_track + 2
+    LDA #HI(nmi_write_track_state_specify_reload_1)
+    STA nmi_write_track + 3
+    RTS
+
+.nmi_write_track_state_specify_reload_1
+    STY &83
+    LDY #0
+    LDA (var_zp_marker_buf),Y
+    STA var_zp_marker_count
+    INC var_zp_marker_buf
+    LDY &83
+    LDA #LO(nmi_write_track_state_specify_reload_2)
+    STA nmi_write_track + 2
+    LDA #HI(nmi_write_track_state_specify_reload_2)
+    STA nmi_write_track + 3
+    RTS
+
+.nmi_write_track_state_specify_reload_2
+    STY &83
+    LDY #0
+    LDA (var_zp_marker_buf),Y
+    STA var_zp_marker_count + 1
+    INC var_zp_marker_buf
+    LDY &83
+    LDA #LO(nmi_write_track_state_specify_reload_3)
+    STA nmi_write_track + 2
+    LDA #HI(nmi_write_track_state_specify_reload_3)
+    STA nmi_write_track + 3
+    RTS
+
+.nmi_write_track_state_specify_reload_3
+    STY &83
+    LDY #0
+    LDA (var_zp_marker_buf),Y
+    STA var_zp_marker
+    INC var_zp_marker_buf
+    LDY &83
+    LDA #LO(nmi_write_track_state_wait)
+    STA nmi_write_track + 2
+    LDA #HI(nmi_write_track_state_wait)
+    STA nmi_write_track + 3
     RTS
 
 .i8271_end
@@ -385,3 +618,4 @@ SAVE "IASM", i8271_begin, i8271_end
 PUTBASIC "t0.bas", "T0"
 PUTBASIC "latency.bas", "LATENCY"
 PUTBASIC "wfm.bas", "WFM"
+PUTBASIC "wtrack.bas", "WTRACK"
