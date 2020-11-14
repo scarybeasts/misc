@@ -45,10 +45,30 @@ ORG BASE
     \\ base + &18, write track
     JMP entry_write_track
     \\ base + &1B, reset
-    JMP i8271_reset
+    JMP entry_reset
+
+.entry_reset
+    \\ Low level reset.
+    JSR i8271_reset
+
+    \\ Select *TAPE.
+    LDA #&8C
+    LDX #0
+    LDY #0
+    JSR &FFF4
+
+    \\ NMI vector to RTI.
+    LDA #&40
+    STA &0D00
+
+    \\ Reset clobbers the no DMA setting. Put it back.
+    LDA #&17
+    LDX #&C1
+    JSR i8271_wsr
+    RTS
 
 .entry_load
-    JSR i8271_reset
+    JSR entry_reset
     JSR i8271_spin_up
     JSR i8271_wait_ready
     RTS
@@ -113,21 +133,6 @@ ORG BASE
     NOP:NOP:NOP:NOP:NOP:NOP:NOP:NOP:NOP:NOP
     LDA #0
     STA &FE82
-
-    \\ Select *TAPE.
-    LDA #&8C
-    LDX #0
-    LDY #0
-    JSR &FFF4
-
-    \\ NMI vector to RTI.
-    LDA #&40
-    STA &0D00
-
-    \\ Reset clobbers the no DMA setting. Put it back.
-    LDA #&17
-    LDX #&C1
-    JSR i8271_wsr
     RTS
 
 .i8271_seek
