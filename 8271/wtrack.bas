@@ -11,6 +11,8 @@ REM set up drive speed: 3125
 A%=-3125
 ?&74=A%
 ?&75=(A% AND &FF00) DIV 256
+REM replace bad clocks byte
+?&76=1
 
 FOR T%=0 TO 40
 REM reset

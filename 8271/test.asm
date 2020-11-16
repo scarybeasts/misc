@@ -8,6 +8,7 @@ ORG ZP
 .var_zp_param_track_buf SKIP 2
 .var_zp_param_marker_buf SKIP 2
 .var_zp_param_drive_speed SKIP 2
+.var_zp_param_replace_clocks_byte SKIP 1
 GUARD (ZP + 15)
 
 ORG (ZP + 16)
@@ -551,6 +552,22 @@ ORG BASE
 .nmi_write_track_state_specify_target
     LDA #&24
     STA &FE81
+    LDA #LO(nmi_write_track_state_specify_target_post)
+    STA nmi_write_track + 2
+    LDA #HI(nmi_write_track_state_specify_target_post)
+    STA nmi_write_track + 3
+    RTS
+
+.nmi_write_track_state_specify_target_post
+    LDA var_zp_param_replace_clocks_byte
+    BEQ nmi_write_track_state_specify_target_post_no_replace_clocks_byte
+    \\ Just back up one byte in the track buffer, which should be another 0xFF.
+    LDA nmi_write_track + 5
+    BNE nmi_write_track_state_specify_target_post_dec_track_lo
+    DEC nmi_write_track + 6
+  .nmi_write_track_state_specify_target_post_dec_track_lo
+    DEC nmi_write_track + 5
+  .nmi_write_track_state_specify_target_post_no_replace_clocks_byte
     LDA #LO(nmi_write_track_state_specify_post_target_wait)
     STA nmi_write_track + 2
     LDA #HI(nmi_write_track_state_specify_post_target_wait)
