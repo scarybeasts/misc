@@ -191,9 +191,10 @@ load_trks_files(uint8_t* p_buf, const char* p_path_prefix) {
 static int
 fixup_marker(uint8_t* p_track_data, uint32_t pos) {
   uint32_t i;
+  uint32_t num_00_fixups;
   int did_fixup = 0;
 
-  if (pos < 6) {
+  if (pos < 2) {
     bail("marker too early");
   }
   if ((p_track_data[pos] & 0xF0) != 0xF0) {
@@ -202,7 +203,11 @@ fixup_marker(uint8_t* p_track_data, uint32_t pos) {
   }
   if ((p_track_data[pos - 1] != 0) ||
       (p_track_data[pos - 2] != 0)) {
-    for (i = 0; i < 6; ++i) {
+    num_00_fixups = 6;
+    if (num_00_fixups > pos) {
+      num_00_fixups = pos;
+    }
+    for (i = 0; i < num_00_fixups; ++i) {
       p_track_data[pos - 1 - i] = 0;
     }
     did_fixup = 1;
