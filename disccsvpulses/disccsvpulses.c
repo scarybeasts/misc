@@ -42,8 +42,10 @@ main(int argc, const char* argv[]) {
   char line_buf[256];
   uint8_t sector_bytes[256 + 3];
   uint32_t max_samples = 2000000;
-  const char* p_filename = "scope_1.txt";
+  const char* p_filename = "scope_1_1.txt";
   float* p_samples = malloc(max_samples * sizeof(float));
+  float weak_peak_threshold = 0.035;
+  int debug = 0;
 
   (void) argc;
   (void) argv;
@@ -73,11 +75,16 @@ main(int argc, const char* argv[]) {
 
   fclose(p_in_file);
 
+  /* TheLivingDaylights_BBCMasterDiscVersion_Source_40--BAD_DFI.dfi */
   /* scope_1.txt, t0s0. */
   /*s = 230790;
   dir = 1;*/
   /* scope_1.txt, t0s1. */
-  s = 391131;
+  /* s = 391131;
+  dir = 1;*/
+  /* Repton3_ElkTape_GameDD_40--BAD_DFI.dfi */
+  /* scope_1_1.csv, 7th physical sector (T0 S6) */
+  s = 1174921;
   dir = 1;
   /* This corresponds to 8us with a 10MHz sample rate, 360rpm. */
   samples_per_bit = 66;
@@ -100,6 +107,10 @@ main(int argc, const char* argv[]) {
     float full_v = p_samples[s + samples_per_bit];
     float half_v = p_samples[s + (samples_per_bit / 2)];
 
+    if (debug) {
+      (void) printf("half/full after peak @%d: %f %f\n", s, half_v, full_v);
+    }
+
     /* Decide if there was 1 peak or 2 in this time slice. */
     bit = -1;
     if (dir == 1) {
@@ -111,7 +122,7 @@ main(int argc, const char* argv[]) {
       } else {
         float half_delta = (half_v - full_v);
         bit = 1;
-        if (half_delta < 0.02) {
+        if (half_delta < weak_peak_threshold) {
           (void) printf("weak middle peak\n");
           bit = 0;
         }
@@ -125,7 +136,7 @@ main(int argc, const char* argv[]) {
       } else {
         bit = 1;
         float half_delta = (full_v - half_v);
-        if (half_delta < 0.02) {
+        if (half_delta < weak_peak_threshold) {
           (void) printf("weak middle peak\n");
           bit = 0;
         }
