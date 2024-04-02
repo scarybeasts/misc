@@ -1,5 +1,21 @@
 "use strict";
 
+function mod_get_string(binary, offset, length) {
+  let ret = "";
+  for (let i = 0; i < length; ++i) {
+    let value = binary[offset + i];
+    if (value == 0) {
+      break;
+    }
+    if ((value < 32) || (value >= 127)) {
+      value = 32;
+    }
+    ret = (ret + String.fromCharCode(value));
+  }
+
+  return ret;
+}
+
 function MODSample(binary) {
   this.binary = binary;
   this.length = binary.length;
@@ -45,6 +61,7 @@ MODPattern.prototype.getRow = function(index) {
 
 function MODFile(binary) {
   this.binary = binary;
+  this.name = null;
   this.samples = new Array(31);
   this.num_positions = 0;
   this.num_patterns = 0;
@@ -58,6 +75,8 @@ MODFile.prototype.parse = function() {
   if (binary_length < 1084) {
     return 0;
   }
+
+  this.name = mod_get_string(binary, 0, 20);
 
   const num_positions = binary[950];
   if ((num_positions < 1) || (num_positions > 128)) {
@@ -111,6 +130,10 @@ MODFile.prototype.parse = function() {
 
     samples_offset += sample_length;
   }
+}
+
+MODFile.prototype.getName = function() {
+  return this.name;
 }
 
 MODFile.prototype.getNumPositions = function() {

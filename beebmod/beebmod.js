@@ -36,6 +36,7 @@ function beebmod_loaded(e) {
   }
 
   window.modfile = modfile;
+  log("Name: " + modfile.getName());
   log("Positions: " + modfile.getNumPositions());
   log("Patterns: " + modfile.getNumPatterns());
 
