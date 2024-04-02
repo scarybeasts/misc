@@ -14,7 +14,7 @@ function MODPlayerAmiga(modfile) {
   this.host_samples_counter = 0;
   
   this.samples = new Array(4);
-  this.sample_lengths = new Uint16Array(4);
+  this.sample_maxes = new Uint16Array(4);
   this.sample_indexes = new Int32Array(4);
   this.sample_periods = new Uint16Array(4);
   this.sample_counters = new Int16Array(4);
@@ -22,7 +22,7 @@ function MODPlayerAmiga(modfile) {
 
   for (let i = 0; i < 4; ++i) {
     this.samples[i] = null;
-    this.sample_lengths[i] = 0;
+    this.sample_maxes[i] = 0;
     this.sample_indexes[i] = -1;
     this.sample_periods[i] = 0;
     this.sample_counters[i] = 0;
@@ -61,7 +61,7 @@ MODPlayerAmiga.prototype.loadRow = function() {
       const period = note.period;
       const sample = modfile.getSample(sample_index);
       this.samples[i] = sample;
-      this.sample_lengths[i] = sample.length;
+      this.sample_maxes[i] = sample.length;
       this.sample_periods[i] = period;
       this.sample_counters[i] = period;
       if (sample.length > 0) {
@@ -195,12 +195,22 @@ function audio_process(event) {
       counter += player.sample_periods[j];
       player.sample_counters[j] = counter;
       index++;
-      if (index < player.sample_lengths[j]) {
+      if (index < player.sample_maxes[j]) {
         player.sample_indexes[j] = index;
         player.loadOutput(j);
       } else {
-        player.sample_indexes[j] = -1;
-        player.outputs[j] = 0.0;
+        // Repeat loop the sample if it has a repeat, otherwise silence.
+        const sample = player.samples[j];
+        const repeat_length = sample.getRepeatLength();
+        if (repeat_length > 2) {
+          // TODO: bounds checking here.
+          const repeat_start = sample.getRepeatStart();
+          player.sample_indexes[j] = repeat_start;
+          player.sample_maxes[j] = (repeat_start + repeat_length);
+        } else {
+          player.sample_indexes[j] = -1;
+          player.outputs[j] = 0.0;
+        }
       }
     }
 
