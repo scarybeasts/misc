@@ -16,9 +16,18 @@ function mod_get_string(binary, offset, length) {
   return ret;
 }
 
-function MODSample(binary) {
+function MODSample(binary, name) {
   this.binary = binary;
+  this.name = name;
   this.length = binary.length;
+}
+
+MODSample.prototype.getName = function() {
+  return this.name;
+}
+
+MODSample.prototype.getLength = function() {
+  return this.length;
 }
 
 function MODNote(binary) {
@@ -124,8 +133,9 @@ MODFile.prototype.parse = function() {
       return 0;
     }
     let sample_binary = binary.slice(samples_offset, sample_extent);
+    const sample_name = mod_get_string(binary, sample_meta_offset, 22);
 
-    const sample = new MODSample(sample_binary);
+    const sample = new MODSample(sample_binary, sample_name);
     this.samples[i] = sample;
 
     samples_offset += sample_length;

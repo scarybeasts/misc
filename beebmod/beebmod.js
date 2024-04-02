@@ -39,6 +39,21 @@ function beebmod_loaded(e) {
   log("Name: " + modfile.getName());
   log("Positions: " + modfile.getNumPositions());
   log("Patterns: " + modfile.getNumPatterns());
+  for (let i = 0; i < 31; ++i) {
+    const sample = modfile.getSample(i);
+    const name = sample.getName();
+    const length = sample.getLength();
+    if ((name.length > 0) || (length > 0)) {
+      const padded_index = (i.toString().padEnd(2, ' '));
+      const padded_name = name.padEnd(22, ' ');
+      log("Sample " +
+          padded_index +
+          ": " +
+          padded_name +
+          ", length: " +
+          length);
+    }
+  }
 
   const player = new MODPlayerAmiga(modfile);
   window.player = player;
