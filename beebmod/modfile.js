@@ -19,11 +19,13 @@ function mod_get_string(binary, offset, length) {
   return ret;
 }
 
-function MODSample(binary, name, volume) {
+function MODSample(binary, name, volume, repeat_start, repeat_length) {
   this.binary = binary;
   this.name = name;
   this.length = binary.length;
   this.volume = volume;
+  this.repeat_start = repeat_start;
+  this.repeat_length = repeat_length;
 }
 
 MODSample.prototype.getName = function() {
@@ -36,6 +38,14 @@ MODSample.prototype.getLength = function() {
 
 MODSample.prototype.getVolume = function() {
   return this.volume;
+}
+
+MODSample.prototype.getRepeatStart = function() {
+  return this.repeat_start;
+}
+
+MODSample.prototype.getRepeatLength = function() {
+  return this.repeat_length;
 }
 
 function MODNote(binary) {
@@ -138,6 +148,12 @@ MODFile.prototype.parse = function() {
     sample_length += binary[sample_meta_offset + 23];
     sample_length *= 2;
     let volume = binary[sample_meta_offset + 25];
+    let repeat_start = (binary[sample_meta_offset + 26] * 256);
+    repeat_start += binary[sample_meta_offset + 27];
+    repeat_start *= 2;
+    let repeat_length = (binary[sample_meta_offset + 28] * 256);
+    repeat_length += binary[sample_meta_offset + 29];
+    repeat_length *= 2;
 
     let sample_extent = (samples_offset + sample_length);
     if (sample_extent > binary_length) {
@@ -146,7 +162,11 @@ MODFile.prototype.parse = function() {
     let sample_binary = binary.slice(samples_offset, sample_extent);
     const sample_name = mod_get_string(binary, sample_meta_offset, 22);
 
-    const sample = new MODSample(sample_binary, sample_name, volume);
+    const sample = new MODSample(sample_binary,
+                                 sample_name,
+                                 volume,
+                                 repeat_start,
+                                 repeat_length);
     this.samples[i] = sample;
 
     samples_offset += sample_length;

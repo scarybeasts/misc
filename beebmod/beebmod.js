@@ -75,6 +75,9 @@ function load_mod_file(binary) {
       const padded_index = (i.toString().padEnd(2, ' '));
       const padded_name = name.padEnd(22, ' ');
       const padded_volume = (volume.toString().padEnd(2, ' '));
+      const padded_length = (length.toString().padEnd(5, ' '));
+      const repeat_start = sample.getRepeatStart();
+      const repeat_length = sample.getRepeatLength();
       log("Sample " +
           padded_index +
           ": " +
@@ -82,7 +85,11 @@ function load_mod_file(binary) {
           ", volume: " +
           padded_volume +
           ", length: " +
-          length);
+          padded_length +
+          ", repeat: " +
+          repeat_start +
+          ", " +
+          repeat_length);
     }
   }
 }
