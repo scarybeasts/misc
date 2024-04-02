@@ -163,6 +163,15 @@ MODPlayerAmiga.prototype.play = function() {
   processor.connect(ctx.destination);
 }
 
+MODPlayerAmiga.prototype.stop = function() {
+  const ctx = this.ctx;
+  if (ctx == null) {
+    return;
+  }
+  ctx.close();
+  this.ctx = null;
+}
+
 function audio_process(event) {
   const player = event.target.context.player;
   const outputBuffer = event.outputBuffer;
