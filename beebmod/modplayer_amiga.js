@@ -73,6 +73,30 @@ MODPlayerAmiga.prototype.loadRow = function() {
         this.outputs[i] = 0.0;
       }
     }
+    let command = note.command;
+    let major_command = (command >> 8);
+    let minor_command = (command & 0xFF);
+    switch (major_command) {
+    // Jump to specific row in next song position.
+    // Example: moondark.mod
+    case 0xD:
+      // TODO: what if this occurred at the last row index 63. Would it skip
+      // 2 positions or 1?
+      if (row_index == 0) {
+        alert("command 0xDxx at row index 63");
+      }
+      position++;
+      if (position == 128) {
+        position = 0;
+      }
+      this.position = position;
+      // TODO: what if the row index is out of bounds? Is it just masked?
+      if (minor_command > 63) {
+        alert("command 0xDxx with excessive row index");
+      }
+      this.row_index = minor_command;
+      break;
+    }
   }
 }
 

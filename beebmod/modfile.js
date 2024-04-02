@@ -1,5 +1,8 @@
 "use strict";
 
+// A good resource for the MOD format:
+// https://eblong.com/zarf/blorb/mod-spec.txt
+
 function mod_get_string(binary, offset, length) {
   let ret = "";
   for (let i = 0; i < length; ++i) {
@@ -41,6 +44,8 @@ function MODNote(binary) {
   this.period |= binary[1];
   this.sample = (binary[0] & 0xF0);
   this.sample |= (binary[2] >> 4);
+  this.command = ((binary[2] & 0x0F) << 8);
+  this.command |= binary[3];
 }
 
 function MODRow(binary) {
