@@ -44,12 +44,16 @@ function beebmod_loaded(e) {
     const name = sample.getName();
     const length = sample.getLength();
     if ((name.length > 0) || (length > 0)) {
+      const volume = sample.getVolume();
       const padded_index = (i.toString().padEnd(2, ' '));
       const padded_name = name.padEnd(22, ' ');
+      const padded_volume = (volume.toString().padEnd(2, ' '));
       log("Sample " +
           padded_index +
           ": " +
           padded_name +
+          ", volume: " +
+          padded_volume +
           ", length: " +
           length);
     }
