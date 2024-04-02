@@ -9,6 +9,15 @@ function beebmod() {
   const stop_button = document.getElementById("stop");
   stop_button.addEventListener("click", stop_mod_file);
 
+  // This is the actual drop handler.
+  document.addEventListener("drop", file_dropped);
+  // We need these machinations to prevent drops from triggering the download
+  // UI.
+  // See:
+  // https://stackoverflow.com/questions/6756583/prevent-browser-from-loading-a-drag-and-dropped-file#comment67550173_6756680
+  window.addEventListener("dragover", drop_on_window);
+  window.addEventListener("drop", drop_on_window);
+
   const xhr = new XMLHttpRequest();
   xhr.addEventListener("load", beebmod_loaded);
 
@@ -97,4 +106,21 @@ function stop_mod_file() {
   }
   player.stop();
   window.player = null;
+}
+
+function file_dropped(event) {
+  const file = event.dataTransfer.files[0];
+  const reader = new FileReader();
+  reader.addEventListener("load", file_loaded);
+  reader.readAsArrayBuffer(file);
+}
+
+function file_loaded(event) {
+  const array_buffer = event.target.result;
+  const binary = new Uint8Array(array_buffer);
+  load_mod_file(binary);
+}
+
+function drop_on_window(event) {
+  event.preventDefault();
 }
