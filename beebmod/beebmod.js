@@ -4,7 +4,7 @@ function beebmod() {
   const xhr = new XMLHttpRequest();
   xhr.addEventListener("load", beebmod_loaded);
 
-  xhr.open("GET", "moondark.mod");
+  xhr.open("GET", "mods/moondark.mod");
   xhr.responseType = "arraybuffer";
   xhr.send();
 }
