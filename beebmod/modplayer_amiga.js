@@ -9,6 +9,7 @@ function MODPlayerAmiga(modfile) {
   this.row = null;
 
   this.rate = 0;
+  this.speed = 0;
   this.host_samples_per_tick = 0;
   this.host_samples_counter = 0;
   
@@ -27,8 +28,6 @@ function MODPlayerAmiga(modfile) {
     this.sample_counters[i] = 0;
     this.outputs[i] = 0.0;
   }
-
-  this.loadRow();
 }
 
 MODPlayerAmiga.prototype.loadRow = function() {
@@ -78,7 +77,7 @@ MODPlayerAmiga.prototype.loadRow = function() {
     let minor_command = (command & 0xFF);
     switch (major_command) {
     // Jump to specific row in next song position.
-    // Example: moondark.mod
+    // Example: moondark.mod (first position)
     case 0xD:
       // TODO: what if this occurred at the last row index 63. Would it skip
       // 2 positions or 1?
@@ -96,8 +95,25 @@ MODPlayerAmiga.prototype.loadRow = function() {
       }
       this.row_index = minor_command;
       break;
+    // Set speed (minor 0x00-0x1F) or tempo (minor 0x20-0xFF).
+    // Example: winners.mod (first position)
+    case 0xF:
+      if (minor_command == 0) {
+        alert("command 0xF00");
+      }
+      if (minor_command < 0x20) {
+        this.setSpeed(minor_command);
+      }
+      break;
     }
   }
+}
+
+MODPlayerAmiga.prototype.setSpeed = function(speed) {
+  // speed, aka. SPD, is the number of 50Hz ticks between pattern rows.
+  this.speed = speed;
+  this.host_samples_per_tick = Math.round(this.rate / (50 / speed));
+  this.host_samples_counter = this.host_samples_per_tick;
 }
 
 MODPlayerAmiga.prototype.loadOutput = function(channel) {
@@ -125,10 +141,14 @@ MODPlayerAmiga.prototype.play = function() {
   // Song ticks are 50Hz.
   // The song speed (SPD) is defined as how many 50Hz ticks pass between
   // pattern rows. By default, SPD is 6.
-  // So rate / (50 / 6) is the number of host audio samples between pattern
-  // rows.
-  this.host_samples_per_tick = 8513;
-  this.host_samples_counter = this.host_samples_per_tick;
+  // A great summary of row timing may be found here:
+  // https://modarchive.org/forums/index.php?topic=2709.0
+  this.setSpeed(6);
+
+  // Load the first row to prime things.
+  // Must be called after setSpeed() in case in contains a command that affects
+  // speed.
+  this.loadRow();
 
   let options = new Object();
   options.sampleRate = this.rate;
