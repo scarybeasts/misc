@@ -212,7 +212,7 @@ main(int argc, const char* argv[]) {
       } else {
         ret = fread(in_buf, sizeof(in_buf), 1, file_in);
         if (ret != 1) {
-          errx(1, "couldn't read input file");
+          errx(1, "couldn't read input file %s", file_name);
         }
         (void) fclose(file_in);
       }
