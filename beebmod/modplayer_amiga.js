@@ -19,7 +19,6 @@ function MODPlayerAmiga(modfile) {
   this.sample_periods = new Uint16Array(4);
   this.sample_counters = new Int16Array(4);
   this.outputs = new Float32Array(4);
-  this.current_periods = new Uint16Array(4);
 
   for (let i = 0; i < 4; ++i) {
     this.samples[i] = null;
@@ -28,7 +27,6 @@ function MODPlayerAmiga(modfile) {
     this.sample_periods[i] = 0;
     this.sample_counters[i] = 0;
     this.outputs[i] = 0.0;
-    this.current_periods[i] = 0;
   }
 }
 
@@ -67,25 +65,30 @@ MODPlayerAmiga.prototype.loadRow = function() {
 
     let period = note.period;
     let sample_index = note.sample;
-    // TODO: what if there's a period with no sample?
-    if ((sample_index == 0) && (period != 0)) {
-      alert("period with no sample");
-    }
 
-    // Sample with no period uses the last period played on the channel.
-    // Example: anar13.mod (first position)
-    if (period == 0) {
-      period = this.current_periods[i];
+    // Always set the period even if there's no sample specified.
+    // Example: winners.mod (position 21 / pattern 15)
+    // BassoonTracker seems to change the period and leave the current sample
+    // playing at its current position. That's what we do.
+    if (period != 0) {
+      this.sample_periods[i] = period;
     }
-    this.current_periods[i] = period;
 
     if ((sample_index > 0) && (sample_index < 31)) {
       sample_index--;
       const sample = modfile.getSample(sample_index);
       this.samples[i] = sample;
       this.sample_maxes[i] = sample.length;
-      this.sample_periods[i] = period;
-      this.sample_counters[i] = period;
+      // If there's a sample with no period, we start the sample with the
+      // current channel period.
+      // Example: anar13.mod (first position)
+      // Seems like there's some behavior difference depending on ProTracker
+      // version, so we can pick anything sensible.
+      // See:
+      // https://www.stef.be/bassoontracker/docs/trackerQuircks.txt
+      if (period != 0) {
+        this.sample_counters[i] = period;
+      }
       if (sample.length > 0) {
         this.sample_indexes[i] = 0;
         this.loadOutput(i);
