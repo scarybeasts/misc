@@ -21,15 +21,6 @@ function MODPlayer(modfile, rate, callback) {
   this.sample_periods = new Uint16Array(4);
   this.sample_counters = new Int16Array(4);
   this.outputs = new Float32Array(4);
-
-  for (let i = 0; i < 4; ++i) {
-    this.samples[i] = null;
-    this.sample_maxes[i] = 0;
-    this.sample_indexes[i] = -1;
-    this.sample_periods[i] = 0;
-    this.sample_counters[i] = 0;
-    this.outputs[i] = 0.0;
-  }
 }
 
 MODPlayer.prototype.loadRow = function() {
@@ -163,6 +154,15 @@ MODPlayer.prototype.play = function() {
 
   this.position = 1;
   this.row_index = 0;
+
+  for (let i = 0; i < 4; ++i) {
+    this.samples[i] = null;
+    this.sample_maxes[i] = 0;
+    this.sample_indexes[i] = -1;
+    this.sample_periods[i] = 0;
+    this.sample_counters[i] = 0;
+    this.outputs[i] = 0.0;
+  }
 
   // Song ticks are 50Hz.
   // The song speed (SPD) is defined as how many 50Hz ticks pass between
