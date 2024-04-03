@@ -66,7 +66,7 @@ function load_mod_file(binary) {
   log("Name: " + modfile.getName());
   log("Positions: " + modfile.getNumPositions());
   log("Patterns: " + modfile.getNumPatterns());
-  for (let i = 0; i < 31; ++i) {
+  for (let i = 1; i < 32; ++i) {
     const sample = modfile.getSample(i);
     const name = sample.getName();
     const length = sample.getLength();

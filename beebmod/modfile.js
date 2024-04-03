@@ -91,7 +91,7 @@ MODPattern.prototype.getRow = function(index) {
 function MODFile(binary) {
   this.binary = binary;
   this.name = null;
-  this.samples = new Array(31);
+  this.samples = new Array(32);
   this.num_positions = 0;
   this.num_patterns = 0;
   this.positions = new Uint8Array(128);
@@ -142,6 +142,7 @@ MODFile.prototype.parse = function() {
   }
 
   let samples_offset = patterns_offset;
+  this.samples[0] = undefined;
   for (let i = 0; i < 31; ++i) {
     let sample_meta_offset = (20 + (i * 30));
     let sample_length = (binary[sample_meta_offset + 22] * 256);
@@ -167,7 +168,7 @@ MODFile.prototype.parse = function() {
                                  volume,
                                  repeat_start,
                                  repeat_length);
-    this.samples[i] = sample;
+    this.samples[i + 1] = sample;
 
     samples_offset += sample_length;
   }
@@ -186,7 +187,7 @@ MODFile.prototype.getNumPatterns = function() {
 }
 
 MODFile.prototype.getPatternIndex = function(position) {
-  return this.positions[position];
+  return this.positions[position - 1];
 }
 
 MODFile.prototype.getPattern = function(index) {

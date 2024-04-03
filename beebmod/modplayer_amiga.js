@@ -54,7 +54,7 @@ MODPlayerAmiga.prototype.loadRow = function() {
     row_index = 0;
     position++;
     if (position == 128) {
-      position = 0;
+      position = 1;
     }
     this.position = position;
   }
@@ -74,8 +74,7 @@ MODPlayerAmiga.prototype.loadRow = function() {
       this.sample_periods[i] = period;
     }
 
-    if ((sample_index > 0) && (sample_index < 31)) {
-      sample_index--;
+    if ((sample_index > 0) && (sample_index < 32)) {
       const sample = modfile.getSample(sample_index);
       this.samples[i] = sample;
       this.sample_maxes[i] = sample.length;
@@ -112,7 +111,7 @@ MODPlayerAmiga.prototype.loadRow = function() {
       }
       position++;
       if (position == 128) {
-        position = 0;
+        position = 1;
       }
       this.position = position;
       // TODO: what if the row index is out of bounds? Is it just masked?
@@ -164,7 +163,7 @@ MODPlayerAmiga.prototype.play = function() {
   // 70938Hz.
   this.rate = 70938;
 
-  this.position = 0;
+  this.position = 1;
   this.row_index = 0;
 
   // Song ticks are 50Hz.
