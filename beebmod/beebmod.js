@@ -101,7 +101,8 @@ function play_mod_file() {
 
   stop_mod_file();
 
-  const player = new MODPlayerAmiga(window.modfile);
+  const amiga_player = new MODPlayerAmiga(window.modfile);
+  const player = amiga_player.player;
   window.player = player;
   player.play();
 }
