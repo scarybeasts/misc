@@ -101,8 +101,15 @@ function play_mod_file() {
 
   stop_mod_file();
 
-  const amiga_player = new MODPlayerAmiga(window.modfile);
-  const player = amiga_player.player;
+  let player = null;
+  const radio_amiga = document.getElementById("radio_amiga");
+  if (radio_amiga.checked) {
+    const amiga_player = new MODPlayerAmiga(window.modfile);
+    player = amiga_player.player;
+  } else {
+    const beeb_player = new MODPlayerBeeb(window.modfile);
+    player = beeb_player.player;
+  }
   window.player = player;
   player.play();
 }

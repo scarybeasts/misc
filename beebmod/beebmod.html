@@ -4,10 +4,19 @@
 <script src="modfile.js"></script>
 <script src="modplayer.js"></script>
 <script src="modplayer_amiga.js"></script>
+<script src="modplayer_beeb.js"></script>
 </head>
 <body onload="beebmod()">
 <p></p>
 beebmod
+<p></p>
+<fieldset>
+  <legend>Select the player type</legend>
+  <input id="radio_amiga" type="radio" name="player" checked></input>
+  <label>Amiga quality</label>
+  <input id="radio_beeb" type="radio" name="player"></input>
+  <label>Beeb quality</label>
+</fieldset>
 <p></p>
 <button id="play">Play</button>
 <button id="stop">Stop</button>
