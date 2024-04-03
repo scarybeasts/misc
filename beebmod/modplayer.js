@@ -147,6 +147,14 @@ MODPlayer.prototype.loadOutput = function(channel) {
   this.outputs[channel] = float_value;
 }
 
+MODPlayer.prototype.hostSampleTick = function() {
+  this.host_samples_counter--;
+  if (this.host_samples_counter == 0) {
+    this.host_samples_counter = this.host_samples_per_tick;
+    this.loadRow();
+  }
+}
+
 MODPlayer.prototype.play = function() {
   if (this.ctx != null) {
      return;
