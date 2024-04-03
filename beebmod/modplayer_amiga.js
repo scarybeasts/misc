@@ -44,6 +44,13 @@ MODPlayerAmiga.prototype.loadRow = function() {
   this.pattern = pattern;
   let row_index = this.row_index;
   const row = pattern.getRow(row_index);
+  if (row_index == 0) {
+    console.log("playing position: " +
+                position +
+                ", pattern: " +
+                pattern_index);
+  }
+
   row_index++;
   if (row_index == 64) {
     row_index = 0;
@@ -153,6 +160,9 @@ MODPlayerAmiga.prototype.play = function() {
   // We'll subdivide by 50 to get a rate the host audio subsystem will accept:
   // 70938Hz.
   this.rate = 70938;
+
+  this.position = 0;
+  this.row_index = 0;
 
   // Song ticks are 50Hz.
   // The song speed (SPD) is defined as how many 50Hz ticks pass between
