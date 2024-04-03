@@ -19,6 +19,7 @@ function MODPlayerAmiga(modfile) {
   this.sample_periods = new Uint16Array(4);
   this.sample_counters = new Int16Array(4);
   this.outputs = new Float32Array(4);
+  this.current_periods = new Uint16Array(4);
 
   for (let i = 0; i < 4; ++i) {
     this.samples[i] = null;
@@ -27,6 +28,7 @@ function MODPlayerAmiga(modfile) {
     this.sample_periods[i] = 0;
     this.sample_counters[i] = 0;
     this.outputs[i] = 0.0;
+    this.current_periods[i] = 0;
   }
 }
 
@@ -55,10 +57,23 @@ MODPlayerAmiga.prototype.loadRow = function() {
 
   for (let i = 0; i < 4; ++i) {
     const note = row.getChannel(i);
+
+    let period = note.period;
     let sample_index = note.sample;
+    // TODO: what if there's a period with no sample?
+    if ((sample_index == 0) && (period != 0)) {
+      alert("period with no sample");
+    }
+
+    // Sample with no period uses the last period played on the channel.
+    // Example: anar13.mod (first position)
+    if (period == 0) {
+      period = this.current_periods[i];
+    }
+    this.current_periods[i] = period;
+
     if ((sample_index > 0) && (sample_index < 31)) {
       sample_index--;
-      const period = note.period;
       const sample = modfile.getSample(sample_index);
       this.samples[i] = sample;
       this.sample_maxes[i] = sample.length;
@@ -72,6 +87,7 @@ MODPlayerAmiga.prototype.loadRow = function() {
         this.outputs[i] = 0.0;
       }
     }
+
     let command = note.command;
     let major_command = (command >> 8);
     let minor_command = (command & 0xFF);
