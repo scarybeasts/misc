@@ -136,6 +136,10 @@ MODPlayer.prototype.setSpeed = function(speed) {
 
 MODPlayer.prototype.loadOutput = function(channel) {
   let index = this.sample_indexes[channel];
+  if (index == -1) {
+    this.outputs[channel] = 0.0;
+    return;
+  }
   let s8_value = this.samples[channel].binary[index];
   let float_value;
   // Map to -0.25 -> 0.25.
@@ -153,6 +157,25 @@ MODPlayer.prototype.hostSampleTick = function() {
     this.host_samples_counter = this.host_samples_per_tick;
     this.loadRow();
   }
+}
+
+MODPlayer.prototype.advanceSample = function(channel) {
+  let index = this.sample_indexes[channel];
+  index++;
+  if (index == this.player.sample_maxes[channel]) {
+    const sample = this.samples[channel];
+    const repeat_length = sample.getRepeatLength();
+    if (repeat_length > 2) {
+      // TODO: bounds checking here.
+      const repeat_start = sample.getRepeatStart();
+      index = repeat_start;
+      this.sample_maxes[channel] = (repeat_start + repeat_length);
+    } else {
+      index = -1;
+    }
+  }
+  this.sample_indexes[channel] = index;
+  this.loadOutput();
 }
 
 MODPlayer.prototype.play = function() {

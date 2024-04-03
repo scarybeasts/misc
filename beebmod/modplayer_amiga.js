@@ -33,24 +33,7 @@ function amiga_player_callback(event) {
       }
       counter += player.sample_periods[j];
       player.sample_counters[j] = counter;
-      index++;
-      if (index < player.sample_maxes[j]) {
-        player.sample_indexes[j] = index;
-        player.loadOutput(j);
-      } else {
-        // Repeat loop the sample if it has a repeat, otherwise silence.
-        const sample = player.samples[j];
-        const repeat_length = sample.getRepeatLength();
-        if (repeat_length > 2) {
-          // TODO: bounds checking here.
-          const repeat_start = sample.getRepeatStart();
-          player.sample_indexes[j] = repeat_start;
-          player.sample_maxes[j] = (repeat_start + repeat_length);
-        } else {
-          player.sample_indexes[j] = -1;
-          player.outputs[j] = 0.0;
-        }
-      }
+      player.advanceSample(j);
     }
 
     data[i] = value;
