@@ -20,7 +20,7 @@ function MODPlayer(modfile, rate, callback) {
   this.sample_indexes = new Int32Array(4);
   this.sample_periods = new Uint16Array(4);
   this.sample_counters = new Int16Array(4);
-  this.outputs = new Float32Array(4);
+  this.outputs = new Int8Array(4);
 }
 
 MODPlayer.prototype.loadRow = function() {
@@ -86,7 +86,7 @@ MODPlayer.prototype.loadRow = function() {
         this.loadOutput(i);
       } else {
         this.sample_indexes[i] = -1;
-        this.outputs[i] = 0.0;
+        this.outputs[i] = 0;
       }
     }
 
@@ -137,18 +137,10 @@ MODPlayer.prototype.setSpeed = function(speed) {
 MODPlayer.prototype.loadOutput = function(channel) {
   let index = this.sample_indexes[channel];
   if (index == -1) {
-    this.outputs[channel] = 0.0;
-    return;
-  }
-  let s8_value = this.samples[channel].binary[index];
-  let float_value;
-  // Map to -0.25 -> 0.25.
-  if (s8_value <= 127) {
-    float_value = (s8_value / 508.0);
+    this.outputs[channel] = 0;
   } else {
-    float_value = ((s8_value - 256) / 512.0);
+    this.outputs[channel] = this.samples[channel].binary[index];
   }
-  this.outputs[channel] = float_value;
 }
 
 MODPlayer.prototype.hostSampleTick = function() {
