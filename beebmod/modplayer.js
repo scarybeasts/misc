@@ -184,7 +184,7 @@ MODPlayer.prototype.play = function() {
     this.sample_indexes[i] = -1;
     this.sample_periods[i] = 0;
     this.sample_counters[i] = 0;
-    this.outputs[i] = 0.0;
+    this.outputs[i] = 0;
   }
 
   // Song ticks are 50Hz.
