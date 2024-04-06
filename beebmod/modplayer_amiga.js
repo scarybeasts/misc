@@ -9,11 +9,12 @@ function MODPlayerAmiga(modfile) {
   // 70938Hz.
   const rate = 70938;
 
-  this.player = new MODPlayer(modfile, rate, amiga_player_callback);
+  this.player = new MODPlayer(this, modfile, rate, amiga_player_callback);
 }
 
 function amiga_player_callback(event) {
-  const player = event.target.context.player;
+  const amiga_player = event.target.context.player;
+  const player = amiga_player.player;
   const outputBuffer = event.outputBuffer;
   const data = outputBuffer.getChannelData(0);
 

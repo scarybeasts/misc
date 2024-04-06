@@ -1,6 +1,7 @@
 "use strict";
 
-function MODPlayer(modfile, rate, callback) {
+function MODPlayer(player, modfile, rate, callback) {
+  this.player = player;
   this.modfile = modfile;
   this.rate = rate;
   this.callback = callback;
@@ -204,10 +205,10 @@ MODPlayer.prototype.play = function() {
   options.latencyHint = "playback";
   let ctx = new AudioContext(options);
   // Custom property.
-  ctx.player = this;
+  ctx.player = this.player;
   this.ctx = ctx;
 
-  let processor = ctx.createScriptProcessor(16384, 1, 1);
+  let processor = ctx.createScriptProcessor(16384, 0, 1);
   processor.addEventListener("audioprocess", this.callback);
   processor.connect(ctx.destination);
 }
