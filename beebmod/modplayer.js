@@ -20,8 +20,21 @@ function MODPlayer(player, modfile, rate, callback) {
   this.sample_maxes = new Uint16Array(4);
   this.sample_indexes = new Int32Array(4);
   this.sample_periods = new Uint16Array(4);
-  this.sample_counters = new Int16Array(4);
+  this.sample_counters = new Float32Array(4);
   this.outputs = new Int8Array(4);
+
+  // This is the rate of "period" ticks that are used to represent note
+  // frequencies in a MOD file.
+  // See:
+  // https://forum.amiga.org/index.php?topic=62974.0
+  // This gives playback rates of MOD notes:
+  // C-1  =   4143Hz  (period 856) (lowest)
+  // C-2  =   8287Hz  (period 428)
+  // C-3  =  16574Hz  (period 214)
+  // B-3  =  31377Hz  (period 113) (highest)
+  const amiga_clocks= (28375160.0 / 8.0);
+  const amiga_clocks_per_host_sample = (amiga_clocks / rate);
+  this.amiga_clocks_per_host_sample = amiga_clocks_per_host_sample;
 }
 
 MODPlayer.prototype.loadRow = function() {
@@ -152,7 +165,17 @@ MODPlayer.prototype.hostSampleTick = function() {
   }
 }
 
-MODPlayer.prototype.advanceSample = function(channel) {
+MODPlayer.prototype.advanceSampleCounter = function(channel) {
+  let counter = this.sample_counters[channel];
+  counter -= this.amiga_clocks_per_host_sample;
+  if (counter <= 0) {
+    counter += this.sample_periods[channel];
+    this.advanceSampleIndex(channel);
+  }
+  this.sample_counters[channel] = counter;
+}
+
+MODPlayer.prototype.advanceSampleIndex = function(channel) {
   let index = this.sample_indexes[channel];
   index++;
   if (index == this.sample_maxes[channel]) {

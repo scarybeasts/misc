@@ -2,7 +2,7 @@
 
 function MODPlayerBeeb(modfile) {
   // The SN76489 runs at 250kHz.
-  const rate = 250000;
+  const rate = 125000;
 
   this.beeb_levels_to_u8 = new Uint8Array(16);
   this.u8_to_quantized_u8 = new Uint8Array(256);
@@ -60,15 +60,7 @@ function beeb_player_callback(event) {
       const u8_value_quantized = beeb_player.u8_to_quantized_u8[u8_value];
       u8_accumulation += u8_value_quantized;
 
-      let counter = player.sample_counters[j];
-      counter -= 14;
-      if (counter > 0) {
-        player.sample_counters[j] = counter;
-        continue;
-      }
-      counter += player.sample_periods[j];
-      player.sample_counters[j] = counter;
-      player.advanceSample(j);
+      player.advanceSampleCounter(j);
     }
 
     // Value is 0 to 1020.

@@ -26,15 +26,8 @@ function amiga_player_callback(event) {
       if (index == -1) {
         continue;
       }
-      let counter = player.sample_counters[j];
-      counter -= 50;
-      if (counter > 0) {
-        player.sample_counters[j] = counter;
-        continue;
-      }
-      counter += player.sample_periods[j];
-      player.sample_counters[j] = counter;
-      player.advanceSample(j);
+
+      player.advanceSampleCounter(j);
     }
 
     // Value is -512 to 508.
