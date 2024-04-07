@@ -2,11 +2,21 @@
 
 function MODPlayerBeeb(modfile) {
   // The SN76489 runs at 250kHz.
-  const rate = 125000;
+  // The beeb driver for sampled output will typically set the SN period to 1,
+  // meaning that a 125kHz square wave is ouput (because the SN at period 1
+  // will invert the channel on/off at 250kHz).
+  // Sampled output is then achieved by rapidly modulating the volume of the
+  // 125kHz square wave.
+  // We run at a host output rate one quarter of that, 62.5kHz, so that the host
+  // can keep up without latency issues. We still invert the output every tick,
+  // so the modulated square wave will be 31.25kHz. This is deliberate worse
+  // than the beeb setup, but it seems to sound fine.
+  const rate = 62500;
 
   this.beeb_levels_to_u8 = new Uint8Array(16);
   this.u8_to_quantized_u8 = new Uint8Array(256);
   this.player = new MODPlayer(this, modfile, rate, beeb_player_callback);
+  this.is_even = 0;
 
   this.buildTables();
 }
@@ -42,34 +52,46 @@ MODPlayerBeeb.prototype.buildTables = function() {
   }
 }
 
+MODPlayerBeeb.prototype.reset = function() {
+  this.is_even = 1;
+}
+
 function beeb_player_callback(event) {
   const beeb_player = event.target.context.player;
   const player = beeb_player.player;
   const outputBuffer = event.outputBuffer;
   const data = outputBuffer.getChannelData(0);
+  let is_even = beeb_player.is_even;
 
   for (let i = 0; i < data.length; ++i) {
+    is_even = !is_even;
+
     let u8_accumulation = 0;
     for (let j = 0; j < 4; ++j) {
       let index = player.sample_indexes[j];
       if (index == -1) {
         continue;
       }
-      const s8_value = player.outputs[j];
-      const u8_value = (s8_value + 128);
-      const u8_value_quantized = beeb_player.u8_to_quantized_u8[u8_value];
-      u8_accumulation += u8_value_quantized;
+      if (is_even) {
+        const s8_value = player.outputs[j];
+        const u8_value = (s8_value + 128);
+        const u8_value_quantized = beeb_player.u8_to_quantized_u8[u8_value];
+        u8_accumulation += u8_value_quantized;
+      }
 
       player.advanceSampleCounter(j);
     }
 
     // Value is 0 to 1020.
-    // Convert to 0.0 to 2.0.
-    let float_value = (u8_accumulation / 510);
-    // Convert to -1.0 to 1.0.
-    float_value -= 1.0;
+    // Convert to 0.0 to 1.0.
+    // We deliberately only output zero or positive values, which is the upper
+    // half of the available waveform space. It probably doesn't matter a whole
+    // lot, but the SN76489 outputs like this.
+    const float_value = (u8_accumulation / 1020);
     data[i] = float_value;
 
     player.hostSampleTick();
   }
+
+  this.is_even = is_even;
 }

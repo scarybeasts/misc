@@ -12,6 +12,9 @@ function MODPlayerAmiga(modfile) {
   this.player = new MODPlayer(this, modfile, rate, amiga_player_callback);
 }
 
+MODPlayerAmiga.prototype.reset = function() {
+}
+
 function amiga_player_callback(event) {
   const amiga_player = event.target.context.player;
   const player = amiga_player.player;

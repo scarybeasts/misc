@@ -223,6 +223,8 @@ MODPlayer.prototype.play = function() {
   // speed.
   this.loadRow();
 
+  this.player.reset();
+
   let options = new Object();
   options.sampleRate = this.rate;
   options.latencyHint = "playback";
