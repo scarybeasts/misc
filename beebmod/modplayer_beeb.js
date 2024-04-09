@@ -44,7 +44,7 @@ MODPlayerBeeb.prototype.buildTables = function() {
       if (next_beeb_level < 16) {
         next_beeb_level_value = this.beeb_levels_to_u8[next_beeb_level];
       } else {
-        // Never hit.
+        // Set the next level value to one that will never be hit.
         next_beeb_level_value = 256;
       }
     }
