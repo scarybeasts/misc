@@ -16,7 +16,8 @@ function MODPlayerBeeb(modfile) {
   this.beeb_levels_to_u8 = new Uint8Array(16);
   this.u8_to_quantized_u8 = new Uint8Array(256);
   this.player = new MODPlayer(this, modfile, rate, beeb_player_callback);
-  this.is_even = 0;
+  this.counter = 0;
+  this.outputs = new Uint8Array(4);
 
   this.buildTables();
 }
@@ -53,7 +54,17 @@ MODPlayerBeeb.prototype.buildTables = function() {
 }
 
 MODPlayerBeeb.prototype.reset = function() {
-  this.is_even = 1;
+  this.counter = 0;
+  for (let i = 0; i < 4; ++i) {
+    this.updateOutput(i);
+  }
+}
+
+MODPlayerBeeb.prototype.updateOutput = function(channel) {
+  const s8_value = this.player.outputs[channel];
+  const u8_value = (s8_value + 128);
+  const u8_value_quantized = this.u8_to_quantized_u8[u8_value];
+  this.outputs[channel] = u8_value_quantized;
 }
 
 function beeb_player_callback(event) {
@@ -61,25 +72,26 @@ function beeb_player_callback(event) {
   const player = beeb_player.player;
   const outputBuffer = event.outputBuffer;
   const data = outputBuffer.getChannelData(0);
-  let is_even = beeb_player.is_even;
+  let counter = beeb_player.counter;
 
   for (let i = 0; i < data.length; ++i) {
-    is_even = !is_even;
-
+    const is_even = !(counter & 1);
     let u8_accumulation = 0;
+
     for (let j = 0; j < 4; ++j) {
       let index = player.sample_indexes[j];
       if (index == -1) {
         continue;
       }
       if (is_even) {
-        const s8_value = player.outputs[j];
-        const u8_value = (s8_value + 128);
-        const u8_value_quantized = beeb_player.u8_to_quantized_u8[u8_value];
-        u8_accumulation += u8_value_quantized;
+        u8_accumulation += beeb_player.outputs[j];
       }
 
       player.advanceSampleCounter(j);
+    }
+
+    if (is_even) {
+      beeb_player.updateOutput(counter >> 1);
     }
 
     // Value is 0 to 1020.
@@ -90,8 +102,13 @@ function beeb_player_callback(event) {
     const float_value = (u8_accumulation / 1020);
     data[i] = float_value;
 
+    counter++;
+    if (counter == 8) {
+      counter = 0;
+    }
+
     player.hostSampleTick();
   }
 
-  this.is_even = is_even;
+  this.counter = counter;
 }
