@@ -14,7 +14,9 @@ function MODPlayerBeeb(modfile) {
   const rate = 62500;
 
   this.beeb_levels_to_u8 = new Uint8Array(16);
-  this.u8_to_quantized_u8 = new Uint8Array(256);
+  this.u8_to_one_channel = new Uint8Array(256);
+  this.two_channel_outputs = new Array(256);
+  this.u8_to_two_channel = new Uint8Array(256);
   this.player = new MODPlayer(this, modfile, rate, beeb_player_callback);
   this.counter = 0;
   this.outputs = new Uint8Array(4);
@@ -23,6 +25,7 @@ function MODPlayerBeeb(modfile) {
 }
 
 MODPlayerBeeb.prototype.buildTables = function() {
+  // Build the mapping of the beeb's 15 output levels to a u8 value.
   const beeb_volume_exponent = -0.1;
   for (let i = 15; i >= 1; --i) {
     const exponent = ((15 - i) * beeb_volume_exponent);
@@ -32,6 +35,8 @@ MODPlayerBeeb.prototype.buildTables = function() {
   }
   this.beeb_levels_to_u8[0] = 0;
 
+  // Build the mapping of requested sample u8 output level to available
+  // u8 output level.
   // TODO: this doesn't give great results.
   // The loudest quantized level is 255, and only is used if the incoming
   // sample value is 255!
@@ -49,7 +54,49 @@ MODPlayerBeeb.prototype.buildTables = function() {
         next_beeb_level_value = 256;
       }
     }
-    this.u8_to_quantized_u8[i] = current_value;
+    this.u8_to_one_channel[i] = current_value;
+  }
+
+  // Build the mapping of requested sample u8 output level to available
+  // u8 output level, build from a pair of SN channels outputting together
+  // to achieve better vertical resolution.
+  for (let i = 0; i < 256; ++i) {
+    this.two_channel_outputs[i] = null;
+  }
+  for (let i = 0; i < 16; ++i) {
+    for (let j = 0; j < 16; ++j) {
+      const added_output =
+        (this.beeb_levels_to_u8[i] + this.beeb_levels_to_u8[j]);
+      const normalized_output = Math.round((added_output / 510) * 255);
+      if (this.two_channel_outputs[normalized_output] == null) {
+        const lookups = new Uint8Array(2);
+        // TODO: do we want to prefer the larger output value to always be
+        // first?
+        lookups[0] = i;
+        lookups[1] = j;
+        this.two_channel_outputs[normalized_output] = lookups;
+      }
+    }
+  }
+
+  // Build the mapping of requested sample u8 output level to available
+  // two channel levels.
+  // TODO: this doesn't give great results.
+  // The loudest quantized level is 255, and only is used if the incoming
+  // sample value is 255!
+  current_value = 0;
+  let next_level_value = -1;
+  for (let i = 0; i < 256; ++i) {
+    if ((next_level_value == -1) || (i == next_level_value)) {
+      current_value = i;
+      for (let j = (i + 1); j < 256; ++j) {
+        if (this.two_channel_outputs[j] != null) {
+          next_level_value = j;
+          break;
+        }
+      }
+    }
+    this.u8_to_two_channel[i] = current_value;
   }
 }
 
@@ -63,8 +110,7 @@ MODPlayerBeeb.prototype.reset = function() {
 MODPlayerBeeb.prototype.updateOutput = function(channel) {
   const s8_value = this.player.outputs[channel];
   const u8_value = (s8_value + 128);
-  const u8_value_quantized = this.u8_to_quantized_u8[u8_value];
-  this.outputs[channel] = u8_value_quantized;
+  this.outputs[channel] = u8_value;
 }
 
 function beeb_player_callback(event) {
@@ -84,7 +130,9 @@ function beeb_player_callback(event) {
         continue;
       }
       if (is_even) {
-        u8_accumulation += beeb_player.outputs[j];
+        const u8_value = beeb_player.outputs[j];
+        const u8_value_quantized = beeb_player.u8_to_one_channel[u8_value];
+        u8_accumulation += u8_value_quantized;
       }
 
       player.advanceSampleCounter(j);
