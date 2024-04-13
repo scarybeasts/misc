@@ -103,11 +103,15 @@ function play_mod_file() {
 
   let player = null;
   const radio_amiga = document.getElementById("radio_amiga");
+  const radio_beeb_separate = document.getElementById("radio_beeb_separate");
   if (radio_amiga.checked) {
     const amiga_player = new MODPlayerAmiga(window.modfile);
     player = amiga_player.player;
+  } else if (radio_beeb_separate.checked) {
+    const beeb_player = new MODPlayerBeeb(window.modfile, 0);
+    player = beeb_player.player;
   } else {
-    const beeb_player = new MODPlayerBeeb(window.modfile);
+    const beeb_player = new MODPlayerBeeb(window.modfile, 1);
     player = beeb_player.player;
   }
   window.player = player;
