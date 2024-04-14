@@ -25,10 +25,6 @@ function amiga_player_callback(event) {
     let s8_accumulation = 0;
     for (let j = 0; j < 4; ++j) {
       s8_accumulation += player.outputs[j];
-      let index = player.sample_indexes[j];
-      if (index == -1) {
-        continue;
-      }
 
       player.advanceSampleCounter(j);
     }

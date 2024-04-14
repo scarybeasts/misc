@@ -177,6 +177,9 @@ MODPlayer.prototype.advanceSampleCounter = function(channel) {
 
 MODPlayer.prototype.advanceSampleIndex = function(channel) {
   let index = this.sample_indexes[channel];
+  if (index == -1) {
+    return;
+  }
   index++;
   if (index == this.sample_maxes[channel]) {
     const sample = this.samples[channel];

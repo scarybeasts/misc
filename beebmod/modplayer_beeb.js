@@ -146,11 +146,6 @@ function beeb_player_callback(event) {
         }
       }
 
-      let index = player.sample_indexes[j];
-      if (index == -1) {
-        continue;
-      }
-
       player.advanceSampleCounter(j);
     }
 
