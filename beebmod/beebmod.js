@@ -115,6 +115,11 @@ function play_mod_file() {
     player = beeb_player.player;
   }
   window.player = player;
+
+  const number_start_position =
+      document.getElementById("number_start_position");
+  player.setPosition(number_start_position.valueAsNumber);
+
   player.play();
 }
 

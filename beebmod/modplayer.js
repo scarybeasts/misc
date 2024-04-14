@@ -59,11 +59,7 @@ MODPlayer.prototype.loadRow = function() {
   row_index++;
   if (row_index == 64) {
     row_index = 0;
-    position++;
-    if (position == 128) {
-      position = 1;
-    }
-    this.position = position;
+    this.incrementPosition();
   }
   this.row_index = row_index;
 
@@ -116,11 +112,7 @@ MODPlayer.prototype.loadRow = function() {
       if (row_index == 0) {
         alert("command 0xDxx at row index 63");
       }
-      position++;
-      if (position == 128) {
-        position = 1;
-      }
-      this.position = position;
+      this.incrementPosition();
       // TODO: what if the row index is out of bounds? Is it just masked?
       if (minor_command > 63) {
         alert("command 0xDxx with excessive row index");
@@ -139,6 +131,20 @@ MODPlayer.prototype.loadRow = function() {
       break;
     }
   }
+}
+
+MODPlayer.prototype.setPosition = function(position) {
+  const num_positions = this.modfile.getNumPositions();
+  if (position == 0) {
+    position = 1;
+  } else if (position > num_positions) {
+    position = 1;
+  }
+  this.position = position;
+}
+
+MODPlayer.prototype.incrementPosition = function(position) {
+  this.setPosition(this.position + 1);
 }
 
 MODPlayer.prototype.setSpeed = function(speed) {
@@ -202,7 +208,9 @@ MODPlayer.prototype.play = function() {
      return;
   }
 
-  this.position = 1;
+  if (this.position == 0) {
+    this.setPosition(1);
+  }
   this.row_index = 0;
 
   for (let i = 0; i < 4; ++i) {
@@ -248,4 +256,5 @@ MODPlayer.prototype.stop = function() {
   }
   ctx.close();
   this.ctx = null;
+  this.position = 0;
 }
