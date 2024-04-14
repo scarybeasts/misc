@@ -36,6 +36,40 @@ function log(text) {
   e.textContent += text + "\n";
 }
 
+function sample_table_clear() {
+  const sample_table = document.getElementById("sample_table");
+  const length = sample_table.rows.length;
+  for (let i = (length - 1); i > 0; --i) {
+    sample_table.deleteRow(i);
+  }
+}
+
+function sample_table_add(i,
+                          name,
+                          volume,
+                          length,
+                          repeat_start,
+                          repeat_length) {
+  const sample_table = document.getElementById("sample_table");
+  const row = sample_table.insertRow();
+  const index_cell = row.insertCell(0);
+  index_cell.innerText = i.toString();
+  const name_cell = row.insertCell(1);
+  name_cell.innerText = name;
+  const volume_cell = row.insertCell(2);
+  volume_cell.innerText = volume.toString();
+  const length_cell = row.insertCell(3);
+  length_cell.innerText = length.toString();
+  const repeat_start_cell = row.insertCell(4);
+  repeat_start_cell.innerText = repeat_start.toString();
+  const repeat_length_cell = row.insertCell(5);
+  repeat_length_cell.innerText = repeat_length.toString();
+  const play_cell = row.insertCell(6);
+  const play_input = document.createElement("input");
+  play_input.type = "text";
+  play_cell.appendChild(play_input);
+}
+
 function beebmod_loaded(e) {
   const xhr = e.target;
   if (xhr.readyState != 4) {
@@ -53,6 +87,8 @@ function beebmod_loaded(e) {
 
 function load_mod_file(binary) {
   log_clear();
+  sample_table_clear();
+
   log("MOD file length: " + binary.length);
 
   const modfile = new MODFile(binary);
@@ -72,24 +108,10 @@ function load_mod_file(binary) {
     const length = sample.getLength();
     if ((name.length > 0) || (length > 0)) {
       const volume = sample.getVolume();
-      const padded_index = (i.toString().padEnd(2, ' '));
-      const padded_name = name.padEnd(22, ' ');
-      const padded_volume = (volume.toString().padEnd(2, ' '));
-      const padded_length = (length.toString().padEnd(5, ' '));
       const repeat_start = sample.getRepeatStart();
       const repeat_length = sample.getRepeatLength();
-      log("Sample " +
-          padded_index +
-          ": " +
-          padded_name +
-          ", volume: " +
-          padded_volume +
-          ", length: " +
-          padded_length +
-          ", repeat: " +
-          repeat_start +
-          ", " +
-          repeat_length);
+
+      sample_table_add(i, name, volume, length, repeat_start, repeat_length);
     }
   }
 }

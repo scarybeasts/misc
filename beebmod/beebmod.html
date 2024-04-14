@@ -5,6 +5,11 @@
 <script src="modplayer.js"></script>
 <script src="modplayer_amiga.js"></script>
 <script src="modplayer_beeb.js"></script>
+<style>
+table, th {
+  border: 1px solid black;
+}
+</style>
 </head>
 <body onload="beebmod()">
 <p></p>
@@ -26,8 +31,19 @@ beebmod
 <input id="number_start_position" type="number" value="0"></input>
 <p></p>
 <textarea id="log"
-          rows="50"
+          rows="10"
           cols="80"
           style="font-family:Courier New,monospace"></textarea>
+<table id="sample_table">
+  <tr>
+    <th>Index</th>
+    <th>Sample name</th>
+    <th>Volume</th>
+    <th>Length</th>
+    <th>Repeat start</th>
+    <th>Repeat length</th>
+    <th>Play it!</th>
+  </tr>
+</table>
 </body>
 </html>
