@@ -37,6 +37,21 @@ function MODPlayer(player, modfile, rate, callback) {
   this.amiga_clocks_per_host_sample = amiga_clocks_per_host_sample;
 }
 
+MODPlayer.prototype.loadSample = function(channel, sample_index) {
+  const modfile = this.modfile;
+  const sample = modfile.getSample(sample_index);
+  const length = sample.length;
+
+  this.samples[channel] = sample;
+  this.sample_maxes[channel] = length;
+  if (length > 0) {
+    this.sample_indexes[channel] = 0;
+  } else {
+    this.sample_indexes[channel] = -1;
+  }
+  this.loadOutput(channel);
+}
+
 MODPlayer.prototype.loadRow = function() {
   const modfile = this.modfile;
   let num_patterns = modfile.getNumPatterns();
@@ -78,9 +93,7 @@ MODPlayer.prototype.loadRow = function() {
     }
 
     if ((sample_index > 0) && (sample_index < 32)) {
-      const sample = modfile.getSample(sample_index);
-      this.samples[i] = sample;
-      this.sample_maxes[i] = sample.length;
+      this.loadSample(i, sample_index);
       // If there's a sample with no period, we start the sample with the
       // current channel period.
       // Example: anar13.mod (first position)
@@ -90,13 +103,6 @@ MODPlayer.prototype.loadRow = function() {
       // https://www.stef.be/bassoontracker/docs/trackerQuircks.txt
       if (period != 0) {
         this.sample_counters[i] = period;
-      }
-      if (sample.length > 0) {
-        this.sample_indexes[i] = 0;
-        this.loadOutput(i);
-      } else {
-        this.sample_indexes[i] = -1;
-        this.outputs[i] = 0;
       }
     }
 
@@ -203,16 +209,7 @@ MODPlayer.prototype.advanceSampleIndex = function(channel) {
   this.loadOutput(channel);
 }
 
-MODPlayer.prototype.play = function() {
-  if (this.ctx != null) {
-     return;
-  }
-
-  if (this.position == 0) {
-    this.setPosition(1);
-  }
-  this.row_index = 0;
-
+MODPlayer.prototype.start = function() {
   for (let i = 0; i < 4; ++i) {
     this.samples[i] = null;
     this.sample_maxes[i] = 0;
@@ -221,6 +218,31 @@ MODPlayer.prototype.play = function() {
     this.sample_counters[i] = 0;
     this.outputs[i] = 0;
   }
+
+  let options = new Object();
+  options.sampleRate = this.rate;
+  options.latencyHint = "playback";
+  let ctx = new AudioContext(options);
+  // Custom property.
+  ctx.player = this.player;
+  this.ctx = ctx;
+
+  let processor = ctx.createScriptProcessor(16384, 0, 1);
+  processor.addEventListener("audioprocess", this.callback);
+  processor.connect(ctx.destination);
+}
+
+MODPlayer.prototype.playFile = function() {
+  if (this.ctx != null) {
+     return;
+  }
+
+  this.start();
+
+  if (this.position == 0) {
+    this.setPosition(1);
+  }
+  this.row_index = 0;
 
   // Song ticks are 50Hz.
   // The song speed (SPD) is defined as how many 50Hz ticks pass between
@@ -235,18 +257,17 @@ MODPlayer.prototype.play = function() {
   this.loadRow();
 
   this.player.reset();
+}
 
-  let options = new Object();
-  options.sampleRate = this.rate;
-  options.latencyHint = "playback";
-  let ctx = new AudioContext(options);
-  // Custom property.
-  ctx.player = this.player;
-  this.ctx = ctx;
+MODPlayer.prototype.playSample = function(sample_index) {
+  if (this.ctx == null) {
+    this.start();
+    this.player.reset();
+  }
 
-  let processor = ctx.createScriptProcessor(16384, 0, 1);
-  processor.addEventListener("audioprocess", this.callback);
-  processor.connect(ctx.destination);
+  this.loadSample(0, sample_index);
+  // C-2
+  this.sample_periods[0] = 428;
 }
 
 MODPlayer.prototype.stop = function() {

@@ -53,7 +53,8 @@ function sample_table_add(i,
   const sample_table = document.getElementById("sample_table");
   const row = sample_table.insertRow();
   const index_cell = row.insertCell(0);
-  index_cell.innerText = i.toString();
+  const index_string = i.toString();
+  index_cell.innerText = index_string;
   const name_cell = row.insertCell(1);
   name_cell.innerText = name;
   const volume_cell = row.insertCell(2);
@@ -66,7 +67,9 @@ function sample_table_add(i,
   repeat_length_cell.innerText = repeat_length.toString();
   const play_cell = row.insertCell(6);
   const play_input = document.createElement("input");
+  play_input.name = index_string;
   play_input.type = "text";
+  play_input.addEventListener("keypress", play_sample);
   play_cell.appendChild(play_input);
 }
 
@@ -116,13 +119,7 @@ function load_mod_file(binary) {
   }
 }
 
-function play_mod_file() {
-  if (window.modfile == null) {
-    return;
-  }
-
-  stop_mod_file();
-
+function create_player() {
   let player = null;
   const radio_amiga = document.getElementById("radio_amiga");
   const radio_beeb_separate = document.getElementById("radio_beeb_separate");
@@ -137,12 +134,22 @@ function play_mod_file() {
     player = beeb_player.player;
   }
   window.player = player;
+}
 
+function play_mod_file() {
+  if (window.modfile == null) {
+    return;
+  }
+
+  stop_mod_file();
+  create_player();
+
+  const player = window.player;
   const number_start_position =
       document.getElementById("number_start_position");
   player.setPosition(number_start_position.valueAsNumber);
 
-  player.play();
+  player.playFile();
 }
 
 function stop_mod_file() {
@@ -152,6 +159,20 @@ function stop_mod_file() {
   }
   player.stop();
   window.player = null;
+}
+
+function play_sample(event) {
+  if (window.modfile == null) {
+    return;
+  }
+
+  if (window.player == null) {
+    create_player();
+  }
+
+  const player = window.player;
+  const sample_index = Number(event.target.name);
+  player.playSample(sample_index);
 }
 
 function file_dropped(event) {
