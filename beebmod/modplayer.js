@@ -1,10 +1,15 @@
 "use strict";
 
-function MODPlayer(player, modfile, rate, callback) {
+function MODPlayer(player,
+                   modfile,
+                   rate,
+                   host_play_callback,
+                   note_hit_callback) {
   this.player = player;
   this.modfile = modfile;
   this.rate = rate;
-  this.callback = callback;
+  this.host_play_callback = host_play_callback;
+  this.note_hit_callback = note_hit_callback;
 
   this.ctx = null;
   this.position = 0;
@@ -32,7 +37,7 @@ function MODPlayer(player, modfile, rate, callback) {
   // C-2  =   8287Hz  (period 428)
   // C-3  =  16574Hz  (period 214)
   // B-3  =  31377Hz  (period 113) (highest)
-  const amiga_clocks= (28375160.0 / 8.0);
+  const amiga_clocks = (28375160.0 / 8.0);
   const amiga_clocks_per_host_sample = (amiga_clocks / rate);
   this.amiga_clocks_per_host_sample = amiga_clocks_per_host_sample;
 }
@@ -79,6 +84,7 @@ MODPlayer.prototype.loadRow = function() {
   this.row_index = row_index;
 
   for (let i = 0; i < 4; ++i) {
+    let do_note_callback = false;
     const note = row.getChannel(i);
 
     let period = note.period;
@@ -90,10 +96,12 @@ MODPlayer.prototype.loadRow = function() {
     // playing at its current position. That's what we do.
     if (period != 0) {
       this.sample_periods[i] = period;
+      do_note_callback = true;
     }
 
     if ((sample_index > 0) && (sample_index < 32)) {
       this.loadSample(i, sample_index);
+      do_note_callback = true;
       // If there's a sample with no period, we start the sample with the
       // current channel period.
       // Example: anar13.mod (first position)
@@ -104,6 +112,10 @@ MODPlayer.prototype.loadRow = function() {
       if (period != 0) {
         this.sample_counters[i] = period;
       }
+    }
+
+    if (do_note_callback) {
+      this.note_hit_callback(i, sample_index, period);
     }
 
     let command = note.command;
@@ -209,15 +221,21 @@ MODPlayer.prototype.advanceSampleIndex = function(channel) {
   this.loadOutput(channel);
 }
 
-MODPlayer.prototype.start = function() {
+MODPlayer.prototype.reset = function() {
   for (let i = 0; i < 4; ++i) {
     this.samples[i] = null;
     this.sample_maxes[i] = 0;
     this.sample_indexes[i] = -1;
     this.sample_periods[i] = 0;
     this.sample_counters[i] = 0;
-    this.outputs[i] = 0;
+    this.loadOutput(i);
   }
+
+  this.player.reset();
+}
+
+MODPlayer.prototype.start = function() {
+  this.reset();
 
   let options = new Object();
   options.sampleRate = this.rate;
@@ -228,7 +246,7 @@ MODPlayer.prototype.start = function() {
   this.ctx = ctx;
 
   let processor = ctx.createScriptProcessor(16384, 0, 1);
-  processor.addEventListener("audioprocess", this.callback);
+  processor.addEventListener("audioprocess", this.host_play_callback);
   processor.connect(ctx.destination);
 }
 
@@ -255,14 +273,11 @@ MODPlayer.prototype.playFile = function() {
   // Must be called after setSpeed() in case in contains a command that affects
   // speed.
   this.loadRow();
-
-  this.player.reset();
 }
 
 MODPlayer.prototype.playSample = function(sample_index) {
   if (this.ctx == null) {
     this.start();
-    this.player.reset();
   }
 
   this.loadSample(0, sample_index);

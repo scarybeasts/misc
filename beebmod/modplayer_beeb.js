@@ -13,14 +13,22 @@ function MODPlayerBeeb(modfile, is_merged) {
   // than the beeb setup, but it seems to sound fine.
   const rate = 62500;
 
-  this.player = new MODPlayer(this, modfile, rate, beeb_player_callback);
+  this.player = new MODPlayer(this,
+                              modfile,
+                              rate,
+                              beeb_player_callback,
+                              this.noteHit.bind(this));
   this.is_merged = is_merged;
   this.beeb_levels_to_u8 = new Uint8Array(16);
   this.u8_to_one_channel = new Uint8Array(256);
   this.two_channel_outputs = new Array(256);
   this.u8_to_two_channel = new Uint8Array(256);
+  this.period_advances = new Uint16Array(1024);
   this.counter = 0;
-  this.outputs = new Uint8Array(4);
+  this.channel_outputs = new Uint8Array(4);
+  this.channel_advances_hi = new Uint8Array(4);
+  this.channel_advances_lo = new Uint8Array(4);
+  this.channel_sample_sub_index = new Uint8Array(4);
 
   this.buildTables();
 }
@@ -99,19 +107,59 @@ MODPlayerBeeb.prototype.buildTables = function() {
     }
     this.u8_to_two_channel[i] = current_value;
   }
+
+  // Build the mapping of MOD periods to beeb advance increments.
+  const amiga_clocks = (28375160.0 / 8.0);
+  // 7.8kHz.
+  const beeb_freq = (2000000 / 64 / 4);
+  for (let i = 113; i <= 856; ++i) {
+    const freq = (amiga_clocks / i);
+    const advance_float = (freq / beeb_freq * 256);
+    const advance = Math.round(advance_float);
+    this.period_advances[i] = advance;
+  }
 }
 
 MODPlayerBeeb.prototype.reset = function() {
   this.counter = 0;
   for (let i = 0; i < 4; ++i) {
+    this.channel_advances_hi[i] = 0;
+    this.channel_advances_lo[i] = 0;
+    this.channel_sample_sub_index[i] = 0;
     this.updateOutput(i);
+  }
+}
+
+MODPlayerBeeb.prototype.noteHit = function(channel, sample_index, period) {
+  if (period != 0) {
+    const advance = this.period_advances[period];
+    this.channel_advances_hi[channel] = Math.floor(advance / 256);
+    this.channel_advances_lo[channel] = (advance % 256);
+  }
+  if ((sample_index > 0) && (sample_index < 32)) {
+    this.channel_sample_sub_index[channel] = 0;
   }
 }
 
 MODPlayerBeeb.prototype.updateOutput = function(channel) {
   const s8_value = this.player.outputs[channel];
   const u8_value = (s8_value + 128);
-  this.outputs[channel] = u8_value;
+  this.channel_outputs[channel] = u8_value;
+}
+
+MODPlayerBeeb.prototype.advanceSample = function(channel) {
+  const advance_hi = this.channel_advances_hi[channel];
+  for (let i = 0; i < advance_hi; ++i) {
+    player.advanceSampleIndex(channel);
+  }
+  const advance_lo = this.channel_advances_lo[channel];
+  let sample_sub_index = this.channel_sample_sub_index[channel];
+  sample_sub_index += advance_lo;
+  if (sample_sub_index >= 256) {
+    player.advanceSampleIndex(channel);
+    sample_sub_index -= 256;
+  }
+  this.channel_sample_sub_index[channel] = sample_sub_index;
 }
 
 function beeb_player_callback(event) {
@@ -130,23 +178,23 @@ function beeb_player_callback(event) {
       if (is_even) {
         if (is_merged) {
           // Update all channels together at ~7.8kHz.
-          if ((counter % 8) == 0) {
+          if (counter == 0) {
             beeb_player.updateOutput(j);
+            beeb_player.advanceSample(j);
           }
           // TODO: lower resolution to 6 bits.
-          u8_accumulation += beeb_player.outputs[j];
+          u8_accumulation += beeb_player.channel_outputs[j];
         } else {
           // Update all channels at ~7.8kHz individually and staggered.
-          if ((counter % 8) == (j * 2)) {
+          if (counter == (j * 2)) {
             beeb_player.updateOutput(j);
+            beeb_player.advanceSample(j);
           }
-          const u8_value = beeb_player.outputs[j];
+          const u8_value = beeb_player.channel_outputs[j];
           const u8_value_quantized = beeb_player.u8_to_one_channel[u8_value];
           u8_accumulation += u8_value_quantized;
         }
       }
-
-      player.advanceSampleCounter(j);
     }
 
     // Value is 0 to 1020.
@@ -163,10 +211,7 @@ function beeb_player_callback(event) {
 
     data[i] = float_value;
 
-    counter++;
-    if (counter == 8) {
-      counter = 0;
-    }
+    counter = ((counter + 1) % 8);
 
     player.hostSampleTick();
   }

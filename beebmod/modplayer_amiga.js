@@ -9,10 +9,17 @@ function MODPlayerAmiga(modfile) {
   // 70938Hz.
   const rate = 70938;
 
-  this.player = new MODPlayer(this, modfile, rate, amiga_player_callback);
+  this.player = new MODPlayer(this,
+                              modfile,
+                              rate,
+                              amiga_player_callback,
+                              this.noteHit.bind(this));
 }
 
 MODPlayerAmiga.prototype.reset = function() {
+}
+
+MODPlayerAmiga.prototype.noteHit = function(channel, sample_index, period) {
 }
 
 function amiga_player_callback(event) {
