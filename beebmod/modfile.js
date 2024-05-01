@@ -106,19 +106,25 @@ MODFile.prototype.parse = function() {
   }
 
   this.name = mod_get_string(binary, 0, 20);
+  const signature = mod_get_string(binary, 1080, 4);
 
-  const num_positions = binary[950];
+  console.log("name: " + this.name, ", signature: " + signature);
+  var num_samples = 15;
+  if ((signature == "M.K.") || (signature == "M!K!")) {
+    num_samples = 31;
+  }
+
+  let positions_offset = (20 + (num_samples * 30));
+  const num_positions = binary[positions_offset];
   if ((num_positions < 1) || (num_positions > 128)) {
     return 0;
   }
   this.num_positions = num_positions;
 
+  positions_offset += 2;
   let num_patterns = 0;
   for (let i = 0; i < 128; ++i) {
-    const pattern_index = binary[952 + i];
-    if (pattern_index > 63) {
-      return 0;
-    }
+    const pattern_index = binary[positions_offset + i];
     this.positions[i] = pattern_index;
     if (pattern_index > num_patterns) {
       num_patterns = pattern_index;
@@ -127,7 +133,7 @@ MODFile.prototype.parse = function() {
   num_patterns++;
   this.num_patterns = num_patterns;
 
-  let patterns_offset = 1084;
+  let patterns_offset = (positions_offset + 128);
   let pattern_length = (64 * 4 * 4);
   for (let i = 0; i < num_patterns; ++i) {
     let pattern_extent = (patterns_offset + pattern_length);
@@ -143,7 +149,7 @@ MODFile.prototype.parse = function() {
 
   let samples_offset = patterns_offset;
   this.samples[0] = undefined;
-  for (let i = 0; i < 31; ++i) {
+  for (let i = 0; i < num_samples; ++i) {
     let sample_meta_offset = (20 + (i * 30));
     let sample_length = (binary[sample_meta_offset + 22] * 256);
     sample_length += binary[sample_meta_offset + 23];
@@ -158,7 +164,12 @@ MODFile.prototype.parse = function() {
 
     let sample_extent = (samples_offset + sample_length);
     if (sample_extent > binary_length) {
-      return 0;
+      if (num_samples == 15) {
+        // Old-style modules seem to have overruns.
+        sample_extent = binary_length;
+      } else {
+        return 0;
+      }
     }
     let sample_binary = binary.slice(samples_offset, sample_extent);
     const sample_name = mod_get_string(binary, sample_meta_offset, 22);
