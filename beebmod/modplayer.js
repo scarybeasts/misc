@@ -257,7 +257,10 @@ MODPlayer.prototype.playSample = function(sample_index) {
 
   this.loadSample(0, sample_index);
   // C-2
-  this.sample_periods[0] = 428;
+  const period = 428;
+  this.sample_periods[0] = period;
+
+  this.note_hit_callback(0, sample_index, period);
 }
 
 MODPlayer.prototype.stop = function() {
