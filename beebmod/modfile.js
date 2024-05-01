@@ -134,6 +134,10 @@ MODFile.prototype.parse = function() {
   this.num_patterns = num_patterns;
 
   let patterns_offset = (positions_offset + 128);
+  if (num_samples == 31) {
+    // Skip the signature.
+    patterns_offset += 4;
+  }
   let pattern_length = (64 * 4 * 4);
   for (let i = 0; i < num_patterns; ++i) {
     let pattern_extent = (patterns_offset + pattern_length);
