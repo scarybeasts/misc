@@ -182,8 +182,10 @@ function beeb_player_callback(event) {
             beeb_player.updateOutput(j);
             beeb_player.advanceSample(j);
           }
-          // TODO: lower resolution to 6 bits.
-          u8_accumulation += beeb_player.channel_outputs[j];
+          // Lower resolution to 6 bits.
+          const u8_value = beeb_player.channel_outputs[j];
+          u8_value >>= 2;
+          u8_accumulation += u8_value;
         } else {
           // Update all channels at ~7.8kHz individually and staggered.
           if (counter == (j * 2)) {
@@ -198,15 +200,18 @@ function beeb_player_callback(event) {
     }
 
     // Value is 0 to 1020.
-    // Convert to 0.0 to 1.0.
+    // Convert value to 0.0 to 1.0.
     // We deliberately only output zero or positive values, which is the upper
     // half of the available waveform space. It probably doesn't matter a whole
     // lot, but the SN76489 outputs like this.
-    let float_value = (u8_accumulation / 1020);
+    let float_value;
     if (is_merged) {
-      let u8_value = Math.round(float_value * 255);
+      // Max is 252, which is (0x3f * 4), which is ((0xff >> 2) * 4).
+      let u8_value = Math.round(u8_accumulation * (255 / 252));
       u8_value = beeb_player.u8_to_two_channel[u8_value];
       float_value = (u8_value / 255);
+    } else {
+      float_value = (u8_accumulation / 1020);
     }
 
     data[i] = float_value;
