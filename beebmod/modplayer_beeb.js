@@ -176,6 +176,7 @@ function beeb_player_callback(event) {
 
     for (let j = 0; j < 4; ++j) {
       if (is_even) {
+        var u8_value = beeb_player.channel_outputs[j];
         if (is_merged) {
           // Update all channels together at ~7.8kHz.
           if (counter == 0) {
@@ -183,7 +184,6 @@ function beeb_player_callback(event) {
             beeb_player.advanceSample(j);
           }
           // Lower resolution to 6 bits.
-          const u8_value = beeb_player.channel_outputs[j];
           u8_value >>= 2;
           u8_accumulation += u8_value;
         } else {
@@ -192,7 +192,6 @@ function beeb_player_callback(event) {
             beeb_player.updateOutput(j);
             beeb_player.advanceSample(j);
           }
-          const u8_value = beeb_player.channel_outputs[j];
           const u8_value_quantized = beeb_player.u8_to_one_channel[u8_value];
           u8_accumulation += u8_value_quantized;
         }
