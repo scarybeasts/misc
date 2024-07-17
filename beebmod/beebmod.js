@@ -123,11 +123,15 @@ function load_mod_file(binary) {
   }
 
   window.modfile = modfile;
+  const num_positions = modfile.getNumPositions();
+  const num_patterns = modfile.getNumPatterns();
   log("Name: " + modfile.getName());
-  log("Positions: " + modfile.getNumPositions());
-  log("Patterns: " + modfile.getNumPatterns());
+  log("Positions: " + num_positions);
+  log("Patterns: " + num_patterns);
 
   const port = window.beebmod_port;
+  port.postMessage(["RESET", num_patterns, num_positions]);
+
   for (let i = 1; i < 32; ++i) {
     const sample = modfile.getSample(i);
     const name = sample.getName();
@@ -139,8 +143,16 @@ function load_mod_file(binary) {
 
       sample_table_add(i, name, volume, length, repeat_start, repeat_length);
     }
-    port.postMessage(["SAMPLE", i, sample.binary]);
+
+    port.postMessage(["SAMPLE", i, sample]);
   }
+  for (let i = 0; i < num_patterns; ++i) {
+    port.postMessage(["PATTERN", i, modfile.getPattern(i)]);
+  }
+  for (let i = 0; i < num_positions; ++i) {
+    port.postMessage(["POSITION", i, modfile.getPatternIndex(i + 1)])
+  }
+  port.postMessage(["PLAY"]);
 }
 
 function create_player() {
