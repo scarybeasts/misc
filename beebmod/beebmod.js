@@ -1,9 +1,17 @@
 "use strict";
 
-function beebmod() {
+async function beebmod() {
   window.modfile = null;
   window.player = null;
 
+  beebmod_setup_listeners();
+  // Wait for audio setup to finish because loading a file needs to post
+  // information to the AudioWorklet context.
+  await beebmod_setup_audio();
+  beebmod_load_initial_file();
+}
+
+function beebmod_setup_listeners() {
   const play_button = document.getElementById("play");
   play_button.addEventListener("click", play_mod_file);
   const stop_button = document.getElementById("stop");
@@ -17,7 +25,20 @@ function beebmod() {
   // https://stackoverflow.com/questions/6756583/prevent-browser-from-loading-a-drag-and-dropped-file#comment67550173_6756680
   window.addEventListener("dragover", drop_on_window);
   window.addEventListener("drop", drop_on_window);
+}
 
+async function beebmod_setup_audio() {
+  const audio_context = new AudioContext();
+  await audio_context.audioWorklet.addModule("modprocessor.js");
+  const audio_node = new AudioWorkletNode(audio_context, "modprocessor");
+  audio_node.connect(audio_context.destination);
+
+  window.beebmod_audio_context = audio_context;
+  window.beebmod_audio_node = audio_node;
+  window.beebmod_port = audio_node.port;
+}
+
+function beebmod_load_initial_file() {
   const xhr = new XMLHttpRequest();
   xhr.addEventListener("load", beebmod_loaded);
 
@@ -105,6 +126,8 @@ function load_mod_file(binary) {
   log("Name: " + modfile.getName());
   log("Positions: " + modfile.getNumPositions());
   log("Patterns: " + modfile.getNumPatterns());
+
+  const port = window.beebmod_port;
   for (let i = 1; i < 32; ++i) {
     const sample = modfile.getSample(i);
     const name = sample.getName();
@@ -116,6 +139,7 @@ function load_mod_file(binary) {
 
       sample_table_add(i, name, volume, length, repeat_start, repeat_length);
     }
+    port.postMessage(["SAMPLE", i, sample.binary]);
   }
 }
 
