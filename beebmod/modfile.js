@@ -22,30 +22,9 @@ function mod_get_string(binary, offset, length) {
 function MODSample(binary, name, volume, repeat_start, repeat_length) {
   this.binary = binary;
   this.name = name;
-  this.length = binary.length;
   this.volume = volume;
   this.repeat_start = repeat_start;
   this.repeat_length = repeat_length;
-}
-
-MODSample.prototype.getName = function() {
-  return this.name;
-}
-
-MODSample.prototype.getLength = function() {
-  return this.length;
-}
-
-MODSample.prototype.getVolume = function() {
-  return this.volume;
-}
-
-MODSample.prototype.getRepeatStart = function() {
-  return this.repeat_start;
-}
-
-MODSample.prototype.getRepeatLength = function() {
-  return this.repeat_length;
 }
 
 function MODNote(binary) {
@@ -68,10 +47,6 @@ function MODRow(binary) {
   this.channels = channels;
 }
 
-MODRow.prototype.getChannel = function(index) {
-  return this.channels[index];
-}
-
 function MODPattern(binary) {
   const rows = new Array(64);
   const row_length = (4 * 4);
@@ -82,10 +57,6 @@ function MODPattern(binary) {
   }
 
   this.rows = rows;
-}
-
-MODPattern.prototype.getRow = function(index) {
-  return this.rows[index];
 }
 
 function MODFile(binary) {

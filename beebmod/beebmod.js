@@ -137,12 +137,12 @@ function load_mod_file(binary) {
 
   for (let i = 1; i < 32; ++i) {
     const sample = modfile.getSample(i);
-    const name = sample.getName();
-    const length = sample.getLength();
+    const name = sample.name;
+    const length = sample.binary.length;
     if ((name.length > 0) || (length > 0)) {
-      const volume = sample.getVolume();
-      const repeat_start = sample.getRepeatStart();
-      const repeat_length = sample.getRepeatLength();
+      const volume = sample.volume;
+      const repeat_start = sample.repeat_start;
+      const repeat_length = sample.repeat_length;
 
       sample_table_add(i, name, volume, length, repeat_start, repeat_length);
     }
