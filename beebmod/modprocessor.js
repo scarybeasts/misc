@@ -21,7 +21,9 @@ class MODProcessor extends AudioWorkletProcessor {
     this.mod_row_index = 0;
     this.mod_speed = 0;
     this.mod_sample = new Array(4);
-    this.mod_sample_length = new Uint16Array(4);
+    this.mod_sample_end = new Uint16Array(4);
+    this.mod_sample_repeat_start = new Uint16Array(4);
+    this.mod_sample_repeat_length = new Uint16Array(4);
     this.mod_sample_index = new Uint16Array(4);
     this.mod_period = new Uint16Array(4);
     this.host_samples_per_row = 0;
@@ -93,8 +95,15 @@ class MODProcessor extends AudioWorkletProcessor {
         if (counter0 <= 0) {
           counter0 += this.mod_period[0];
           this.mod_sample_index[0]++;
-          if (this.mod_sample_index[0] == this.mod_sample_length[0]) {
-            sample0 = null;
+          if (this.mod_sample_index[0] == this.mod_sample_end[0]) {
+            if (this.mod_sample_repeat_length[0] > 2) {
+              const repeat_start = this.mod_sample_repeat_start[0];
+              this.mod_sample_index[0] = repeat_start;
+              this.mod_sample_end[0] =
+                  (repeat_start + this.mod_sample_repeat_length[0]);
+            } else {
+              sample0 = null;
+            }
           }
           do_reload_value = true;
         }
@@ -104,8 +113,15 @@ class MODProcessor extends AudioWorkletProcessor {
         if (counter1 <= 0) {
           counter1 += this.mod_period[1];
           this.mod_sample_index[1]++;
-          if (this.mod_sample_index[1] == this.mod_sample_length[1]) {
-            sample1 = null;
+          if (this.mod_sample_index[1] == this.mod_sample_end[1]) {
+            if (this.mod_sample_repeat_length[1] > 2) {
+              const repeat_start = this.mod_sample_repeat_start[1];
+              this.mod_sample_index[1] = repeat_start;
+              this.mod_sample_end[1] =
+                  (repeat_start + this.mod_sample_repeat_length[1]);
+            } else {
+              sample1 = null;
+            }
           }
           do_reload_value = true;
         }
@@ -115,8 +131,15 @@ class MODProcessor extends AudioWorkletProcessor {
         if (counter2 <= 0) {
           counter2 += this.mod_period[2];
           this.mod_sample_index[2]++;
-          if (this.mod_sample_index[2] == this.mod_sample_length[2]) {
-            sample2 = null;
+          if (this.mod_sample_index[2] == this.mod_sample_end[2]) {
+            if (this.mod_sample_repeat_length[2] > 2) {
+              const repeat_start = this.mod_sample_repeat_start[2];
+              this.mod_sample_index[2] = repeat_start;
+              this.mod_sample_end[2] =
+                  (repeat_start + this.mod_sample_repeat_length[2]);
+            } else {
+              sample2 = null;
+            }
           }
           do_reload_value = true;
         }
@@ -126,8 +149,15 @@ class MODProcessor extends AudioWorkletProcessor {
         if (counter3 <= 0) {
           counter3 += this.mod_period[3];
           this.mod_sample_index[3]++;
-          if (this.mod_sample_index[3] == this.mod_sample_length[3]) {
-            sample3 = null;
+          if (this.mod_sample_index[3] == this.mod_sample_end[3]) {
+            if (this.mod_sample_repeat_length[3] > 2) {
+              const repeat_start = this.mod_sample_repeat_start[3];
+              this.mod_sample_index[3] = repeat_start;
+              this.mod_sample_end[3] =
+                  (repeat_start + this.mod_sample_repeat_length[3]);
+            } else {
+              sample3 = null;
+            }
           }
           do_reload_value = true;
         }
@@ -292,7 +322,9 @@ class MODProcessor extends AudioWorkletProcessor {
   loadMODSample(channel, sample_index, period) {
     const sample = this.samples[sample_index];
     this.mod_sample[channel] = sample.binary;
-    this.mod_sample_length[channel] = sample.binary.length;
+    this.mod_sample_end[channel] = sample.binary.length;
+    this.mod_sample_repeat_start[channel] = sample.repeat_start;
+    this.mod_sample_repeat_length[channel] = sample.repeat_length;
     this.mod_sample_index[channel] = 0;
     this.mod_period[channel] = period;
     this.amiga_counters[channel] = period;
