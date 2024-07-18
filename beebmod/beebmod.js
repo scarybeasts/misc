@@ -13,9 +13,9 @@ async function beebmod() {
 
 function beebmod_setup_listeners() {
   const play_button = document.getElementById("play");
-  play_button.addEventListener("click", play_mod_file);
+  play_button.addEventListener("click", beebmod_button_play);
   const stop_button = document.getElementById("stop");
-  stop_button.addEventListener("click", stop_mod_file);
+  stop_button.addEventListener("click", beebmod_button_stop);
 
   // This is the actual drop handler.
   document.addEventListener("drop", file_dropped);
@@ -28,7 +28,11 @@ function beebmod_setup_listeners() {
 }
 
 async function beebmod_setup_audio() {
-  const audio_context = new AudioContext();
+  const options = new Object();
+  options.sampleRate = 250000;
+  options.latencyHint = "interactive";
+  const audio_context = new AudioContext(options);
+
   await audio_context.audioWorklet.addModule("modprocessor.js");
   const audio_node = new AudioWorkletNode(audio_context, "modprocessor");
   audio_node.connect(audio_context.destination);
@@ -110,7 +114,6 @@ function beebmod_loaded(e) {
 }
 
 function load_mod_file(binary) {
-  log_clear();
   sample_table_clear();
 
   log("MOD file length: " + binary.length);
@@ -152,7 +155,6 @@ function load_mod_file(binary) {
   for (let i = 0; i < num_positions; ++i) {
     port.postMessage(["POSITION", i, modfile.getPatternIndex(i + 1)])
   }
-  port.postMessage(["PLAY"]);
 }
 
 function create_player() {
@@ -172,29 +174,15 @@ function create_player() {
   window.player = player;
 }
 
-function play_mod_file() {
-  if (window.modfile == null) {
-    return;
-  }
-
-  stop_mod_file();
-  create_player();
-
-  const player = window.player;
-  const number_start_position =
+function beebmod_button_play() {
+  const element_start_position =
       document.getElementById("number_start_position");
-  player.setPosition(number_start_position.valueAsNumber);
-
-  player.playFile();
+  const start_position = element_start_position.valueAsNumber;
+  window.beebmod_port.postMessage(["PLAY", start_position]);
 }
 
-function stop_mod_file() {
-  const player = window.player;
-  if (player == null) {
-    return;
-  }
-  player.stop();
-  window.player = null;
+function beebmod_button_stop() {
+  window.beebmod_port.postMessage(["STOP"]);
 }
 
 function play_sample(event) {
