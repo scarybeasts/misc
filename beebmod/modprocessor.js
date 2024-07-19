@@ -6,11 +6,11 @@ class MODProcessor extends AudioWorkletProcessor {
     this.port.onmessage = this.handleMessage.bind(this);
 
     // Song data.
-    this.samples = null;
+    this.samples = new Array(32);
     this.num_patterns = 0;
     this.num_positions = 0;
-    this.patterns = null;
-    this.positions = null;
+    this.patterns = new Array(256);
+    this.positions = new Uint8Array(256);
 
     // Play state.
     this.is_playing = false;
@@ -29,10 +29,23 @@ class MODProcessor extends AudioWorkletProcessor {
     this.host_samples_per_row = 0;
     this.host_samples_counter = 0;
 
+    // Use sample 0, which isn't a valid MOD sample number, to point to a
+    // silent sample. This enables a more streamlined play path without so
+    // many checks and branches.
+    const sample0 = new Object();
+    sample0.binary = new Uint8Array(65535);
+    sample0.name = "[internal silence]";
+    sample0.volume = 64;
+    sample0.repeat_start = 0;
+    sample0.repeat_length = 65535;
+    this.samples[0] = sample0;
+
     // Misc.
     this.conv_s8 = new Int8Array(1);
 
     this.setupAmiga();
+
+    this.handleReset(0, 0);
 
     console.log("AudioWorklet rate: " + sampleRate);
   }
@@ -67,22 +80,14 @@ class MODProcessor extends AudioWorkletProcessor {
       if (do_reload_value) {
         do_reload_value = false;
         value = 0;
-        if (sample0 != null) {
-          conv_s8[0] = sample0[this.mod_sample_index[0]];
-          value += conv_s8[0];
-        }
-        if (sample1 != null) {
-          conv_s8[0] = sample1[this.mod_sample_index[1]];
-          value += conv_s8[0];
-        }
-        if (sample2 != null) {
-          conv_s8[0] = sample2[this.mod_sample_index[2]];
-          value += conv_s8[0];
-        }
-        if (sample3 != null) {
-          conv_s8[0] = sample3[this.mod_sample_index[3]];
-          value += conv_s8[0];
-        }
+        conv_s8[0] = sample0[this.mod_sample_index[0]];
+        value += conv_s8[0];
+        conv_s8[0] = sample1[this.mod_sample_index[1]];
+        value += conv_s8[0];
+        conv_s8[0] = sample2[this.mod_sample_index[2]];
+        value += conv_s8[0];
+        conv_s8[0] = sample3[this.mod_sample_index[3]];
+        value += conv_s8[0];
         // Value is -512 to 508.
         // Convert to -1.0 to +1.0.
         value = (value / 512.0);
@@ -90,77 +95,73 @@ class MODProcessor extends AudioWorkletProcessor {
 
       output_channel[i] = value;
 
-      if (sample0 != null) {
-        counter0 -= amiga_clocks_per_host_sample;
-        if (counter0 <= 0) {
-          counter0 += this.mod_period[0];
-          this.mod_sample_index[0]++;
-          if (this.mod_sample_index[0] == this.mod_sample_end[0]) {
-            if (this.mod_sample_repeat_length[0] > 2) {
-              const repeat_start = this.mod_sample_repeat_start[0];
-              this.mod_sample_index[0] = repeat_start;
-              this.mod_sample_end[0] =
-                  (repeat_start + this.mod_sample_repeat_length[0]);
-            } else {
-              sample0 = null;
-            }
+      counter0 -= amiga_clocks_per_host_sample;
+      if (counter0 <= 0) {
+        counter0 += this.mod_period[0];
+        this.mod_sample_index[0]++;
+        if (this.mod_sample_index[0] == this.mod_sample_end[0]) {
+          if (this.mod_sample_repeat_length[0] > 2) {
+            const repeat_start = this.mod_sample_repeat_start[0];
+            this.mod_sample_index[0] = repeat_start;
+            this.mod_sample_end[0] =
+                (repeat_start + this.mod_sample_repeat_length[0]);
+          } else {
+            this.loadMODSample(0, 0, 65535);
+            sample0 = this.mod_sample[0];
           }
-          do_reload_value = true;
         }
+        do_reload_value = true;
       }
-      if (sample1 != null) {
-        counter1 -= amiga_clocks_per_host_sample;
-        if (counter1 <= 0) {
-          counter1 += this.mod_period[1];
-          this.mod_sample_index[1]++;
-          if (this.mod_sample_index[1] == this.mod_sample_end[1]) {
-            if (this.mod_sample_repeat_length[1] > 2) {
-              const repeat_start = this.mod_sample_repeat_start[1];
-              this.mod_sample_index[1] = repeat_start;
-              this.mod_sample_end[1] =
-                  (repeat_start + this.mod_sample_repeat_length[1]);
-            } else {
-              sample1 = null;
-            }
+      counter1 -= amiga_clocks_per_host_sample;
+      if (counter1 <= 0) {
+        counter1 += this.mod_period[1];
+        this.mod_sample_index[1]++;
+        if (this.mod_sample_index[1] == this.mod_sample_end[1]) {
+          if (this.mod_sample_repeat_length[1] > 2) {
+            const repeat_start = this.mod_sample_repeat_start[1];
+            this.mod_sample_index[1] = repeat_start;
+            this.mod_sample_end[1] =
+                (repeat_start + this.mod_sample_repeat_length[1]);
+          } else {
+            this.loadMODSample(1, 0, 65535);
+            sample1 = this.mod_sample[1];
           }
-          do_reload_value = true;
         }
+        do_reload_value = true;
       }
-      if (sample2 != null) {
-        counter2 -= amiga_clocks_per_host_sample;
-        if (counter2 <= 0) {
-          counter2 += this.mod_period[2];
-          this.mod_sample_index[2]++;
-          if (this.mod_sample_index[2] == this.mod_sample_end[2]) {
-            if (this.mod_sample_repeat_length[2] > 2) {
-              const repeat_start = this.mod_sample_repeat_start[2];
-              this.mod_sample_index[2] = repeat_start;
-              this.mod_sample_end[2] =
-                  (repeat_start + this.mod_sample_repeat_length[2]);
-            } else {
-              sample2 = null;
-            }
+      counter2 -= amiga_clocks_per_host_sample;
+      if (counter2 <= 0) {
+        counter2 += this.mod_period[2];
+        this.mod_sample_index[2]++;
+        if (this.mod_sample_index[2] == this.mod_sample_end[2]) {
+          if (this.mod_sample_repeat_length[2] > 2) {
+            const repeat_start = this.mod_sample_repeat_start[2];
+            this.mod_sample_index[2] = repeat_start;
+            this.mod_sample_end[2] =
+                (repeat_start + this.mod_sample_repeat_length[2]);
+          } else {
+            this.loadMODSample(2, 0, 65535);
+            sample2 = this.mod_sample[2];
           }
-          do_reload_value = true;
         }
+        do_reload_value = true;
       }
-      if (sample3 != null) {
-        counter3 -= amiga_clocks_per_host_sample;
-        if (counter3 <= 0) {
-          counter3 += this.mod_period[3];
-          this.mod_sample_index[3]++;
-          if (this.mod_sample_index[3] == this.mod_sample_end[3]) {
-            if (this.mod_sample_repeat_length[3] > 2) {
-              const repeat_start = this.mod_sample_repeat_start[3];
-              this.mod_sample_index[3] = repeat_start;
-              this.mod_sample_end[3] =
-                  (repeat_start + this.mod_sample_repeat_length[3]);
-            } else {
-              sample3 = null;
-            }
+      counter3 -= amiga_clocks_per_host_sample;
+      if (counter3 <= 0) {
+        counter3 += this.mod_period[3];
+        this.mod_sample_index[3]++;
+        if (this.mod_sample_index[3] == this.mod_sample_end[3]) {
+          if (this.mod_sample_repeat_length[3] > 2) {
+            const repeat_start = this.mod_sample_repeat_start[3];
+            this.mod_sample_index[3] = repeat_start;
+            this.mod_sample_end[3] =
+                (repeat_start + this.mod_sample_repeat_length[3]);
+          } else {
+            this.loadMODSample(3, 0, 65535);
+            sample3 = this.mod_sample[3];
           }
-          do_reload_value = true;
         }
+        do_reload_value = true;
       }
 
       host_samples_counter--;
@@ -198,15 +199,13 @@ class MODProcessor extends AudioWorkletProcessor {
     if (name == "RESET") {
       const num_patterns = data_array[1];
       const num_positions = data_array[2];
-      this.num_patterns = num_patterns;
-      this.num_positions = num_positions;
-      this.samples = new Array(32);
-      this.patterns = new Array(num_patterns);
-      this.positions = new Uint8Array(128);
+      this.handleReset(num_patterns, num_positions);
     } else if (name == "SAMPLE") {
       const index = data_array[1];
       const sample = data_array[2];
-      this.samples[index] = sample;
+      if ((index > 0) && (index < 32)) {
+        this.samples[index] = sample;
+      }
     } else if (name == "PATTERN") {
       const index = data_array[1];
       const pattern = data_array[2];
@@ -222,6 +221,16 @@ class MODProcessor extends AudioWorkletProcessor {
       this.is_playing = false;
     } else {
       console.log("unknown command: " + name);
+    }
+  }
+
+  handleReset(num_patterns, num_positions) {
+    this.num_patterns = num_patterns;
+    this.num_positions = num_positions;
+
+    const sample0 = this.samples[0];
+    for (let i = 0; i < 4; ++i) {
+      this.loadMODSample(i, 0, 65535);
     }
   }
 
