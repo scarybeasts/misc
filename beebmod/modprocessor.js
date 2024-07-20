@@ -87,7 +87,7 @@ class MODProcessor extends AudioWorkletProcessor {
       output_channel[i] = value;
 
       counter0 -= amiga_clocks_per_host_sample;
-      if (counter0 <= 0) {
+      while (counter0 <= 0) {
         counter0 += this.mod_period[0];
         this.mod_sample_index[0]++;
         if (this.mod_sample_index[0] == this.mod_sample_end[0]) {
@@ -104,7 +104,7 @@ class MODProcessor extends AudioWorkletProcessor {
         do_reload_value = true;
       }
       counter1 -= amiga_clocks_per_host_sample;
-      if (counter1 <= 0) {
+      while (counter1 <= 0) {
         counter1 += this.mod_period[1];
         this.mod_sample_index[1]++;
         if (this.mod_sample_index[1] == this.mod_sample_end[1]) {
@@ -121,7 +121,7 @@ class MODProcessor extends AudioWorkletProcessor {
         do_reload_value = true;
       }
       counter2 -= amiga_clocks_per_host_sample;
-      if (counter2 <= 0) {
+      while (counter2 <= 0) {
         counter2 += this.mod_period[2];
         this.mod_sample_index[2]++;
         if (this.mod_sample_index[2] == this.mod_sample_end[2]) {
@@ -138,7 +138,7 @@ class MODProcessor extends AudioWorkletProcessor {
         do_reload_value = true;
       }
       counter3 -= amiga_clocks_per_host_sample;
-      if (counter3 <= 0) {
+      while (counter3 <= 0) {
         counter3 += this.mod_period[3];
         this.mod_sample_index[3]++;
         if (this.mod_sample_index[3] == this.mod_sample_end[3]) {
