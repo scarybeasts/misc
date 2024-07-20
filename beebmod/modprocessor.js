@@ -26,8 +26,9 @@ class MODProcessor extends AudioWorkletProcessor {
     this.mod_sample_repeat_length = new Uint16Array(4);
     this.mod_sample_index = new Uint16Array(4);
     this.mod_period = new Uint16Array(4);
-    this.host_samples_per_row = 0;
+    this.host_samples_per_tick = 0;
     this.host_samples_counter = 0;
+    this.mod_ticks_counter = 0;
 
     // Use sample 0, which isn't a valid MOD sample number, to point to a
     // silent sample. This enables a more streamlined play path without so
@@ -157,17 +158,21 @@ class MODProcessor extends AudioWorkletProcessor {
 
       host_samples_counter--;
       if (host_samples_counter == 0) {
-        host_samples_counter = this.host_samples_per_row;
-        this.loadMODRowAndAdvance();
-        sample0 = this.mod_sample[0];
-        sample1 = this.mod_sample[1];
-        sample2 = this.mod_sample[2];
-        sample3 = this.mod_sample[3];
-        counter0 = this.amiga_counters[0];
-        counter1 = this.amiga_counters[1];
-        counter2 = this.amiga_counters[2];
-        counter3 = this.amiga_counters[3];
-        do_reload_value = true;
+        host_samples_counter = this.host_samples_per_tick;
+        this.mod_ticks_counter--;
+        if (this.mod_ticks_counter == 0) {
+          this.mod_ticks_counter = this.mod_speed;
+          this.loadMODRowAndAdvance();
+          sample0 = this.mod_sample[0];
+          sample1 = this.mod_sample[1];
+          sample2 = this.mod_sample[2];
+          sample3 = this.mod_sample[3];
+          counter0 = this.amiga_counters[0];
+          counter1 = this.amiga_counters[1];
+          counter2 = this.amiga_counters[2];
+          counter3 = this.amiga_counters[3];
+          do_reload_value = true;
+        }
       }
     }
 
@@ -348,8 +353,9 @@ class MODProcessor extends AudioWorkletProcessor {
   setMODSpeed(speed) {
     // speed, aka. SPD, is the number of 50Hz ticks between pattern rows.
     this.mod_speed = speed;
-    this.host_samples_per_row = Math.round((this.rate / 50) * speed);
-    this.host_samples_counter = this.host_samples_per_row;
+    this.mod_ticks_counter = speed;
+    this.host_samples_per_tick = Math.round(this.rate / 50);
+    this.host_samples_counter = this.host_samples_per_tick;
   }
 
   setupAmiga() {
