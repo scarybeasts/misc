@@ -40,9 +40,6 @@ class MODProcessor extends AudioWorkletProcessor {
     sample0.repeat_length = 65535;
     this.samples[0] = sample0;
 
-    // Misc.
-    this.conv_s8 = new Int8Array(1);
-
     this.setupAmiga();
 
     this.handleReset(0, 0);
@@ -61,7 +58,6 @@ class MODProcessor extends AudioWorkletProcessor {
 
     let host_samples_counter = this.host_samples_counter;
     const amiga_clocks_per_host_sample = this.amiga_clocks_per_host_sample;
-    const conv_s8 = this.conv_s8;
 
     let sample0 = this.mod_sample[0];
     let sample1 = this.mod_sample[1];
@@ -79,15 +75,10 @@ class MODProcessor extends AudioWorkletProcessor {
     for (let i = 0; i < length; ++i) {
       if (do_reload_value) {
         do_reload_value = false;
-        value = 0;
-        conv_s8[0] = sample0[this.mod_sample_index[0]];
-        value += conv_s8[0];
-        conv_s8[0] = sample1[this.mod_sample_index[1]];
-        value += conv_s8[0];
-        conv_s8[0] = sample2[this.mod_sample_index[2]];
-        value += conv_s8[0];
-        conv_s8[0] = sample3[this.mod_sample_index[3]];
-        value += conv_s8[0];
+        value = sample0[this.mod_sample_index[0]];
+        value += sample1[this.mod_sample_index[1]];
+        value += sample2[this.mod_sample_index[2]];
+        value += sample3[this.mod_sample_index[3]];
         // Value is -512 to 508.
         // Convert to -1.0 to +1.0.
         value = (value / 512.0);

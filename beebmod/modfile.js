@@ -142,6 +142,8 @@ MODFile.prototype.parse = function() {
       return 0;
     }
     let sample_binary = binary.slice(samples_offset, sample_extent);
+    // MOD files store sample data as signed 8-bit.
+    sample_binary = new Int8Array(sample_binary);
     const sample_name = mod_get_string(binary, sample_meta_offset, 22);
 
     const sample = new MODSample(sample_binary,
