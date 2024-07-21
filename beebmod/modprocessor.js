@@ -26,6 +26,9 @@ class MODProcessor extends AudioWorkletProcessor {
     this.mod_sample_repeat_length = new Uint16Array(4);
     this.mod_sample_index = new Uint16Array(4);
     this.mod_period = new Uint16Array(4);
+    this.mod_portamento = new Int16Array(4);
+    this.mod_portamento_target = new Uint16Array(4);
+
     this.host_samples_per_tick = 0;
     this.host_samples_counter = 0;
     this.mod_ticks_counter = 0;
@@ -158,11 +161,68 @@ class MODProcessor extends AudioWorkletProcessor {
 
       host_samples_counter--;
       if (host_samples_counter == 0) {
+        // Do 50Hz tick effects.
+        const portamento0 = this.mod_portamento[0];
+        if (portamento0 != 0) {
+          this.mod_period[0] += portamento0;
+          const target = this.mod_portamento_target[0];
+          if (target != 0) {
+            if (((portamento0 > 0) && (this.mod_period[0] >= target)) ||
+                (this.mod_period[0] <= target)) {
+              this.mod_period[0] = target;
+              this.mod_portamento[0] = 0;
+            }
+          }
+        }
+        const portamento1 = this.mod_portamento[1];
+        if (portamento1 != 0) {
+          this.mod_period[1] += portamento1;
+          const target = this.mod_portamento_target[1];
+          if (target != 0) {
+            if (((portamento1 > 0) && (this.mod_period[1] >= target)) ||
+                (this.mod_period[1] <= target)) {
+              this.mod_period[1] = target;
+              this.mod_portamento[1] = 0;
+            }
+          }
+        }
+        const portamento2 = this.mod_portamento[2];
+        if (portamento2 != 0) {
+          this.mod_period[2] += portamento2;
+          const target = this.mod_portamento_target[2];
+          if (target != 0) {
+            if (((portamento2 > 0) && (this.mod_period[2] >= target)) ||
+                (this.mod_period[2] <= target)) {
+              this.mod_period[2] = target;
+              this.mod_portamento[2] = 0;
+            }
+          }
+        }
+        const portamento3 = this.mod_portamento[3];
+        if (portamento3 != 0) {
+          this.mod_period[3] += portamento3;
+          const target = this.mod_portamento_target[3];
+          if (target != 0) {
+            if (((portamento3 > 0) && (this.mod_period[3] >= target)) ||
+                (this.mod_period[3] <= target)) {
+              this.mod_period[3] = target;
+              this.mod_portamento[3] = 0;
+            }
+          }
+        }
+        // Check if it's a song SPEED tick.
         host_samples_counter = this.host_samples_per_tick;
         this.mod_ticks_counter--;
         if (this.mod_ticks_counter == 0) {
           this.mod_ticks_counter = this.mod_speed;
+
+          this.mod_portamento[0] = 0;
+          this.mod_portamento[1] = 0;
+          this.mod_portamento[2] = 0;
+          this.mod_portamento[3] = 0;
+
           this.loadMODRowAndAdvance();
+
           sample0 = this.mod_sample[0];
           sample1 = this.mod_sample[1];
           sample2 = this.mod_sample[2];
@@ -267,34 +327,46 @@ class MODProcessor extends AudioWorkletProcessor {
     for (let i = 0; i < 4; ++i) {
       const note = row.channels[i];
   
-      let period = note.period; 
-      let sample_index = note.sample;
-      
-      // Always set the period even if there's no sample specified.
-      // Example: winners.mod (position 21 / pattern 15)
-      // BassoonTracker seems to change the period and leave the current sample
-      // playing at its current position. That's what we do.
-      // If there's a sample with no period, we start the sample with the
-      // current channel period.
-      // Example: anar13.mod (first position)
-      // Seems like there's some behavior difference depending on ProTracker
-      // version, so we can pick anything sensible.
-      // See:
-      // https://www.stef.be/bassoontracker/docs/trackerQuircks.txt
-      if (period != 0) {
-        this.mod_period[i] = period;
-      } else {
-        period = this.mod_period[i];
-      }
+      const song_period = note.period;
+      const sample_index = note.sample;
 
-      if ((sample_index > 0) && (sample_index < 32)) {
-        this.loadMODSample(i, sample_index, period);
+      const current_period = this.mod_period[i];
+      let new_period = song_period;
+      if (new_period == 0) {
+        new_period = current_period;
       }
+      let new_portamento = 0;
 
       const command = note.command;
-      const major_command = (command >> 8);
-      const minor_command = (command & 0xFF);
+      let major_command = (command >> 8);
+      let minor_command = (command & 0xFF);
       switch (major_command) {
+      // Portamento up.
+      case 0x1:
+        new_portamento = -minor_command;
+        this.mod_portamento_target[i] = 0;
+        break;
+      // Portamento down.
+      case 0x2:
+        new_portamento = minor_command;
+        this.mod_portamento_target[i] = 0;
+        break;
+      // Portamento to note.
+      case 0x3:
+        // If there's a new target, set it, otherwise this is a continuation.
+        if (song_period != 0) {
+          this.mod_portamento_target[i] = song_period;
+        }
+        if (this.mod_portamento_target[i] > current_period) {
+          // Sliding positively, which is a portamento down.
+          new_portamento = minor_command;
+        } else {
+          // Sliding negatively, which is a portamento up.
+          new_portamento = -minor_command;
+        }
+        // This command doesn't change the current period.
+        new_period = current_period;
+        break;
       // Jump to specific row in next song position.
       // Example: moondark.mod (first position)
       case 0xD:
@@ -310,6 +382,33 @@ class MODProcessor extends AudioWorkletProcessor {
         }
         this.mod_row_index = minor_command;
         break;
+      // Misc.
+      case 0xE:
+        major_command = (minor_command & 0xF0);
+        minor_command = (minor_command & 0x0F);
+        switch (major_command) {
+        // Fineslide up.
+        case 0x10:
+        {
+          new_portamento = -minor_command;
+          let target = new_period;
+          target -= minor_command;
+          this.mod_portamento_target[i] = target;
+          break;
+        }
+        // Fineslide down.
+        case 0x20:
+        {
+          new_portamento = minor_command;
+          let target = new_period;
+          target += minor_command;
+          this.mod_portamento_target[i] = target;
+          break;
+        }
+        default:
+          break;
+        }
+        break;
       // Set speed (minor 0x00-0x1F) or tempo (minor 0x20-0xFF).
       // Example: winners.mod (first position)
       case 0xF:
@@ -321,6 +420,16 @@ class MODProcessor extends AudioWorkletProcessor {
         }
         break;
       }
+
+      // Always set the period even if there's no sample specified.
+      // Example: winners.mod (position 21 / pattern 15)
+      this.mod_period[i] = new_period;
+
+      if ((sample_index > 0) && (sample_index < 32)) {
+        this.loadMODSample(i, sample_index, new_period);
+      }
+      // Set this last because loadMODSample clears it.
+      this.mod_portamento[i] = new_portamento;
     }
   }
 
@@ -333,6 +442,7 @@ class MODProcessor extends AudioWorkletProcessor {
     this.mod_sample_index[channel] = 0;
     this.mod_period[channel] = period;
     this.amiga_counters[channel] = period;
+    this.mod_portamento[channel] = 0;
   }
 
   setMODPosition(position) {
