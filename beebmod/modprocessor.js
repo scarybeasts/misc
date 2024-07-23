@@ -162,54 +162,23 @@ class MODProcessor extends AudioWorkletProcessor {
       host_samples_counter--;
       if (host_samples_counter == 0) {
         // Do 50Hz tick effects.
-        const portamento0 = this.mod_portamento[0];
-        if (portamento0 != 0) {
-          this.mod_period[0] += portamento0;
-          const target = this.mod_portamento_target[0];
-          if (target != 0) {
-            if (((portamento0 > 0) && (this.mod_period[0] >= target)) ||
-                (this.mod_period[0] <= target)) {
-              this.mod_period[0] = target;
-              this.mod_portamento[0] = 0;
-            }
+        for (let j = 0; j < 4; ++j) {
+          const portamento = this.mod_portamento[j];
+          if (portamento == 0) {
+            continue;
+          }
+          this.mod_period[j] += portamento;
+          const target = this.mod_portamento_target[j];
+          if (target == 0) {
+            continue;
+          }
+          const period = this.mod_period[j];
+          if (((portamento > 0) && (period >= target)) || (period <= target)) {
+            this.mod_period[j] = target;
+            this.mod_portamento[j] = 0;
           }
         }
-        const portamento1 = this.mod_portamento[1];
-        if (portamento1 != 0) {
-          this.mod_period[1] += portamento1;
-          const target = this.mod_portamento_target[1];
-          if (target != 0) {
-            if (((portamento1 > 0) && (this.mod_period[1] >= target)) ||
-                (this.mod_period[1] <= target)) {
-              this.mod_period[1] = target;
-              this.mod_portamento[1] = 0;
-            }
-          }
-        }
-        const portamento2 = this.mod_portamento[2];
-        if (portamento2 != 0) {
-          this.mod_period[2] += portamento2;
-          const target = this.mod_portamento_target[2];
-          if (target != 0) {
-            if (((portamento2 > 0) && (this.mod_period[2] >= target)) ||
-                (this.mod_period[2] <= target)) {
-              this.mod_period[2] = target;
-              this.mod_portamento[2] = 0;
-            }
-          }
-        }
-        const portamento3 = this.mod_portamento[3];
-        if (portamento3 != 0) {
-          this.mod_period[3] += portamento3;
-          const target = this.mod_portamento_target[3];
-          if (target != 0) {
-            if (((portamento3 > 0) && (this.mod_period[3] >= target)) ||
-                (this.mod_period[3] <= target)) {
-              this.mod_period[3] = target;
-              this.mod_portamento[3] = 0;
-            }
-          }
-        }
+
         // Check if it's a song SPEED tick.
         host_samples_counter = this.host_samples_per_tick;
         this.mod_ticks_counter--;
