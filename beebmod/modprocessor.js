@@ -63,100 +63,47 @@ class MODProcessor extends AudioWorkletProcessor {
     let host_samples_counter = this.host_samples_counter;
     const amiga_clocks_per_host_sample = this.amiga_clocks_per_host_sample;
 
-    let sample0 = this.mod_sample[0];
-    let sample1 = this.mod_sample[1];
-    let sample2 = this.mod_sample[2];
-    let sample3 = this.mod_sample[3];
-    let counter0 = this.amiga_counters[0];
-    let counter1 = this.amiga_counters[1];
-    let counter2 = this.amiga_counters[2];
-    let counter3 = this.amiga_counters[3];
-
-    let do_reload_value = true;
+    let amiga_output0 = this.amiga_outputs[0];
+    let amiga_output1 = this.amiga_outputs[1];
+    let amiga_output2 = this.amiga_outputs[2];
+    let amiga_output3 = this.amiga_outputs[3];
+    let amiga_counter0 = this.amiga_counters[0];
+    let amiga_counter1 = this.amiga_counters[1];
+    let amiga_counter2 = this.amiga_counters[2];
+    let amiga_counter3 = this.amiga_counters[3];
 
     let value;
 
     for (let i = 0; i < length; ++i) {
-      if (do_reload_value) {
-        do_reload_value = false;
-        value = sample0[this.mod_sample_index[0]];
-        value += sample1[this.mod_sample_index[1]];
-        value += sample2[this.mod_sample_index[2]];
-        value += sample3[this.mod_sample_index[3]];
-        // Value is -512 to 508.
-        // Convert to -1.0 to +1.0.
-        value = (value / 512.0);
-      }
+      value = amiga_output0;
+      value += amiga_output1;
+      value += amiga_output2;
+      value += amiga_output3;
+      // Value is -512 to 508.
+      // Convert to -1.0 to +1.0.
+      value = (value / 512.0);
 
       output_channel[i] = value;
 
-      counter0 -= amiga_clocks_per_host_sample;
-      while (counter0 <= 0) {
-        counter0 += this.mod_period[0];
-        this.mod_sample_index[0]++;
-        if (this.mod_sample_index[0] == this.mod_sample_end[0]) {
-          if (this.mod_sample_repeat_length[0] > 2) {
-            const repeat_start = this.mod_sample_repeat_start[0];
-            this.mod_sample_index[0] = repeat_start;
-            this.mod_sample_end[0] =
-                (repeat_start + this.mod_sample_repeat_length[0]);
-          } else {
-            this.loadMODSample(0, 0, 65535);
-            sample0 = this.mod_sample[0];
-          }
-        }
-        do_reload_value = true;
+      amiga_counter0 -= amiga_clocks_per_host_sample;
+      while (amiga_counter0 <= 0) {
+        amiga_counter0 += this.mod_period[0];
+        amiga_output0 = this.amigaAdvance(0);
       }
-      counter1 -= amiga_clocks_per_host_sample;
-      while (counter1 <= 0) {
-        counter1 += this.mod_period[1];
-        this.mod_sample_index[1]++;
-        if (this.mod_sample_index[1] == this.mod_sample_end[1]) {
-          if (this.mod_sample_repeat_length[1] > 2) {
-            const repeat_start = this.mod_sample_repeat_start[1];
-            this.mod_sample_index[1] = repeat_start;
-            this.mod_sample_end[1] =
-                (repeat_start + this.mod_sample_repeat_length[1]);
-          } else {
-            this.loadMODSample(1, 0, 65535);
-            sample1 = this.mod_sample[1];
-          }
-        }
-        do_reload_value = true;
+      amiga_counter1 -= amiga_clocks_per_host_sample;
+      while (amiga_counter1 <= 0) {
+        amiga_counter1 += this.mod_period[1];
+        amiga_output1 = this.amigaAdvance(1);
       }
-      counter2 -= amiga_clocks_per_host_sample;
-      while (counter2 <= 0) {
-        counter2 += this.mod_period[2];
-        this.mod_sample_index[2]++;
-        if (this.mod_sample_index[2] == this.mod_sample_end[2]) {
-          if (this.mod_sample_repeat_length[2] > 2) {
-            const repeat_start = this.mod_sample_repeat_start[2];
-            this.mod_sample_index[2] = repeat_start;
-            this.mod_sample_end[2] =
-                (repeat_start + this.mod_sample_repeat_length[2]);
-          } else {
-            this.loadMODSample(2, 0, 65535);
-            sample2 = this.mod_sample[2];
-          }
-        }
-        do_reload_value = true;
+      amiga_counter2 -= amiga_clocks_per_host_sample;
+      while (amiga_counter2 <= 0) {
+        amiga_counter2 += this.mod_period[2];
+        amiga_output2 = this.amigaAdvance(2);
       }
-      counter3 -= amiga_clocks_per_host_sample;
-      while (counter3 <= 0) {
-        counter3 += this.mod_period[3];
-        this.mod_sample_index[3]++;
-        if (this.mod_sample_index[3] == this.mod_sample_end[3]) {
-          if (this.mod_sample_repeat_length[3] > 2) {
-            const repeat_start = this.mod_sample_repeat_start[3];
-            this.mod_sample_index[3] = repeat_start;
-            this.mod_sample_end[3] =
-                (repeat_start + this.mod_sample_repeat_length[3]);
-          } else {
-            this.loadMODSample(3, 0, 65535);
-            sample3 = this.mod_sample[3];
-          }
-        }
-        do_reload_value = true;
+      amiga_counter3 -= amiga_clocks_per_host_sample;
+      while (amiga_counter3 <= 0) {
+        amiga_counter3 += this.mod_period[3];
+        amiga_output3 = this.amigaAdvance(3);
       }
 
       host_samples_counter--;
@@ -192,30 +139,48 @@ class MODProcessor extends AudioWorkletProcessor {
 
           this.loadMODRowAndAdvance();
 
-          sample0 = this.mod_sample[0];
-          sample1 = this.mod_sample[1];
-          sample2 = this.mod_sample[2];
-          sample3 = this.mod_sample[3];
-          counter0 = this.amiga_counters[0];
-          counter1 = this.amiga_counters[1];
-          counter2 = this.amiga_counters[2];
-          counter3 = this.amiga_counters[3];
-          do_reload_value = true;
+          amiga_output0 = this.mod_sample[0][this.mod_sample_index[0]];
+          amiga_output1 = this.mod_sample[1][this.mod_sample_index[1]];
+          amiga_output2 = this.mod_sample[2][this.mod_sample_index[2]];
+          amiga_output3 = this.mod_sample[3][this.mod_sample_index[3]];
+          amiga_counter0 = this.amiga_counters[0];
+          amiga_counter1 = this.amiga_counters[1];
+          amiga_counter2 = this.amiga_counters[2];
+          amiga_counter3 = this.amiga_counters[3];
         }
       }
     }
 
     this.host_samples_counter = host_samples_counter;
-    this.mod_sample[0] = sample0;
-    this.mod_sample[1] = sample1;
-    this.mod_sample[2] = sample2;
-    this.mod_sample[3] = sample3;
-    this.amiga_counters[0] = counter0;
-    this.amiga_counters[1] = counter1;
-    this.amiga_counters[2] = counter2;
-    this.amiga_counters[3] = counter3;
+    this.amiga_outputs[0] = amiga_output0;
+    this.amiga_outputs[1] = amiga_output1;
+    this.amiga_outputs[2] = amiga_output2;
+    this.amiga_outputs[3] = amiga_output3;
+    this.amiga_counters[0] = amiga_counter0;
+    this.amiga_counters[1] = amiga_counter1;
+    this.amiga_counters[2] = amiga_counter2;
+    this.amiga_counters[3] = amiga_counter3;
 
     return true;
+  }
+
+  amigaAdvance(channel) {
+    let index = this.mod_sample_index[channel];
+    index++;
+    if (index == this.mod_sample_end[channel]) {
+      if (this.mod_sample_repeat_length[channel] > 2) {
+        const repeat_start = this.mod_sample_repeat_start[channel];
+        index = repeat_start;
+        this.mod_sample_end[channel] =
+            (repeat_start + this.mod_sample_repeat_length[channel]);
+      } else {
+        this.loadMODSample(channel, 0, 65535);
+        index = this.mod_sample_index[channel];
+      }
+    }
+    const output = this.mod_sample[channel][index];
+    this.mod_sample_index[channel] = index;
+    return output;
   }
 
   handleMessage(event) {
@@ -439,6 +404,7 @@ class MODProcessor extends AudioWorkletProcessor {
 
   setupAmiga() {
     this.amiga_counters = new Float32Array(4);
+    this.amiga_outputs = new Int8Array(4);
 
     // This is the rate of "period" ticks that are used to represent note
     // frequencies in a MOD file.
