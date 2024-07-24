@@ -28,6 +28,7 @@ class MODProcessor extends AudioWorkletProcessor {
     this.mod_period = new Uint16Array(4);
     this.mod_portamento = new Int16Array(4);
     this.mod_portamento_target = new Uint16Array(4);
+    this.s8_outputs = new Int8Array(4);
 
     this.host_samples_per_tick = 0;
     this.host_samples_counter = 0;
@@ -45,10 +46,81 @@ class MODProcessor extends AudioWorkletProcessor {
     this.samples[0] = sample0;
 
     this.setupAmiga();
+    this.setupBeeb();
 
     this.handleReset(0, 0);
 
     console.log("AudioWorklet rate: " + sampleRate);
+  }
+
+  setupAmiga() {
+    this.amiga_counters = new Float32Array(4);
+
+    // This is the rate of "period" ticks that are used to represent note
+    // frequencies in a MOD file.
+    // See:
+    // https://forum.amiga.org/index.php?topic=62974.0
+    // This gives playback rates of MOD notes:
+    // C-1  =   4143Hz  (period 856) (lowest)
+    // C-2  =   8287Hz  (period 428)
+    // C-3  =  16574Hz  (period 214)
+    // B-3  =  31377Hz  (period 113) (highest)
+    const amiga_clocks = (28375160.0 / 8.0);
+    const amiga_clocks_per_host_sample = (amiga_clocks / this.rate);
+    this.amiga_clocks_per_host_sample = amiga_clocks_per_host_sample;
+  }
+
+  setupBeeb() {
+    // Calculated tables.
+    this.beeb_period_advances = new Uint16Array(1024);
+    this.beeb_sn_vol_to_output = new Float64Array(16);
+    this.beeb_u8_to_sn_vol = new Uint8Array(256);
+
+    // Player state.
+    this.beeb_sn_is_highs = new Uint8Array(4);
+    this.beeb_sn_vols = new Uint8Array(4);
+    this.beeb_sn_counters = new Uint8Array(4);
+    this.beeb_mod_sample_subindexes = new Uint8Array(4);
+    this.beeb_channel_advances_lo = new Uint8Array(4);
+    this.beeb_channel_advances_hi = new Uint8Array(4);
+
+    // Build the mapping of the beeb's 16 output levels to a u8 value.
+    const beeb_sn_volume_exponent = -0.1;
+    for (let i = 0; i < 15; ++i) {
+      const exponent = (i * beeb_sn_volume_exponent);
+      const float_value = Math.pow(10.0, exponent);
+      this.beeb_sn_vol_to_output[i] = float_value;
+    }
+    this.beeb_sn_vol_to_output[0xF] = 0.0;
+
+    // Build the mapping of requested sample u8 output level to available
+    // SN volume level.
+    // TODO: this doesn't give great results.
+    // The loudest level is 0xF, and only is used if the incoming sample value
+    // is 255!
+    let current_vol = 0x10;
+    let next_level_value = 0;
+    for (let i = 0; i < 256; ++i) {
+      if (i == next_level_value) {
+        current_vol--;
+        next_level_value =
+            Math.round(this.beeb_sn_vol_to_output[current_vol - 1] * 255);
+      }
+      this.beeb_u8_to_sn_vol[i] = current_vol;
+    }
+
+    // Build the mapping of MOD periods to beeb advance increments.
+    const amiga_clocks = (28375160.0 / 8.0);
+    // 7.8kHz.
+    const beeb_freq = (2000000 / 64 / 4);
+    for (let i = 113; i <= 856; ++i) {
+      const freq = (amiga_clocks / i);
+      const advance_float = (freq / beeb_freq * 256);
+      const advance = Math.round(advance_float);
+      this.beeb_period_advances[i] = advance;
+    }
+
+    this.resetBeeb();
   }
 
   process(inputs, outputs, parameters) {
@@ -60,7 +132,7 @@ class MODProcessor extends AudioWorkletProcessor {
     const output_channel = output[0];
     const length = output_channel.length;
 
-    const is_amiga = true;
+    const is_amiga = false;
 
     let value;
 
@@ -118,28 +190,28 @@ class MODProcessor extends AudioWorkletProcessor {
     this.amiga_counters[0] -= amiga_clocks_per_host_sample;
     while (this.amiga_counters[0] <= 0) {
       this.amiga_counters[0] += this.mod_period[0];
-      this.amiga_outputs[0] = this.amigaAdvance(0);
+      this.advanceGeneric(0);
     }
     this.amiga_counters[1] -= amiga_clocks_per_host_sample;
     while (this.amiga_counters[1] <= 0) {
       this.amiga_counters[1] += this.mod_period[1];
-      this.amiga_outputs[1] = this.amigaAdvance(1);
+      this.advanceGeneric(1);
     }
     this.amiga_counters[2] -= amiga_clocks_per_host_sample;
     while (this.amiga_counters[2] <= 0) {
       this.amiga_counters[2] += this.mod_period[2];
-      this.amiga_outputs[2] = this.amigaAdvance(2);
+      this.advanceGeneric(2);
     }
     this.amiga_counters[3] -= amiga_clocks_per_host_sample;
     while (this.amiga_counters[3] <= 0) {
       this.amiga_counters[3] += this.mod_period[3];
-      this.amiga_outputs[3] = this.amigaAdvance(3);
+      this.advanceGeneric(3);
     }
 
-    let value = this.amiga_outputs[0];
-    value += this.amiga_outputs[1];
-    value += this.amiga_outputs[2];
-    value += this.amiga_outputs[3];
+    let value = this.s8_outputs[0];
+    value += this.s8_outputs[1];
+    value += this.s8_outputs[2];
+    value += this.s8_outputs[3];
     // Value is -512 to 508.
     // Convert to -1.0 to +1.0.
     value = (value / 512.0);
@@ -147,11 +219,7 @@ class MODProcessor extends AudioWorkletProcessor {
     return value;
   }
 
-  processBeeb() {
-    return 0;
-  }
-
-  amigaAdvance(channel) {
+  advanceGeneric(channel) {
     let index = this.mod_sample_index[channel];
     index++;
     if (index == this.mod_sample_end[channel]) {
@@ -161,13 +229,88 @@ class MODProcessor extends AudioWorkletProcessor {
         this.mod_sample_end[channel] =
             (repeat_start + this.mod_sample_repeat_length[channel]);
       } else {
-        this.loadMODSample(channel, 0, 65535);
+        this.loadMODSample(channel, 0, 856);
         index = this.mod_sample_index[channel];
       }
     }
     const output = this.mod_sample[channel][index];
+    this.s8_outputs[channel] = output;
     this.mod_sample_index[channel] = index;
-    return output;
+  }
+
+  processBeeb() {
+    this.beeb_sn_cycles_counter--;
+    if (this.beeb_sn_cycles_counter == 0) {
+      // A new command can be given to the SN chip once every 8 SN cycles,
+      // which is 32us / 31.25kHz.
+      this.beeb_sn_cycles_counter = 8;
+
+      let channel = this.beeb_sn_channel;
+      this.advanceBeeb(channel);
+      const u8_sample_value = (this.s8_outputs[channel] + 128);
+      const sn_vol = this.beeb_u8_to_sn_vol[u8_sample_value];
+      this.beeb_sn_vols[channel] = sn_vol;
+
+      channel++;
+      if (channel == 4) {
+        channel = 0;
+      }
+      this.beeb_sn_channel = channel;
+    }
+
+    let value = 0;
+    if (this.beeb_sn_is_highs[0]) {
+      value += this.beeb_sn_vol_to_output[this.beeb_sn_vols[0]];
+    }
+    if (this.beeb_sn_is_highs[1]) {
+      value += this.beeb_sn_vol_to_output[this.beeb_sn_vols[1]];
+    }
+    if (this.beeb_sn_is_highs[2]) {
+      value += this.beeb_sn_vol_to_output[this.beeb_sn_vols[2]];
+    }
+    if (this.beeb_sn_is_highs[3]) {
+      value += this.beeb_sn_vol_to_output[this.beeb_sn_vols[3]];
+    }
+    // Range is 0 to 4.0, convert to 0 to 1.0.
+    value /= 4.0;
+
+    this.beeb_sn_counters[0]--;
+    if (this.beeb_sn_counters[0] == 0) {
+      this.beeb_sn_counters[0] = 2;
+      this.beeb_sn_is_highs[0] = !this.beeb_sn_is_highs[0];
+    }
+    this.beeb_sn_counters[1]--;
+    if (this.beeb_sn_counters[1] == 0) {
+      this.beeb_sn_counters[1] = 3;
+      this.beeb_sn_is_highs[1] = !this.beeb_sn_is_highs[1];
+    }
+    this.beeb_sn_counters[2]--;
+    if (this.beeb_sn_counters[2] == 0) {
+      this.beeb_sn_counters[2] = 1;
+      this.beeb_sn_is_highs[2] = !this.beeb_sn_is_highs[2];
+    }
+    this.beeb_sn_counters[3]--;
+    if (this.beeb_sn_counters[3] == 0) {
+      this.beeb_sn_counters[3] = 1;
+      this.beeb_sn_is_highs[3] = !this.beeb_sn_is_highs[3];
+    }
+
+    return value;
+  }
+
+  advanceBeeb(channel) {
+    let subindex = this.beeb_mod_sample_subindexes[channel];
+    subindex += this.beeb_channel_advances_lo[channel];
+    if (subindex >= 256) {
+      subindex -= 256;
+      this.advanceGeneric(channel);
+    }
+    this.beeb_mod_sample_subindexes[channel] = subindex;
+    let index_increment = this.beeb_channel_advances_hi[channel];
+    while (index_increment > 0) {
+      this.advanceGeneric(channel);
+      index_increment--;
+    }
   }
 
   handleMessage(event) {
@@ -207,7 +350,7 @@ class MODProcessor extends AudioWorkletProcessor {
 
     const sample0 = this.samples[0];
     for (let i = 0; i < 4; ++i) {
-      this.loadMODSample(i, 0, 65535);
+      this.loadMODSample(i, 0, 856);
     }
   }
 
@@ -362,10 +505,16 @@ class MODProcessor extends AudioWorkletProcessor {
     this.mod_sample_repeat_length[channel] = sample.repeat_length;
     this.mod_sample_index[channel] = -1;
     this.mod_period[channel] = period;
+
+    this.mod_portamento[channel] = 0;
+
     // Need to set this to 0 so that our index of -1 gets incremented to 0
     // at first tick.
     this.amiga_counters[channel] = 0;
-    this.mod_portamento[channel] = 0;
+
+    const beeb_period_advance = this.beeb_period_advances[period];
+    this.beeb_channel_advances_lo[channel] = (beeb_period_advance & 0xFF);
+    this.beeb_channel_advances_hi[channel] = (beeb_period_advance >> 8);
   }
 
   setMODPosition(position) {
@@ -391,22 +540,19 @@ class MODProcessor extends AudioWorkletProcessor {
     this.host_samples_counter = this.host_samples_per_tick;
   }
 
-  setupAmiga() {
-    this.amiga_counters = new Float32Array(4);
-    this.amiga_outputs = new Int8Array(4);
+  resetBeeb() {
+    this.beeb_sn_cycles_counter = 1;
+    this.beeb_sn_channel = 0;
 
-    // This is the rate of "period" ticks that are used to represent note
-    // frequencies in a MOD file.
-    // See:
-    // https://forum.amiga.org/index.php?topic=62974.0
-    // This gives playback rates of MOD notes:
-    // C-1  =   4143Hz  (period 856) (lowest)
-    // C-2  =   8287Hz  (period 428)
-    // C-3  =  16574Hz  (period 214)
-    // B-3  =  31377Hz  (period 113) (highest)
-    const amiga_clocks = (28375160.0 / 8.0);
-    const amiga_clocks_per_host_sample = (amiga_clocks / this.rate);
-    this.amiga_clocks_per_host_sample = amiga_clocks_per_host_sample;
+    for (let i = 0; i < 4; ++i) {
+      this.beeb_sn_is_highs[i] = 0;
+      // Silent.
+      this.beeb_sn_vols[i] = 0xF;
+      this.beeb_sn_counters[i] = 1;
+      this.beeb_mod_sample_subindexes[i] = 0;
+      this.beeb_channel_advances_lo[i] = 0;
+      this.beeb_channel_advances_hi[i] = 0;
+    }
   }
 }
 
