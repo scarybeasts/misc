@@ -24,7 +24,7 @@ class MODProcessor extends AudioWorkletProcessor {
     this.mod_sample_end = new Uint16Array(4);
     this.mod_sample_repeat_start = new Uint16Array(4);
     this.mod_sample_repeat_length = new Uint16Array(4);
-    this.mod_sample_index = new Uint16Array(4);
+    this.mod_sample_index = new Int32Array(4);
     this.mod_period = new Uint16Array(4);
     this.mod_portamento = new Int16Array(4);
     this.mod_portamento_target = new Uint16Array(4);
@@ -60,54 +60,21 @@ class MODProcessor extends AudioWorkletProcessor {
     const output_channel = output[0];
     const length = output_channel.length;
 
-    let host_samples_counter = this.host_samples_counter;
-    const amiga_clocks_per_host_sample = this.amiga_clocks_per_host_sample;
-
-    let amiga_output0 = this.amiga_outputs[0];
-    let amiga_output1 = this.amiga_outputs[1];
-    let amiga_output2 = this.amiga_outputs[2];
-    let amiga_output3 = this.amiga_outputs[3];
-    let amiga_counter0 = this.amiga_counters[0];
-    let amiga_counter1 = this.amiga_counters[1];
-    let amiga_counter2 = this.amiga_counters[2];
-    let amiga_counter3 = this.amiga_counters[3];
+    const is_amiga = true;
 
     let value;
 
     for (let i = 0; i < length; ++i) {
-      value = amiga_output0;
-      value += amiga_output1;
-      value += amiga_output2;
-      value += amiga_output3;
-      // Value is -512 to 508.
-      // Convert to -1.0 to +1.0.
-      value = (value / 512.0);
+      if (is_amiga) {
+        value = this.processAmiga();
+      } else {
+        value = this.processBeeb();
+      }
 
       output_channel[i] = value;
 
-      amiga_counter0 -= amiga_clocks_per_host_sample;
-      while (amiga_counter0 <= 0) {
-        amiga_counter0 += this.mod_period[0];
-        amiga_output0 = this.amigaAdvance(0);
-      }
-      amiga_counter1 -= amiga_clocks_per_host_sample;
-      while (amiga_counter1 <= 0) {
-        amiga_counter1 += this.mod_period[1];
-        amiga_output1 = this.amigaAdvance(1);
-      }
-      amiga_counter2 -= amiga_clocks_per_host_sample;
-      while (amiga_counter2 <= 0) {
-        amiga_counter2 += this.mod_period[2];
-        amiga_output2 = this.amigaAdvance(2);
-      }
-      amiga_counter3 -= amiga_clocks_per_host_sample;
-      while (amiga_counter3 <= 0) {
-        amiga_counter3 += this.mod_period[3];
-        amiga_output3 = this.amigaAdvance(3);
-      }
-
-      host_samples_counter--;
-      if (host_samples_counter == 0) {
+      this.host_samples_counter--;
+      if (this.host_samples_counter == 0) {
         // Do 50Hz tick effects.
         for (let j = 0; j < 4; ++j) {
           const portamento = this.mod_portamento[j];
@@ -127,7 +94,7 @@ class MODProcessor extends AudioWorkletProcessor {
         }
 
         // Check if it's a song SPEED tick.
-        host_samples_counter = this.host_samples_per_tick;
+        this.host_samples_counter = this.host_samples_per_tick;
         this.mod_ticks_counter--;
         if (this.mod_ticks_counter == 0) {
           this.mod_ticks_counter = this.mod_speed;
@@ -138,30 +105,50 @@ class MODProcessor extends AudioWorkletProcessor {
           this.mod_portamento[3] = 0;
 
           this.loadMODRowAndAdvance();
-
-          amiga_output0 = this.mod_sample[0][this.mod_sample_index[0]];
-          amiga_output1 = this.mod_sample[1][this.mod_sample_index[1]];
-          amiga_output2 = this.mod_sample[2][this.mod_sample_index[2]];
-          amiga_output3 = this.mod_sample[3][this.mod_sample_index[3]];
-          amiga_counter0 = this.amiga_counters[0];
-          amiga_counter1 = this.amiga_counters[1];
-          amiga_counter2 = this.amiga_counters[2];
-          amiga_counter3 = this.amiga_counters[3];
         }
       }
     }
 
-    this.host_samples_counter = host_samples_counter;
-    this.amiga_outputs[0] = amiga_output0;
-    this.amiga_outputs[1] = amiga_output1;
-    this.amiga_outputs[2] = amiga_output2;
-    this.amiga_outputs[3] = amiga_output3;
-    this.amiga_counters[0] = amiga_counter0;
-    this.amiga_counters[1] = amiga_counter1;
-    this.amiga_counters[2] = amiga_counter2;
-    this.amiga_counters[3] = amiga_counter3;
-
     return true;
+  }
+
+  processAmiga() {
+    const amiga_clocks_per_host_sample = this.amiga_clocks_per_host_sample;
+
+    this.amiga_counters[0] -= amiga_clocks_per_host_sample;
+    while (this.amiga_counters[0] <= 0) {
+      this.amiga_counters[0] += this.mod_period[0];
+      this.amiga_outputs[0] = this.amigaAdvance(0);
+    }
+    this.amiga_counters[1] -= amiga_clocks_per_host_sample;
+    while (this.amiga_counters[1] <= 0) {
+      this.amiga_counters[1] += this.mod_period[1];
+      this.amiga_outputs[1] = this.amigaAdvance(1);
+    }
+    this.amiga_counters[2] -= amiga_clocks_per_host_sample;
+    while (this.amiga_counters[2] <= 0) {
+      this.amiga_counters[2] += this.mod_period[2];
+      this.amiga_outputs[2] = this.amigaAdvance(2);
+    }
+    this.amiga_counters[3] -= amiga_clocks_per_host_sample;
+    while (this.amiga_counters[3] <= 0) {
+      this.amiga_counters[3] += this.mod_period[3];
+      this.amiga_outputs[3] = this.amigaAdvance(3);
+    }
+
+    let value = this.amiga_outputs[0];
+    value += this.amiga_outputs[1];
+    value += this.amiga_outputs[2];
+    value += this.amiga_outputs[3];
+    // Value is -512 to 508.
+    // Convert to -1.0 to +1.0.
+    value = (value / 512.0);
+
+    return value;
+  }
+
+  processBeeb() {
+    return 0;
   }
 
   amigaAdvance(channel) {
@@ -373,9 +360,11 @@ class MODProcessor extends AudioWorkletProcessor {
     this.mod_sample_end[channel] = sample.binary.length;
     this.mod_sample_repeat_start[channel] = sample.repeat_start;
     this.mod_sample_repeat_length[channel] = sample.repeat_length;
-    this.mod_sample_index[channel] = 0;
+    this.mod_sample_index[channel] = -1;
     this.mod_period[channel] = period;
-    this.amiga_counters[channel] = period;
+    // Need to set this to 0 so that our index of -1 gets incremented to 0
+    // at first tick.
+    this.amiga_counters[channel] = 0;
     this.mod_portamento[channel] = 0;
   }
 
