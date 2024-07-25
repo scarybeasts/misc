@@ -154,16 +154,17 @@ class MODProcessor extends AudioWorkletProcessor {
           if (portamento == 0) {
             continue;
           }
-          this.mod_period[j] += portamento;
+          let period = this.mod_period[j];
+          period += portamento;
           const target = this.mod_portamento_target[j];
-          if (target == 0) {
-            continue;
+          if (target != 0) {
+            if (((portamento > 0) && (period >= target)) ||
+                (period <= target)) {
+              period = target;
+              this.mod_portamento[j] = 0;
+            }
           }
-          const period = this.mod_period[j];
-          if (((portamento > 0) && (period >= target)) || (period <= target)) {
-            this.mod_period[j] = target;
-            this.mod_portamento[j] = 0;
-          }
+          this.setMODPeriod(j, period);
         }
 
         // Check if it's a song SPEED tick.
@@ -497,7 +498,7 @@ class MODProcessor extends AudioWorkletProcessor {
 
       // Always set the period even if there's no sample specified.
       // Example: winners.mod (position 21 / pattern 15)
-      this.mod_period[i] = new_period;
+      this.setMODPeriod(i, new_period);
 
       if ((sample_index > 0) && (sample_index < 32)) {
         this.loadMODSample(i, sample_index, new_period);
@@ -514,13 +515,18 @@ class MODProcessor extends AudioWorkletProcessor {
     this.mod_sample_repeat_start[channel] = sample.repeat_start;
     this.mod_sample_repeat_length[channel] = sample.repeat_length;
     this.mod_sample_index[channel] = -1;
-    this.mod_period[channel] = period;
+
+    this.setMODPeriod(channel, period);
 
     this.mod_portamento[channel] = 0;
 
     // Need to set this to 0 so that our index of -1 gets incremented to 0
     // at first tick.
     this.amiga_counters[channel] = 0;
+  }
+
+  setMODPeriod(channel, period) {
+    this.mod_period[channel] = period;
 
     const beeb_period_advance = this.beeb_period_advances[period];
     this.beeb_channel_advances_lo[channel] = (beeb_period_advance & 0xFF);
