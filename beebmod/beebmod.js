@@ -16,6 +16,12 @@ function beebmod_setup_listeners() {
   play_button.addEventListener("click", beebmod_button_play);
   const stop_button = document.getElementById("stop");
   stop_button.addEventListener("click", beebmod_button_stop);
+  const radio_amiga = document.getElementById("radio_amiga");
+  radio_amiga.addEventListener("change", beebmod_radio_amiga);
+  const radio_beeb_separate = document.getElementById("radio_beeb_separate");
+  radio_beeb_separate.addEventListener("change", beebmod_radio_beeb_separate);
+  const radio_beeb_merged2 = document.getElementById("radio_beeb_merged2");
+  radio_beeb_merged2.addEventListener("change", beebmod_radio_beeb_merged2);
 
   // This is the actual drop handler.
   document.addEventListener("drop", file_dropped);
@@ -183,6 +189,18 @@ function beebmod_button_play() {
 
 function beebmod_button_stop() {
   window.beebmod_port.postMessage(["STOP"]);
+}
+
+function beebmod_radio_amiga() {
+  window.beebmod_port.postMessage(["AMIGA"]);
+}
+
+function beebmod_radio_beeb_separate() {
+  window.beebmod_port.postMessage(["BEEB_SEPARATE"]);
+}
+
+function beebmod_radio_beeb_merged2() {
+  window.beebmod_port.postMessage(["BEEB_MERGED2"]);
 }
 
 function play_sample(event) {

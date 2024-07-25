@@ -13,6 +13,7 @@ class MODProcessor extends AudioWorkletProcessor {
     this.positions = new Uint8Array(256);
 
     // Play state.
+    this.is_amiga = true;
     this.is_playing = false;
     this.rate = sampleRate;
     this.mod_position = 0;
@@ -132,7 +133,7 @@ class MODProcessor extends AudioWorkletProcessor {
     const output_channel = output[0];
     const length = output_channel.length;
 
-    const is_amiga = false;
+    const is_amiga = this.is_amiga;
 
     let value;
 
@@ -339,6 +340,12 @@ class MODProcessor extends AudioWorkletProcessor {
       this.handlePlay(position);
     } else if (name == "STOP") {
       this.is_playing = false;
+    } else if (name == "AMIGA") {
+      this.is_amiga = true;
+    } else if (name == "BEEB_SEPARATE") {
+      this.is_amiga = false;
+    } else if (name == "BEEB_MERGED2") {
+      this.is_amiga = false;
     } else {
       console.log("unknown command: " + name);
     }
