@@ -214,8 +214,11 @@ class MODProcessor extends AudioWorkletProcessor {
     value += this.s8_outputs[2];
     value += this.s8_outputs[3];
     // Value is -512 to 508.
-    // Convert to -1.0 to +1.0.
-    value = (value / 512.0);
+    // Convert to 0 to 0.5, which gives a similar volume output to the beeb
+    // player, thus enabling better direct comparisons.
+    value += 512.0;
+    value /= 1020.0;
+    value /= 2.0;
 
     return value;
   }
