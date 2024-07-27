@@ -96,16 +96,18 @@ class MODProcessor extends AudioWorkletProcessor {
 
     // Build the mapping of requested sample u8 output level to available
     // SN volume level.
-    // TODO: this doesn't give great results.
-    // The loudest level is 0xF, and only is used if the incoming sample value
-    // is 255!
+    // NOTE: there's room for more experimentation with this mapping to see
+    // if there's any tricks to get it to sound better.
     let current_vol = 0x10;
-    let next_level_value = 0;
+    let next_target = 0;
     for (let i = 0; i < 256; ++i) {
-      if (i == next_level_value) {
+      if (i == next_target) {
         current_vol--;
-        next_level_value =
+        const this_level =
+            Math.round(this.beeb_sn_vol_to_output[current_vol] * 255);
+        const next_level =
             Math.round(this.beeb_sn_vol_to_output[current_vol - 1] * 255);
+        next_target = Math.round((this_level + next_level) / 2);
       }
       this.beeb_u8_to_sn_vol[i] = current_vol;
     }
