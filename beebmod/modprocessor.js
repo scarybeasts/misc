@@ -49,7 +49,7 @@ class MODProcessor extends AudioWorkletProcessor {
     this.setupAmiga();
     this.setupBeeb();
 
-    this.handleReset(0, 0);
+    this.handleStop();
 
     console.log("AudioWorklet rate: " + sampleRate);
   }
@@ -236,7 +236,7 @@ class MODProcessor extends AudioWorkletProcessor {
         this.mod_sample_end[channel] =
             (repeat_start + this.mod_sample_repeat_length[channel]);
       } else {
-        this.loadMODSample(channel, 0, 856);
+        this.loadSilentMODSample(channel);
         index = this.mod_sample_index[channel];
       }
     }
@@ -323,10 +323,10 @@ class MODProcessor extends AudioWorkletProcessor {
   handleMessage(event) {
     const data_array = event.data;
     const name = data_array[0];
-    if (name == "RESET") {
+    if (name == "NEWSONG") {
       const num_patterns = data_array[1];
       const num_positions = data_array[2];
-      this.handleReset(num_patterns, num_positions);
+      this.handleNewSong(num_patterns, num_positions);
     } else if (name == "SAMPLE") {
       const index = data_array[1];
       const sample = data_array[2];
@@ -343,9 +343,10 @@ class MODProcessor extends AudioWorkletProcessor {
       this.positions[index] = pattern_index;
     } else if (name == "PLAY") {
       const position = data_array[1];
+      this.handleStop();
       this.handlePlay(position);
     } else if (name == "STOP") {
-      this.is_playing = false;
+      this.handleStop();
     } else if (name == "AMIGA") {
       this.is_amiga = true;
     } else if (name == "BEEB_SEPARATE") {
@@ -357,13 +358,19 @@ class MODProcessor extends AudioWorkletProcessor {
     }
   }
 
-  handleReset(num_patterns, num_positions) {
+  handleNewSong(num_patterns, num_positions) {
     this.num_patterns = num_patterns;
     this.num_positions = num_positions;
 
+    this.handleStop();
+  }
+
+  handleStop() {
+    this.is_playing = false;
+
     const sample0 = this.samples[0];
     for (let i = 0; i < 4; ++i) {
-      this.loadMODSample(i, 0, 856);
+      this.loadSilentMODSample(i);
     }
   }
 
@@ -525,6 +532,10 @@ class MODProcessor extends AudioWorkletProcessor {
     // Need to set this to 0 so that our index of -1 gets incremented to 0
     // at first tick.
     this.amiga_counters[channel] = 0;
+  }
+
+  loadSilentMODSample(channel) {
+    this.loadMODSample(channel, 0, 856);
   }
 
   setMODPeriod(channel, period) {

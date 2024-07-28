@@ -139,7 +139,7 @@ function load_mod_file(binary) {
   log("Patterns: " + num_patterns);
 
   const port = window.beebmod_port;
-  port.postMessage(["RESET", num_patterns, num_positions]);
+  port.postMessage(["NEWSONG", num_patterns, num_positions]);
 
   for (let i = 1; i < 32; ++i) {
     const sample = modfile.getSample(i);
