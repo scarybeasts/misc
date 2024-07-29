@@ -14,6 +14,7 @@ class MODProcessor extends AudioWorkletProcessor {
 
     // Play state.
     this.is_amiga = true;
+    this.beeb_channels = 1;
     this.is_playing = false;
     this.rate = sampleRate;
     this.mod_position = 0;
@@ -76,6 +77,8 @@ class MODProcessor extends AudioWorkletProcessor {
     this.beeb_period_advances = new Uint16Array(1024);
     this.beeb_sn_vol_to_output = new Float64Array(16);
     this.beeb_u8_to_sn_vol = new Uint8Array(256);
+    this.beeb_u8_to_sn_vol_pair1 = new Int8Array(256);
+    this.beeb_u8_to_sn_vol_pair2 = new Int8Array(256);
 
     // Player state.
     this.beeb_sn_is_highs = new Uint8Array(4);
@@ -84,6 +87,7 @@ class MODProcessor extends AudioWorkletProcessor {
     this.beeb_mod_sample_subindexes = new Uint8Array(4);
     this.beeb_channel_advances_lo = new Uint8Array(4);
     this.beeb_channel_advances_hi = new Uint8Array(4);
+    this.beeb_samples_total = 0;
 
     // Build the mapping of the beeb's 16 output levels to a u8 value.
     const beeb_sn_volume_exponent = -0.1;
@@ -110,6 +114,35 @@ class MODProcessor extends AudioWorkletProcessor {
         next_target = Math.round((this_level + next_level) / 2);
       }
       this.beeb_u8_to_sn_vol[i] = current_vol;
+    }
+
+    // Build the mapping of requested output level to 2 merged channels.
+    for (let i = 0; i < 256; ++i) {
+      this.beeb_u8_to_sn_vol_pair1[i] = -1;
+      this.beeb_u8_to_sn_vol_pair2[i] = -1;
+    }
+    for (let i = 0; i < 16; ++i) {
+      for (let j = 0; j < 16; ++j) {
+        // Range is 0.0 to 2.0.
+        const output =
+            (this.beeb_sn_vol_to_output[i] + this.beeb_sn_vol_to_output[j]);
+        const u8_output = Math.round(output * 255.0);
+        if (this.beeb_u8_to_sn_vol_pair1[u8_output] == -1) {
+          this.beeb_u8_to_sn_vol_pair1[u8_output] = i;
+          this.beeb_u8_to_sn_vol_pair2[u8_output] = j;
+        }
+      }
+    }
+    let current_vol1 = -1;
+    let current_vol2 = -1;
+    for (let i = 0; i < 256; ++i) {
+      if (this.beeb_u8_to_sn_vol_pair1[i] != -1) {
+        current_vol1 = this.beeb_u8_to_sn_vol_pair1[i];
+        current_vol2 = this.beeb_u8_to_sn_vol_pair2[i];
+      } else {
+        this.beeb_u8_to_sn_vol_pair1[i] = current_vol1;
+        this.beeb_u8_to_sn_vol_pair2[i] = current_vol2;
+      }
     }
 
     // Build the mapping of MOD periods to beeb advance increments.
@@ -253,10 +286,34 @@ class MODProcessor extends AudioWorkletProcessor {
       this.beeb_sn_cycles_counter = 8;
 
       let channel = this.beeb_sn_channel;
-      this.advanceBeeb(channel);
-      const u8_sample_value = (this.s8_outputs[channel] + 128);
-      const sn_vol = this.beeb_u8_to_sn_vol[u8_sample_value];
-      this.beeb_sn_vols[channel] = sn_vol;
+      if (this.beeb_channels == 2) {
+        if (channel == 0) {
+          this.advanceBeeb(0);
+          this.advanceBeeb(1);
+          this.advanceBeeb(2);
+          this.advanceBeeb(3);
+          let samples_total = ((this.s8_outputs[0] + 128) >> 2);
+          samples_total += ((this.s8_outputs[1] + 128) >> 2);
+          samples_total += ((this.s8_outputs[2] + 128) >> 2);
+          samples_total += ((this.s8_outputs[3] + 128) >> 2);
+
+          const sn_vol = this.beeb_u8_to_sn_vol_pair1[samples_total];
+          this.beeb_sn_vols[0] = sn_vol;
+          // Silence the unused channels in this mode in case coming from a
+          // different mode.
+          this.beeb_sn_vols[2] = 0xF;
+          this.beeb_sn_vols[3] = 0xF;
+          this.beeb_samples_total = samples_total;
+        } else if (channel == 1) {
+          const sn_vol = this.beeb_u8_to_sn_vol_pair2[this.beeb_samples_total];
+          this.beeb_sn_vols[1] = sn_vol;
+        }
+      } else {
+        this.advanceBeeb(channel);
+        const u8_sample_value = (this.s8_outputs[channel] + 128);
+        const sn_vol = this.beeb_u8_to_sn_vol[u8_sample_value];
+        this.beeb_sn_vols[channel] = sn_vol;
+      }
 
       channel++;
       if (channel == 4) {
@@ -351,8 +408,10 @@ class MODProcessor extends AudioWorkletProcessor {
       this.is_amiga = true;
     } else if (name == "BEEB_SEPARATE") {
       this.is_amiga = false;
+      this.beeb_channels = 1;
     } else if (name == "BEEB_MERGED2") {
       this.is_amiga = false;
+      this.beeb_channels = 2;
     } else {
       console.log("unknown command: " + name);
     }
