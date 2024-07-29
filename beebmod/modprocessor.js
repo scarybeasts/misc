@@ -250,11 +250,11 @@ class MODProcessor extends AudioWorkletProcessor {
     value += this.s8_outputs[2];
     value += this.s8_outputs[3];
     // Value is -512 to 508.
-    // Convert to 0 to 0.5, which gives a similar volume output to the beeb
-    // player, thus enabling better direct comparisons.
+    // Convert to 0 to 0.33, which gives a similar volume output to the beeb
+    // players, thus enabling better direct comparisons.
     value += 512.0;
     value /= 1020.0;
-    value /= 2.0;
+    value /= 3.0;
 
     return value;
   }
@@ -297,16 +297,16 @@ class MODProcessor extends AudioWorkletProcessor {
           samples_total += ((this.s8_outputs[2] + 128) >> 2);
           samples_total += ((this.s8_outputs[3] + 128) >> 2);
 
-          const sn_vol = this.beeb_u8_to_sn_vol_pair1[samples_total];
-          this.beeb_sn_vols[0] = sn_vol;
+          const sn_vol1 = this.beeb_u8_to_sn_vol_pair1[samples_total];
+          this.beeb_sn_vols[0] = sn_vol1;
           // Silence the unused channels in this mode in case coming from a
           // different mode.
           this.beeb_sn_vols[2] = 0xF;
           this.beeb_sn_vols[3] = 0xF;
           this.beeb_samples_total = samples_total;
         } else if (channel == 1) {
-          const sn_vol = this.beeb_u8_to_sn_vol_pair2[this.beeb_samples_total];
-          this.beeb_sn_vols[1] = sn_vol;
+          const sn_vol2 = this.beeb_u8_to_sn_vol_pair2[this.beeb_samples_total];
+          this.beeb_sn_vols[1] = sn_vol2;
         }
       } else {
         this.advanceBeeb(channel);
@@ -335,8 +335,13 @@ class MODProcessor extends AudioWorkletProcessor {
     if (this.beeb_sn_is_highs[3]) {
       value += this.beeb_sn_vol_to_output[this.beeb_sn_vols[3]];
     }
-    // Range is 0 to 4.0, convert to 0 to 1.0.
-    value /= 4.0;
+    // Divide in a way that leads to similar volume levels across both
+    // players.
+    if (this.beeb_channels == 1) {
+      value /= 6.0;
+    } else {
+      value /= 2.0;
+    }
 
     this.beeb_sn_counters[0]--;
     if (this.beeb_sn_counters[0] == 0) {
