@@ -53,6 +53,12 @@ class MODProcessor extends AudioWorkletProcessor {
     sample0.repeat_length = 65535;
     this.samples[0] = sample0;
 
+    // Note (C-1, C#-1, D-1, ... etc.) to period mapping.
+    this.note_to_period = new Uint16Array(
+        [856,808,762,720,678,640,604,570,538,508,480,453,
+         428,404,381,360,339,320,302,285,269,254,240,226,
+         214,202,190,180,170,160,151,143,135,127,120,113]);
+
     this.setupAmiga();
     this.setupBeeb();
 
@@ -166,10 +172,6 @@ class MODProcessor extends AudioWorkletProcessor {
   }
 
   process(inputs, outputs, parameters) {
-    if (this.is_playing == false) {
-      return true;
-    }
-
     const output = outputs[0];
     const output_channel = output[0];
     const length = output_channel.length;
@@ -219,7 +221,9 @@ class MODProcessor extends AudioWorkletProcessor {
           this.mod_portamento[2] = 0;
           this.mod_portamento[3] = 0;
 
-          this.loadMODRowAndAdvance();
+          if (this.is_playing) {
+            this.loadMODRowAndAdvance();
+          }
         }
       }
     }
@@ -427,6 +431,11 @@ class MODProcessor extends AudioWorkletProcessor {
       const channel = data_array[1];
       const is_play = data_array[2];
       this.is_channel_playing[channel] = is_play;
+    } else if (name == "PLAY_SAMPLE") {
+      const channel = data_array[1];
+      const sample_index = data_array[2];
+      const note = data_array[3];
+      this.handlePlaySample(channel, sample_index, note);
     } else {
       console.log("unknown command: " + name);
     }
@@ -462,6 +471,11 @@ class MODProcessor extends AudioWorkletProcessor {
     this.loadMODRowAndAdvance();
 
     this.is_playing = true;
+  }
+
+  handlePlaySample(channel, sample_index, note) {
+    const period = this.note_to_period[note];
+    this.loadMODSample(channel, sample_index, period);
   }
 
   loadMODRowAndAdvance() {

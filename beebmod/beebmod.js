@@ -3,6 +3,7 @@
 async function beebmod() {
   window.modfile = null;
   window.player = null;
+  window.beebmod_play_sample_channel = 0;
 
   beebmod_setup_listeners();
   // Wait for audio setup to finish because loading a file needs to post
@@ -104,7 +105,7 @@ function sample_table_add(i,
   const play_input = document.createElement("input");
   play_input.name = index_string;
   play_input.type = "text";
-  play_input.addEventListener("keypress", play_sample);
+  play_input.addEventListener("keypress", beebmod_play_sample);
   play_cell.appendChild(play_input);
 }
 
@@ -215,18 +216,67 @@ function beebmod_checkbox_play(event) {
   window.beebmod_port.postMessage(["PLAY_CHANNEL", channel, checked]);
 }
 
-function play_sample(event) {
-  if (window.modfile == null) {
-    return;
+function beebmod_play_sample(event) {
+  const name = event.target.name;
+  const sample_index = Number(name);
+  const key_code = event.code;
+  let channel = window.beebmod_play_sample_channel;
+
+  let note = 0;
+  switch (key_code) {
+  // Octave 1.
+  case "KeyZ": note = 1; break;
+  case "KeyS": note = 2; break;
+  case "KeyX": note = 3; break;
+  case "KeyD": note = 4; break;
+  case "KeyC": note = 5; break;
+  case "KeyV": note = 6; break;
+  case "KeyG": note = 7; break;
+  case "KeyB": note = 8; break;
+  case "KeyH": note = 9; break;
+  case "KeyN": note = 10; break;
+  case "KeyJ": note = 11; break;
+  case "KeyM": note = 12; break;
+  // Keys that overlap imto octave 2.
+  case "Comma": note = 13; break;
+  case "KeyL": note = 14; break;
+  case "Period": note = 15; break;
+  case "Semicolon": note = 16; break;
+  case "Slash": note = 17; break;
+  // Octave 2.
+  case "KeyQ": note = 13; break;
+  case "Digit2": note = 14; break;
+  case "KeyW": note = 15; break;
+  case "Digit3": note = 16; break;
+  case "KeyE": note = 17; break;
+  case "KeyR": note = 18; break;
+  case "Digit5": note = 19; break;
+  case "KeyT": note = 20; break;
+  case "Digit6": note = 21; break;
+  case "KeyY": note = 22; break;
+  case "Digit7": note = 23; break;
+  case "KeyU": note = 24; break;
+  // Keys that overlap imto octave 3.
+  case "KeyI": note = 25; break;
+  case "Digit9": note = 26; break;
+  case "KeyO": note = 27; break;
+  case "Digit0": note = 28; break;
+  case "KeyP": note = 29; break;
+  case "BracketLeft": note = 30; break;
+  case "Equal": note = 31; break;
+  case "BracketRight": note = 32; break;
   }
 
-  if (window.player == null) {
-    create_player();
+  if (note != 0) {
+    note--;
+    window.beebmod_port.postMessage(
+        ["PLAY_SAMPLE", channel, sample_index, note]);
   }
-
-  const player = window.player;
-  const sample_index = Number(event.target.name);
-  player.playSample(sample_index);
+  channel++;
+  if (channel == 4) {
+    channel = 0;
+  }
+  window.beebmod_play_sample_channel = channel;
 }
 
 function file_dropped(event) {
