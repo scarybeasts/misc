@@ -1,8 +1,6 @@
 "use strict";
 
 async function beebmod() {
-  window.modfile = null;
-  window.player = null;
   window.beebmod_play_sample_channel = 0;
 
   beebmod_setup_listeners();
@@ -136,7 +134,6 @@ function load_mod_file(binary) {
     return;
   }
 
-  window.modfile = modfile;
   const num_positions = modfile.getNumPositions();
   const num_patterns = modfile.getNumPatterns();
   log("Name: " + modfile.getName());
@@ -166,23 +163,6 @@ function load_mod_file(binary) {
   for (let i = 0; i < num_positions; ++i) {
     port.postMessage(["POSITION", i, modfile.getPatternIndex(i + 1)])
   }
-}
-
-function create_player() {
-  let player = null;
-  const radio_amiga = document.getElementById("radio_amiga");
-  const radio_beeb_separate = document.getElementById("radio_beeb_separate");
-  if (radio_amiga.checked) {
-    const amiga_player = new MODPlayerAmiga(window.modfile);
-    player = amiga_player.player;
-  } else if (radio_beeb_separate.checked) {
-    const beeb_player = new MODPlayerBeeb(window.modfile, 0);
-    player = beeb_player.player;
-  } else {
-    const beeb_player = new MODPlayerBeeb(window.modfile, 1);
-    player = beeb_player.player;
-  }
-  window.player = player;
 }
 
 function beebmod_button_play() {
