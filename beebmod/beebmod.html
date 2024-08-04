@@ -29,20 +29,57 @@ beebmod
 <label for="number_start_position">Start position:</label>
 <input id="number_start_position" type="number" value="1"></input>
 <p></p>
+<table id="channels_table">
+  <thead>
+    <tr>
+      <th scope="col">Channel</th>
+      <th scope="col">Play?</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1</td>
+      <td>
+        <input id="checkbox_play1" type="checkbox" checked></input>
+      </td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td>
+        <input id="checkbox_play2" type="checkbox" checked></input>
+      </td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>
+        <input id="checkbox_play3" type="checkbox" checked></input>
+      </td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td>
+        <input id="checkbox_play4" type="checkbox" checked></input>
+      </td>
+    </tr>
+  </tbody>
+</table>
+<p></p>
 <textarea id="log"
           rows="10"
           cols="80"
           style="font-family:Courier New,monospace"></textarea>
 <table id="sample_table">
-  <tr>
-    <th>Index</th>
-    <th>Sample name</th>
-    <th>Volume</th>
-    <th>Length</th>
-    <th>Repeat start</th>
-    <th>Repeat length</th>
-    <th>Play it!</th>
-  </tr>
+  <thead>
+    <tr>
+      <th>Index</th>
+      <th>Sample name</th>
+      <th>Volume</th>
+      <th>Length</th>
+      <th>Repeat start</th>
+      <th>Repeat length</th>
+      <th>Play it!</th>
+    </tr>
+  </thead>
 </table>
 </body>
 </html>

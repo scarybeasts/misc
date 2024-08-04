@@ -12,6 +12,12 @@ class MODProcessor extends AudioWorkletProcessor {
     this.patterns = new Array(256);
     this.positions = new Uint8Array(256);
 
+    // State the main page can configure.
+    this.is_channel_playing = new Uint8Array(4);
+    for (let i = 0; i < 4; ++i) {
+      this.is_channel_playing[i] = 1;
+    }
+
     // Play state.
     this.is_amiga = true;
     this.beeb_channels = 1;
@@ -417,6 +423,10 @@ class MODProcessor extends AudioWorkletProcessor {
     } else if (name == "BEEB_MERGED2") {
       this.is_amiga = false;
       this.beeb_channels = 2;
+    } else if (name == "PLAY_CHANNEL") {
+      const channel = data_array[1];
+      const is_play = data_array[2];
+      this.is_channel_playing[channel] = is_play;
     } else {
       console.log("unknown command: " + name);
     }
@@ -574,7 +584,9 @@ class MODProcessor extends AudioWorkletProcessor {
       this.setMODPeriod(i, new_period);
 
       if ((sample_index > 0) && (sample_index < 32)) {
-        this.loadMODSample(i, sample_index, new_period);
+        if (this.is_channel_playing[i]) {
+          this.loadMODSample(i, sample_index, new_period);
+        }
       }
       // Set this last because loadMODSample clears it.
       this.mod_portamento[i] = new_portamento;
