@@ -99,7 +99,14 @@ function sample_table_add(i,
   repeat_start_cell.innerText = repeat_start.toString();
   const repeat_length_cell = row.insertCell(5);
   repeat_length_cell.innerText = repeat_length.toString();
-  const play_cell = row.insertCell(6);
+  const effect_cell = row.insertCell(6);
+  const effect_input = document.createElement("input");
+  effect_input.name = index_string;
+  effect_input.type = "number";
+  effect_input.value = 0;
+  effect_input.addEventListener("change", beebmod_sample_effect_changed);
+  effect_cell.appendChild(effect_input);
+  const play_cell = row.insertCell(7);
   const play_input = document.createElement("input");
   play_input.name = index_string;
   play_input.type = "text";
@@ -257,6 +264,14 @@ function beebmod_play_sample(event) {
     channel = 0;
   }
   window.beebmod_play_sample_channel = channel;
+}
+
+function beebmod_sample_effect_changed(event) {
+  const target = event.target;
+  const name = target.name;
+  const sample_index = Number(name);
+  const value = target.value;
+  window.beebmod_port.postMessage(["SAMPLE_EFFECT", sample_index, value]);
 }
 
 function file_dropped(event) {

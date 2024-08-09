@@ -7,13 +7,20 @@ class MODProcessor extends AudioWorkletProcessor {
 
     // Song data.
     this.samples = new Array(32);
+    for (let i = 0; i < 32; ++i) {
+      this.samples[i] = null;
+    }
     this.num_patterns = 0;
     this.num_positions = 0;
     this.patterns = new Array(256);
+    for (let i = 0; i < 256; ++i) {
+      this.patterns[i] = null;
+    }
     this.positions = new Uint8Array(256);
 
     // State the main page can configure.
     this.is_channel_playing = new Uint8Array(4);
+    this.sample_effect = new Uint8Array(32);
     for (let i = 0; i < 4; ++i) {
       this.is_channel_playing[i] = 1;
     }
@@ -33,10 +40,15 @@ class MODProcessor extends AudioWorkletProcessor {
     this.mod_sample_repeat_start = new Uint16Array(4);
     this.mod_sample_repeat_length = new Uint16Array(4);
     this.mod_sample_index = new Int32Array(4);
+    this.mod_sample_effect_table = new Array(4);
     this.mod_period = new Uint16Array(4);
     this.mod_portamento = new Int16Array(4);
     this.mod_portamento_target = new Uint16Array(4);
     this.s8_outputs = new Int8Array(4);
+    for (let i = 0; i < 4; ++i) {
+      this.mod_sample[i] = null;
+      this.mod_sample_effect_table[i] = null;
+    }
 
     this.host_samples_per_tick = 0;
     this.host_samples_counter = 0;
@@ -58,13 +70,45 @@ class MODProcessor extends AudioWorkletProcessor {
         [856,808,762,720,678,640,604,570,538,508,480,453,
          428,404,381,360,339,320,302,285,269,254,240,226,
          214,202,190,180,170,160,151,143,135,127,120,113]);
+    this.effects_tables = new Array();
 
+    this.setupEffects();
     this.setupAmiga();
     this.setupBeeb();
 
     this.handleStop();
 
     console.log("AudioWorklet rate: " + sampleRate);
+  }
+
+  setupEffects() {
+    this.effects_tables[0] = null;
+
+    const gain_effect_2x = new Int8Array(256);
+    for (let i = 0; i < 256; ++i) {
+      let value = (i - 128);
+      value = this.effectGain(value, 2);
+      gain_effect_2x[i] = value;
+    }
+    this.effects_tables[1] = gain_effect_2x;
+
+    const gain_effect_4x = new Int8Array(256);
+    for (let i = 0; i < 256; ++i) {
+      let value = (i - 128);
+      value = this.effectGain(value, 4);
+      gain_effect_4x[i] = value;
+    }
+    this.effects_tables[2] = gain_effect_4x;
+  }
+
+  effectGain(value, gain) {
+    value *= gain;
+    if (value > 127) {
+      value = 127;
+    } else if (value < -128) {
+      value = -128;
+    }
+    return value;
   }
 
   setupAmiga() {
@@ -283,8 +327,14 @@ class MODProcessor extends AudioWorkletProcessor {
         index = this.mod_sample_index[channel];
       }
     }
-    const output = this.mod_sample[channel][index];
-    this.s8_outputs[channel] = output;
+    let s8_output = this.mod_sample[channel][index];
+    const effect_table = this.mod_sample_effect_table[channel];
+    if (effect_table != null) {
+      // Need to convert to u8 for an index into the lookup table.
+      const u8_index = (s8_output + 128);
+      s8_output = effect_table[u8_index];
+    }
+    this.s8_outputs[channel] = s8_output;
     this.mod_sample_index[channel] = index;
   }
 
@@ -436,6 +486,10 @@ class MODProcessor extends AudioWorkletProcessor {
       const sample_index = data_array[2];
       const note = data_array[3];
       this.handlePlaySample(channel, sample_index, note);
+    } else if (name == "SAMPLE_EFFECT") {
+      const sample_index = data_array[1];
+      const effect = data_array[2];
+      this.sample_effect[sample_index] = effect;
     } else {
       console.log("unknown command: " + name);
     }
@@ -614,6 +668,9 @@ class MODProcessor extends AudioWorkletProcessor {
     this.mod_sample_repeat_start[channel] = sample.repeat_start;
     this.mod_sample_repeat_length[channel] = sample.repeat_length;
     this.mod_sample_index[channel] = -1;
+    const effect = this.sample_effect[sample_index];
+    const effect_table = this.effects_tables[effect];
+    this.mod_sample_effect_table[channel] = effect_table;
 
     this.setMODPeriod(channel, period);
 
