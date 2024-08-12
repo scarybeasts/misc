@@ -528,8 +528,12 @@ class MODProcessor extends AudioWorkletProcessor {
   }
 
   handlePlaySample(channel, sample_index, note) {
-    const period = this.note_to_period[note];
-    this.loadMODSample(channel, sample_index, period);
+    if (sample_index == 0) {
+      this.loadSilentMODSample(channel);
+    } else {
+      const period = this.note_to_period[note];
+      this.loadMODSample(channel, sample_index, period);
+    }
   }
 
   loadMODRowAndAdvance() {

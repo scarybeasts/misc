@@ -210,6 +210,7 @@ function beebmod_play_sample(event) {
   let channel = window.beebmod_play_sample_channel;
 
   let note = 0;
+  let do_silence = 0;
   switch (key_code) {
   // Octave 1.
   case "KeyZ": note = 1; break;
@@ -252,6 +253,7 @@ function beebmod_play_sample(event) {
   case "BracketLeft": note = 30; break;
   case "Equal": note = 31; break;
   case "BracketRight": note = 32; break;
+  case "Space": do_silence = 1; break;
   }
 
   if (note != 0) {
@@ -261,6 +263,12 @@ function beebmod_play_sample(event) {
   }
   channel++;
   if (channel == 4) {
+    channel = 0;
+  }
+  if (do_silence) {
+    for (let i = 0; i < 4; ++i) {
+      window.beebmod_port.postMessage(["PLAY_SAMPLE", i, 0, 0]);
+    }
     channel = 0;
   }
   window.beebmod_play_sample_channel = channel;
