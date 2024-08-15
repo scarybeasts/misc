@@ -179,14 +179,15 @@ class MODProcessor extends AudioWorkletProcessor {
     }
     for (let i = 0; i < 16; ++i) {
       for (let j = 0; j < 16; ++j) {
+        if ((i != j) && (i != (j + 1))) {
+          continue;
+        }
         // Range is 0.0 to 2.0.
         const output =
             (this.beeb_sn_vol_to_output[i] + this.beeb_sn_vol_to_output[j]);
-        const u8_output = Math.round(output * 255.0);
-        if (this.beeb_u8_to_sn_vol_pair1[u8_output] == -1) {
-          this.beeb_u8_to_sn_vol_pair1[u8_output] = i;
-          this.beeb_u8_to_sn_vol_pair2[u8_output] = j;
-        }
+        const u8_output = Math.round(output / 2.0 * 255.0);
+        this.beeb_u8_to_sn_vol_pair1[u8_output] = i;
+        this.beeb_u8_to_sn_vol_pair2[u8_output] = j;
       }
     }
     let current_vol1 = -1;
@@ -195,10 +196,10 @@ class MODProcessor extends AudioWorkletProcessor {
       if (this.beeb_u8_to_sn_vol_pair1[i] != -1) {
         current_vol1 = this.beeb_u8_to_sn_vol_pair1[i];
         current_vol2 = this.beeb_u8_to_sn_vol_pair2[i];
-      } else {
-        this.beeb_u8_to_sn_vol_pair1[i] = current_vol1;
-        this.beeb_u8_to_sn_vol_pair2[i] = current_vol2;
+console.log(i + ": " + current_vol1 + ", " + current_vol2);
       }
+      this.beeb_u8_to_sn_vol_pair1[i] = current_vol1;
+      this.beeb_u8_to_sn_vol_pair2[i] = current_vol2;
     }
 
     // Build the mapping of MOD periods to beeb advance increments.
@@ -304,11 +305,11 @@ class MODProcessor extends AudioWorkletProcessor {
     value += this.s8_outputs[2];
     value += this.s8_outputs[3];
     // Value is -512 to 508.
-    // Convert to 0 to 0.33, which gives a similar volume output to the beeb
+    // Convert to 0 to 0.5, which gives a similar volume output to the beeb
     // players, thus enabling better direct comparisons.
     value += 512.0;
     value /= 1020.0;
-    value /= 3.0;
+    value /= 2.0;
 
     return value;
   }
@@ -352,10 +353,26 @@ class MODProcessor extends AudioWorkletProcessor {
           this.advanceBeeb(1);
           this.advanceBeeb(2);
           this.advanceBeeb(3);
+          // Range is 0 - 252, midpoint of 128.
           let samples_total = ((this.s8_outputs[0] + 128) >> 2);
           samples_total += ((this.s8_outputs[1] + 128) >> 2);
           samples_total += ((this.s8_outputs[2] + 128) >> 2);
           samples_total += ((this.s8_outputs[3] + 128) >> 2);
+          // Center midpoint to 0.
+          // Range is -128 to 124.
+          samples_total -= 128;
+          // Apply gain.
+          // Range is -256 to 248.
+          // 2x can be too much for some songs.
+          samples_total *= 2;
+          // Clip.
+          if (samples_total < -128) {
+            samples_total = -128;
+          } else if (samples_total > 127) {
+            samples_total = 127;
+          }
+          // Convert back to u8.
+          samples_total += 128;
 
           const sn_vol1 = this.beeb_u8_to_sn_vol_pair1[samples_total];
           this.beeb_sn_vols[0] = sn_vol1;
@@ -395,10 +412,9 @@ class MODProcessor extends AudioWorkletProcessor {
     if (this.beeb_sn_is_highs[3]) {
       value += this.beeb_sn_vol_to_output[this.beeb_sn_vols[3]];
     }
-    // Divide in a way that leads to similar volume levels across both
-    // players.
+    // Divide in a way that leads to similar volume levels across all players.
     if (this.beeb_channels == 1) {
-      value /= 6.0;
+      value /= 3.0;
     } else {
       value /= 2.0;
     }
