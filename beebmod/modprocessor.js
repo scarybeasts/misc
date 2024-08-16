@@ -135,6 +135,9 @@ class MODProcessor extends AudioWorkletProcessor {
     this.beeb_u8_to_sn_vol = new Uint8Array(256);
     this.beeb_u8_to_sn_vol_pair1 = new Int8Array(256);
     this.beeb_u8_to_sn_vol_pair2 = new Int8Array(256);
+    this.beeb_u8_to_sn_vol_trio1 = new Int8Array(256);
+    this.beeb_u8_to_sn_vol_trio2 = new Int8Array(256);
+    this.beeb_u8_to_sn_vol_trio3 = new Int8Array(256);
 
     // Player state.
     this.beeb_sn_is_highs = new Uint8Array(4);
@@ -179,9 +182,10 @@ class MODProcessor extends AudioWorkletProcessor {
     }
     for (let i = 0; i < 16; ++i) {
       for (let j = 0; j < 16; ++j) {
-        if ((i != j) && (i != (j + 1))) {
-          continue;
-        }
+        // Individual channel outputs must be similar to one another,
+        // otherwise there's wild hiss and crackle.
+        if (j < i) continue;
+        if (j > (i + 1)) continue;
         // Range is 0.0 to 2.0.
         const output =
             (this.beeb_sn_vol_to_output[i] + this.beeb_sn_vol_to_output[j]);
@@ -192,8 +196,11 @@ class MODProcessor extends AudioWorkletProcessor {
     }
     let current_vol1 = -1;
     let current_vol2 = -1;
+    let current_vol3 = -1;
+    let unique_values = 0;
     for (let i = 0; i < 256; ++i) {
       if (this.beeb_u8_to_sn_vol_pair1[i] != -1) {
+        unique_values++;
         current_vol1 = this.beeb_u8_to_sn_vol_pair1[i];
         current_vol2 = this.beeb_u8_to_sn_vol_pair2[i];
 console.log(i + ": " + current_vol1 + ", " + current_vol2);
@@ -201,6 +208,52 @@ console.log(i + ": " + current_vol1 + ", " + current_vol2);
       this.beeb_u8_to_sn_vol_pair1[i] = current_vol1;
       this.beeb_u8_to_sn_vol_pair2[i] = current_vol2;
     }
+console.log("unique values: " + unique_values);
+
+    // Build the mapping of requested output level to 3 merged channels.
+    for (let i = 0; i < 256; ++i) {
+      this.beeb_u8_to_sn_vol_trio1[i] = -1;
+      this.beeb_u8_to_sn_vol_trio2[i] = -1;
+      this.beeb_u8_to_sn_vol_trio3[i] = -1;
+    }
+    for (let i = 0; i < 16; ++i) {
+      for (let j = 0; j < 16; ++j) {
+        for (let k = 0; k < 16; ++k) {
+          // Individual channel outputs must be similar to one another,
+          // otherwise there's wild hiss and crackle.
+          if (j < i) continue;
+          if (k < j) continue;
+          if (j > (i + 1)) continue;
+          if (k > (i + 1)) continue;
+          // Range is 0.0 to 3.0.
+          const output =
+              (this.beeb_sn_vol_to_output[i] +
+               this.beeb_sn_vol_to_output[j] +
+               this.beeb_sn_vol_to_output[k]);
+          const u8_output = Math.round(output / 3.0 * 255.0);
+          this.beeb_u8_to_sn_vol_trio1[u8_output] = i;
+          this.beeb_u8_to_sn_vol_trio2[u8_output] = j;
+          this.beeb_u8_to_sn_vol_trio3[u8_output] = k;
+        }
+      }
+    }
+    current_vol1 = -1;
+    current_vol2 = -1;
+    current_vol3 = -1;
+    unique_values = 0;
+    for (let i = 0; i < 256; ++i) {
+      if (this.beeb_u8_to_sn_vol_trio1[i] != -1) {
+        unique_values++;
+        current_vol1 = this.beeb_u8_to_sn_vol_trio1[i];
+        current_vol2 = this.beeb_u8_to_sn_vol_trio2[i];
+        current_vol3 = this.beeb_u8_to_sn_vol_trio3[i];
+console.log(i + ": " + current_vol1 + ", " + current_vol2 + ", " + current_vol3);
+      }
+      this.beeb_u8_to_sn_vol_trio1[i] = current_vol1;
+      this.beeb_u8_to_sn_vol_trio2[i] = current_vol2;
+      this.beeb_u8_to_sn_vol_trio3[i] = current_vol3;
+    }
+console.log("unique values: " + unique_values);
 
     // Build the mapping of MOD periods to beeb advance increments.
     const amiga_clocks = (28375160.0 / 8.0);
@@ -347,7 +400,7 @@ console.log(i + ": " + current_vol1 + ", " + current_vol2);
       this.beeb_sn_cycles_counter = 8;
 
       let channel = this.beeb_sn_channel;
-      if (this.beeb_channels == 2) {
+      if (this.beeb_channels > 1) {
         if (channel == 0) {
           this.advanceBeeb(0);
           this.advanceBeeb(1);
@@ -374,16 +427,36 @@ console.log(i + ": " + current_vol1 + ", " + current_vol2);
           // Convert back to u8.
           samples_total += 128;
 
-          const sn_vol1 = this.beeb_u8_to_sn_vol_pair1[samples_total];
-          this.beeb_sn_vols[0] = sn_vol1;
-          // Silence the unused channels in this mode in case coming from a
-          // different mode.
-          this.beeb_sn_vols[2] = 0xF;
-          this.beeb_sn_vols[3] = 0xF;
           this.beeb_samples_total = samples_total;
-        } else if (channel == 1) {
-          const sn_vol2 = this.beeb_u8_to_sn_vol_pair2[this.beeb_samples_total];
-          this.beeb_sn_vols[1] = sn_vol2;
+        }
+
+        const samples_total = this.beeb_samples_total;
+        if (this.beeb_channels == 2) {
+          if (channel == 0) {
+            const sn_vol1 = this.beeb_u8_to_sn_vol_pair1[samples_total];
+            this.beeb_sn_vols[0] = sn_vol1;
+            // Silence the unused channels in this mode in case coming from a
+            // different mode.
+            this.beeb_sn_vols[2] = 0xF;
+            this.beeb_sn_vols[3] = 0xF;
+          } else if (channel == 1) {
+            const sn_vol2 = this.beeb_u8_to_sn_vol_pair2[samples_total];
+            this.beeb_sn_vols[1] = sn_vol2;
+          }
+        } else {
+          if (channel == 0) {
+            const sn_vol1 = this.beeb_u8_to_sn_vol_trio1[samples_total];
+            this.beeb_sn_vols[0] = sn_vol1;
+            // Silence the unused channels in this mode in case coming from a
+            // different mode.
+            this.beeb_sn_vols[3] = 0xF;
+          } else if (channel == 1) {
+            const sn_vol2 = this.beeb_u8_to_sn_vol_trio2[samples_total];
+            this.beeb_sn_vols[1] = sn_vol2;
+          } else if (channel == 2) {
+            const sn_vol3 = this.beeb_u8_to_sn_vol_trio3[samples_total];
+            this.beeb_sn_vols[2] = sn_vol3;
+          }
         }
       } else {
         this.advanceBeeb(channel);
@@ -415,8 +488,10 @@ console.log(i + ": " + current_vol1 + ", " + current_vol2);
     // Divide in a way that leads to similar volume levels across all players.
     if (this.beeb_channels == 1) {
       value /= 3.0;
-    } else {
+    } else if (this.beeb_channels == 2) {
       value /= 2.0;
+    } else {
+      value /= 3.0;
     }
 
     this.beeb_sn_counters[0]--;
@@ -493,6 +568,9 @@ console.log(i + ": " + current_vol1 + ", " + current_vol2);
     } else if (name == "BEEB_MERGED2") {
       this.is_amiga = false;
       this.beeb_channels = 2;
+    } else if (name == "BEEB_MERGED3") {
+      this.is_amiga = false;
+      this.beeb_channels = 3;
     } else if (name == "PLAY_CHANNEL") {
       const channel = data_array[1];
       const is_play = data_array[2];

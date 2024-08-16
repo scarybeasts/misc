@@ -21,6 +21,8 @@ function beebmod_setup_listeners() {
   radio_beeb_separate.addEventListener("change", beebmod_radio_beeb_separate);
   const radio_beeb_merged2 = document.getElementById("radio_beeb_merged2");
   radio_beeb_merged2.addEventListener("change", beebmod_radio_beeb_merged2);
+  const radio_beeb_merged3 = document.getElementById("radio_beeb_merged3");
+  radio_beeb_merged3.addEventListener("change", beebmod_radio_beeb_merged3);
   for (let i = 1; i <= 4; ++i) {
     const checkbox_play = document.getElementById("checkbox_play" + i);
     checkbox_play.addEventListener("change", beebmod_checkbox_play);
@@ -193,6 +195,10 @@ function beebmod_radio_beeb_separate() {
 
 function beebmod_radio_beeb_merged2() {
   window.beebmod_port.postMessage(["BEEB_MERGED2"]);
+}
+
+function beebmod_radio_beeb_merged3() {
+  window.beebmod_port.postMessage(["BEEB_MERGED3"]);
 }
 
 function beebmod_checkbox_play(event) {
