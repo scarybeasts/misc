@@ -27,6 +27,8 @@ function beebmod_setup_listeners() {
     const checkbox_play = document.getElementById("checkbox_play" + i);
     checkbox_play.addEventListener("change", beebmod_checkbox_play);
   }
+  const checkbox_filter = document.getElementById("checkbox_filter");
+  checkbox_filter.addEventListener("change", beebmod_checkbox_filter);
 
   // This is the actual drop handler.
   document.addEventListener("drop", file_dropped);
@@ -46,10 +48,16 @@ async function beebmod_setup_audio() {
 
   await audio_context.audioWorklet.addModule("modprocessor.js");
   const audio_node = new AudioWorkletNode(audio_context, "modprocessor");
-  audio_node.connect(audio_context.destination);
+  const filter_node = audio_context.createBiquadFilter();
+  filter_node.type = "lowpass";
+  filter_node.frequency.value = 48000;
+  filter_node.Q.value = 5;
+  audio_node.connect(filter_node);
+  filter_node.connect(audio_context.destination);
 
   window.beebmod_audio_context = audio_context;
   window.beebmod_audio_node = audio_node;
+  window.beebmod_filter_node = filter_node;
   window.beebmod_port = audio_node.port;
 }
 
@@ -199,6 +207,17 @@ function beebmod_radio_beeb_merged2() {
 
 function beebmod_radio_beeb_merged3() {
   window.beebmod_port.postMessage(["BEEB_MERGED3"]);
+}
+
+function beebmod_checkbox_filter(event) {
+  const checked = event.target.checked;
+  let frequency;
+  if (checked) {
+    frequency = 7000;
+  } else {
+    frequency = 48000;
+  }
+  window.beebmod_filter_node.frequency.value = frequency;
 }
 
 function beebmod_checkbox_play(event) {
