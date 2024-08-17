@@ -99,6 +99,29 @@ class MODProcessor extends AudioWorkletProcessor {
       gain_effect_4x[i] = value;
     }
     this.effects_tables[2] = gain_effect_4x;
+
+    const negative_effect = new Int8Array(256);
+    for (let i = 0; i < 256; ++i) {
+      let value = (i - 128);
+      value = Math.abs(value);
+      value *= -1;
+      negative_effect[i] = value;
+    }
+    this.effects_tables[3] = negative_effect;
+
+    const boost_effect = new Int8Array(256);
+    for (let i = 0; i < 256; ++i) {
+      let value = (i - 128);
+      let sign = Math.sign(value);
+      let abs = Math.abs(value);
+      let mag = Math.pow(abs, 0.5);
+      value = (mag / Math.pow(128, 0.5));
+      value *= 128;
+      value *= sign;
+      value = Math.round(value);
+      boost_effect[i] = value;
+    }
+    this.effects_tables[4] = boost_effect;
   }
 
   effectGain(value, gain) {
