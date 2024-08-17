@@ -29,6 +29,14 @@ function beebmod_setup_listeners() {
   }
   const checkbox_filter = document.getElementById("checkbox_filter");
   checkbox_filter.addEventListener("change", beebmod_checkbox_filter);
+  const number_beeb_merged_gain =
+      document.getElementById("number_beeb_merged_gain");
+  number_beeb_merged_gain.addEventListener("change",
+                                           beebmod_number_beeb_merged_gain);
+  const number_beeb_merged_offset =
+      document.getElementById("number_beeb_merged_offset");
+  number_beeb_merged_offset.addEventListener(
+      "change", beebmod_number_beeb_merged_offset);
 
   // This is the actual drop handler.
   document.addEventListener("drop", file_dropped);
@@ -218,6 +226,20 @@ function beebmod_checkbox_filter(event) {
     frequency = 48000;
   }
   window.beebmod_filter_node.frequency.value = frequency;
+}
+
+function beebmod_number_beeb_merged_gain(event) {
+  const target = event.target;
+  const value = target.value;
+  window.beebmod_port.postMessage(["BEEB_MERGED_GAIN", value]);
+}
+
+function beebmod_number_beeb_merged_offset(event) {
+  const target = event.target;
+  // Need explicit conversion to Number, otherwise negative values were coming
+  // in as strings.
+  const value = Number(target.value);
+  window.beebmod_port.postMessage(["BEEB_MERGED_OFFSET", value]);
 }
 
 function beebmod_checkbox_play(event) {

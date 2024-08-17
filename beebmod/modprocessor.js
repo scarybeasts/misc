@@ -28,6 +28,8 @@ class MODProcessor extends AudioWorkletProcessor {
     // Play state.
     this.is_amiga = true;
     this.beeb_channels = 1;
+    this.beeb_merged_gain = 2.0;
+    this.beeb_merged_offset = 0;
     this.is_playing = false;
     this.rate = sampleRate;
     this.mod_position = 0;
@@ -438,9 +440,10 @@ console.log("unique values: " + unique_values);
           // Range is -128 to 124.
           samples_total -= 128;
           // Apply gain.
-          // Range is -256 to 248.
-          // 2x can be too much for some songs.
-          samples_total *= 2;
+          // 2x is about right but can be too much for some songs.
+          samples_total *= this.beeb_merged_gain;
+          samples_total = Math.round(samples_total);
+          samples_total += this.beeb_merged_offset;
           // Clip.
           if (samples_total < -128) {
             samples_total = -128;
@@ -594,6 +597,12 @@ console.log("unique values: " + unique_values);
     } else if (name == "BEEB_MERGED3") {
       this.is_amiga = false;
       this.beeb_channels = 3;
+    } else if (name == "BEEB_MERGED_GAIN") {
+      const gain = data_array[1];
+      this.beeb_merged_gain = gain;
+    } else if (name == "BEEB_MERGED_OFFSET") {
+      const offset = data_array[1];
+      this.beeb_merged_offset = offset;
     } else if (name == "PLAY_CHANNEL") {
       const channel = data_array[1];
       const is_play = data_array[2];
