@@ -19,8 +19,18 @@ function beebmod_setup_listeners() {
   radio_amiga.addEventListener("change", beebmod_radio_amiga);
   const radio_beeb_separate = document.getElementById("radio_beeb_separate");
   radio_beeb_separate.addEventListener("change", beebmod_radio_beeb_separate);
-  const radio_beeb_merged2 = document.getElementById("radio_beeb_merged2");
-  radio_beeb_merged2.addEventListener("change", beebmod_radio_beeb_merged2);
+  const radio_beeb_merged2_7k =
+      document.getElementById("radio_beeb_merged2_7k");
+  radio_beeb_merged2_7k.addEventListener("change",
+                                         beebmod_radio_beeb_merged2_7k);
+  const radio_beeb_merged2_10k =
+      document.getElementById("radio_beeb_merged2_10k");
+  radio_beeb_merged2_10k.addEventListener("change",
+                                          beebmod_radio_beeb_merged2_10k);
+  const radio_beeb_merged2_15k =
+      document.getElementById("radio_beeb_merged2_15k");
+  radio_beeb_merged2_15k.addEventListener("change",
+                                          beebmod_radio_beeb_merged2_15k);
   const radio_beeb_merged3 = document.getElementById("radio_beeb_merged3");
   radio_beeb_merged3.addEventListener("change", beebmod_radio_beeb_merged3);
   for (let i = 1; i <= 4; ++i) {
@@ -209,8 +219,16 @@ function beebmod_radio_beeb_separate() {
   window.beebmod_port.postMessage(["BEEB_SEPARATE"]);
 }
 
-function beebmod_radio_beeb_merged2() {
-  window.beebmod_port.postMessage(["BEEB_MERGED2"]);
+function beebmod_radio_beeb_merged2_7k() {
+  window.beebmod_port.postMessage(["BEEB_MERGED2_7K"]);
+}
+
+function beebmod_radio_beeb_merged2_10k() {
+  window.beebmod_port.postMessage(["BEEB_MERGED2_10K"]);
+}
+
+function beebmod_radio_beeb_merged2_15k() {
+  window.beebmod_port.postMessage(["BEEB_MERGED2_15K"]);
 }
 
 function beebmod_radio_beeb_merged3() {
