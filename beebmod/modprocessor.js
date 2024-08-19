@@ -44,8 +44,10 @@ class MODProcessor extends AudioWorkletProcessor {
     this.mod_sample_index = new Int32Array(4);
     this.mod_sample_effect_table = new Array(4);
     this.mod_period = new Uint16Array(4);
+    this.mod_volume = new Uint16Array(4);
     this.mod_portamento = new Int16Array(4);
     this.mod_portamento_target = new Uint16Array(4);
+    this.mod_volume_slide = new Int8Array(4);
     this.s8_outputs = new Int8Array(4);
     for (let i = 0; i < 4; ++i) {
       this.mod_sample[i] = null;
@@ -316,6 +318,14 @@ console.log("unique values: " + unique_values);
       if (this.host_samples_counter == 0) {
         // Do 50Hz tick effects.
         for (let j = 0; j < 4; ++j) {
+          const volume_slide = this.mod_volume_slide[j];
+          let new_volume = (this.mod_volume[j] + volume_slide);
+          if (new_volume < 0) {
+            new_volume = 0;
+          } else if (new_volume > 64) {
+            new_volume = 64;
+          }
+          this.mod_volume[j] = new_volume;
           const portamento = this.mod_portamento[j];
           if (portamento == 0) {
             continue;
@@ -343,6 +353,10 @@ console.log("unique values: " + unique_values);
           this.mod_portamento[1] = 0;
           this.mod_portamento[2] = 0;
           this.mod_portamento[3] = 0;
+          this.mod_volume_slide[0] = 0;
+          this.mod_volume_slide[1] = 0;
+          this.mod_volume_slide[2] = 0;
+          this.mod_volume_slide[3] = 0;
 
           if (this.is_playing) {
             this.loadMODRowAndAdvance();
@@ -413,6 +427,14 @@ console.log("unique values: " + unique_values);
       const u8_index = (s8_output + 128);
       s8_output = effect_table[u8_index];
     }
+
+    // 8 levels of volume for now.
+    let volume = this.mod_volume[channel];
+    volume += 7;
+    volume = Math.floor(volume / 8);
+    s8_output *= volume;
+    s8_output = Math.round(s8_output / 8);
+
     this.s8_outputs[channel] = s8_output;
     this.mod_sample_index[channel] = index;
   }
@@ -691,7 +713,9 @@ console.log("unique values: " + unique_values);
       if (new_period == 0) {
         new_period = current_period;
       }
+      let new_volume = -1;
       let new_portamento = 0;
+      let new_volume_slide = 0;
 
       const command = note.command;
       let major_command = (command >> 8);
@@ -722,6 +746,26 @@ console.log("unique values: " + unique_values);
         }
         // This command doesn't change the current period.
         new_period = current_period;
+        break;
+      // Volume slide.
+      case 0xA:
+        const slide_down = (minor_command & 0xF);
+        const slide_up = (minor_command >> 4);
+        if ((slide_up > 0) && (slide_down > 0)) {
+          alert("volume slide up and down!");
+        }
+        if (slide_up > 0) {
+          new_volume_slide = slide_up;
+        } else {
+          new_volume_slide = -slide_down;
+        }
+        break;
+      // Set volume.
+      case 0xC:
+        new_volume = minor_command;
+        if (new_volume > 64) {
+          new_volume = 64;
+        }
         break;
       // Jump to specific row in next song position.
       // Example: moondark.mod (first position)
@@ -786,8 +830,13 @@ console.log("unique values: " + unique_values);
           this.loadMODSample(i, sample_index, new_period);
         }
       }
-      // Set this last because loadMODSample clears it.
+
+      // Set these last because loadMODSample clears it.
+      if (new_volume != -1) {
+        this.mod_volume[i] = new_volume;
+      }
       this.mod_portamento[i] = new_portamento;
+      this.mod_volume_slide[i] = new_volume_slide;
     }
   }
 
@@ -804,6 +853,8 @@ console.log("unique values: " + unique_values);
 
     this.setMODPeriod(channel, period);
 
+    this.mod_volume[channel] = sample.volume;
+    this.mod_volume_slide[channel] = 0;
     this.mod_portamento[channel] = 0;
 
     // Need to set this to 0 so that our index of -1 gets incremented to 0
