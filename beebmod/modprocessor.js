@@ -27,10 +27,11 @@ class MODProcessor extends AudioWorkletProcessor {
 
     // Play state.
     this.is_amiga = true;
-    this.beeb_channels = 1;
+    this.beeb_channels = 0;
     this.beeb_merged_gain = 2.0;
     this.beeb_merged_offset = 0;
-    this.beeb_rate = 7;
+    this.beeb_max_channel = 0;
+    this.beeb_output_divider = 0.0;
     this.is_playing = false;
     this.rate = sampleRate;
     this.mod_position = 0;
@@ -177,6 +178,7 @@ class MODProcessor extends AudioWorkletProcessor {
     this.beeb_channel_advances_lo = new Uint8Array(4);
     this.beeb_channel_advances_hi = new Uint8Array(4);
     this.beeb_samples_total = 0;
+    this.beeb_period_advances = this.beeb_period_advances_7k;
 
     // Build the mapping of the beeb's 16 output levels to a u8 value.
     const beeb_sn_volume_exponent = -0.1;
@@ -526,19 +528,9 @@ console.log("unique values: " + unique_values);
       // 7kHz: 4 channel slots.
       // 10kHz: 3 channel slots.
       // 15kHz: 2 channel slots.
-      const rate = this.beeb_rate;
-      if (rate == 7) {
-        if (channel == 4) {
-          channel = 0;
-        }
-      } else if (rate == 10) {
-        if (channel > 2) {
-          channel = 0;
-        }
-      } else {
-        if (channel > 1) {
-          channel = 0;
-        }
+      const max_channel = this.beeb_max_channel;
+      if (channel > max_channel) {
+        channel = 0;
       }
       this.beeb_sn_channel = channel;
     }
@@ -557,13 +549,7 @@ console.log("unique values: " + unique_values);
       value += this.beeb_sn_vol_to_output[this.beeb_sn_vols[3]];
     }
     // Divide in a way that leads to similar volume levels across all players.
-    if (this.beeb_channels == 1) {
-      value /= 3.0;
-    } else if (this.beeb_channels == 2) {
-      value /= 2.0;
-    } else {
-      value /= 3.0;
-    }
+    value /= this.beeb_output_divider;
 
     this.beeb_sn_counters[0]--;
     if (this.beeb_sn_counters[0] == 0) {
@@ -636,22 +622,33 @@ console.log("unique values: " + unique_values);
     } else if (name == "BEEB_SEPARATE") {
       this.is_amiga = false;
       this.beeb_channels = 1;
+      this.beeb_period_advances = this.beeb_period_advances_7k;
+      this.beeb_max_channel = 3;
+      this.beeb_output_divider = 3.0;
     } else if (name == "BEEB_MERGED2_7K") {
       this.is_amiga = false;
       this.beeb_channels = 2;
-      this.beeb_rate = 7;
+      this.beeb_period_advances = this.beeb_period_advances_7k;
+      this.beeb_max_channel = 3;
+      this.beeb_output_divider = 2.0;
     } else if (name == "BEEB_MERGED2_10K") {
       this.is_amiga = false;
       this.beeb_channels = 2;
-      this.beeb_rate = 10;
+      this.beeb_period_advances = this.beeb_period_advances_10k;
+      this.beeb_max_channel = 2;
+      this.beeb_output_divider = 2.0;
     } else if (name == "BEEB_MERGED2_15K") {
       this.is_amiga = false;
       this.beeb_channels = 2;
-      this.beeb_rate = 15;
+      this.beeb_period_advances = this.beeb_period_advances_15k;
+      this.beeb_max_channel = 1;
+      this.beeb_output_divider = 2.0;
     } else if (name == "BEEB_MERGED3") {
       this.is_amiga = false;
       this.beeb_channels = 3;
-      this.beeb_rate = 7;
+      this.beeb_max_channel = 3;
+      this.beeb_period_advances = this.beeb_period_advances_7k;
+      this.beeb_output_divider = 3.0;
     } else if (name == "BEEB_MERGED_GAIN") {
       const gain = data_array[1];
       this.beeb_merged_gain = gain;
@@ -902,15 +899,7 @@ console.log("unique values: " + unique_values);
   setMODPeriod(channel, period) {
     this.mod_period[channel] = period;
 
-    let beeb_period_advance;
-    const rate = this.beeb_rate;
-    if (rate == 7) {
-      beeb_period_advance = this.beeb_period_advances_7k[period];
-    } else if (rate == 10) {
-      beeb_period_advance = this.beeb_period_advances_10k[period];
-    } else {
-      beeb_period_advance = this.beeb_period_advances_15k[period];
-    }
+    const beeb_period_advance = this.beeb_period_advances[period];
     this.beeb_channel_advances_lo[channel] = (beeb_period_advance & 0xFF);
     this.beeb_channel_advances_hi[channel] = (beeb_period_advance >> 8);
   }
