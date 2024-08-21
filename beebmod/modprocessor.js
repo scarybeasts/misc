@@ -668,6 +668,10 @@ console.log("unique values: " + unique_values);
       const sample_index = data_array[1];
       const effect = data_array[2];
       this.sample_effect[sample_index] = effect;
+    } else if (name == "SAMPLE_VOLUME") {
+      const sample_index = data_array[1];
+      const volume = data_array[2];
+      this.samples[sample_index].volume = volume;
     } else {
       console.log("unknown command: " + name);
     }

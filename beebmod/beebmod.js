@@ -120,7 +120,12 @@ function sample_table_add(i,
   const name_cell = row.insertCell(1);
   name_cell.innerText = name;
   const volume_cell = row.insertCell(2);
-  volume_cell.innerText = volume.toString();
+  const volume_input = document.createElement("input");
+  volume_input.name = index_string;
+  volume_input.type = "number";
+  volume_input.value = volume;
+  volume_input.addEventListener("change", beebmod_sample_volume_changed);
+  volume_cell.appendChild(volume_input);
   const length_cell = row.insertCell(3);
   length_cell.innerText = length.toString();
   const repeat_start_cell = row.insertCell(4);
@@ -345,6 +350,14 @@ function beebmod_sample_effect_changed(event) {
   const sample_index = Number(name);
   const value = target.value;
   window.beebmod_port.postMessage(["SAMPLE_EFFECT", sample_index, value]);
+}
+
+function beebmod_sample_volume_changed(event) {
+  const target = event.target;
+  const name = target.name;
+  const sample_index = Number(name);
+  const value = target.value;
+  window.beebmod_port.postMessage(["SAMPLE_VOLUME", sample_index, value]);
 }
 
 function file_dropped(event) {
