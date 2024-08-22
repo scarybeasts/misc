@@ -81,7 +81,9 @@ MODFile.prototype.parse = function() {
 
   console.log("name: " + this.name, ", signature: " + signature);
   var num_samples = 15;
-  if ((signature == "M.K.") || (signature == "M!K!")) {
+  if ((signature == "M.K.") ||
+      (signature == "M!K!") ||
+      (signature == "FLT4")) {
     num_samples = 31;
   }
 
