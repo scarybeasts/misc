@@ -28,10 +28,11 @@ class MODProcessor extends AudioWorkletProcessor {
     // Play state.
     this.is_amiga = true;
     this.beeb_channels = 0;
-    this.beeb_merged_gain = 2.0;
-    this.beeb_merged_offset = 0;
+    this.beeb_merged_gain = 0.0;
+    this.beeb_offset = 0;
     this.beeb_max_channel = 0;
     this.beeb_output_divider = 0.0;
+    this.beeb_sn_period = new Uint16Array(4);
     this.is_playing = false;
     this.rate = sampleRate;
     this.mod_position = 0;
@@ -173,7 +174,7 @@ class MODProcessor extends AudioWorkletProcessor {
     // Player state.
     this.beeb_sn_is_highs = new Uint8Array(4);
     this.beeb_sn_vols = new Uint8Array(4);
-    this.beeb_sn_counters = new Uint8Array(4);
+    this.beeb_sn_counters = new Uint16Array(4);
     this.beeb_mod_sample_subindexes = new Uint8Array(4);
     this.beeb_channel_advances_lo = new Uint8Array(4);
     this.beeb_channel_advances_hi = new Uint8Array(4);
@@ -476,7 +477,7 @@ console.log("unique values: " + unique_values);
           // 2x is about right but can be too much for some songs.
           samples_total *= this.beeb_merged_gain;
           samples_total = Math.round(samples_total);
-          samples_total += this.beeb_merged_offset;
+          samples_total += this.beeb_offset;
           // Clip.
           if (samples_total < -128) {
             samples_total = -128;
@@ -519,7 +520,13 @@ console.log("unique values: " + unique_values);
         }
       } else {
         this.advanceBeeb(channel);
-        const u8_sample_value = (this.s8_outputs[channel] + 128);
+        let u8_sample_value = (this.s8_outputs[channel] + 128);
+        u8_sample_value += this.beeb_offset;
+        if (u8_sample_value > 255) {
+          u8_sample_value = 255;
+        } else if (u8_sample_value < 0) {
+          u8_sample_value = 0;
+        }
         const sn_vol = this.beeb_u8_to_sn_vol[u8_sample_value];
         this.beeb_sn_vols[channel] = sn_vol;
       }
@@ -553,22 +560,22 @@ console.log("unique values: " + unique_values);
 
     this.beeb_sn_counters[0]--;
     if (this.beeb_sn_counters[0] == 0) {
-      this.beeb_sn_counters[0] = 2;
+      this.beeb_sn_counters[0] = this.beeb_sn_period[0];
       this.beeb_sn_is_highs[0] = !this.beeb_sn_is_highs[0];
     }
     this.beeb_sn_counters[1]--;
     if (this.beeb_sn_counters[1] == 0) {
-      this.beeb_sn_counters[1] = 3;
+      this.beeb_sn_counters[1] = this.beeb_sn_period[1];
       this.beeb_sn_is_highs[1] = !this.beeb_sn_is_highs[1];
     }
     this.beeb_sn_counters[2]--;
     if (this.beeb_sn_counters[2] == 0) {
-      this.beeb_sn_counters[2] = 1;
+      this.beeb_sn_counters[2] = this.beeb_sn_period[2];
       this.beeb_sn_is_highs[2] = !this.beeb_sn_is_highs[2];
     }
     this.beeb_sn_counters[3]--;
     if (this.beeb_sn_counters[3] == 0) {
-      this.beeb_sn_counters[3] = 1;
+      this.beeb_sn_counters[3] = this.beeb_sn_period[3];
       this.beeb_sn_is_highs[3] = !this.beeb_sn_is_highs[3];
     }
 
@@ -652,13 +659,17 @@ console.log("unique values: " + unique_values);
     } else if (name == "BEEB_MERGED_GAIN") {
       const gain = data_array[1];
       this.beeb_merged_gain = gain;
-    } else if (name == "BEEB_MERGED_OFFSET") {
+    } else if (name == "BEEB_OFFSET") {
       const offset = data_array[1];
-      this.beeb_merged_offset = offset;
+      this.beeb_offset = offset;
     } else if (name == "PLAY_CHANNEL") {
       const channel = data_array[1];
       const is_play = data_array[2];
       this.is_channel_playing[channel] = is_play;
+    } else if (name == "SN_PERIOD") {
+      const channel = data_array[1];
+      const period = data_array[2];
+      this.beeb_sn_period[channel] = period;
     } else if (name == "PLAY_SAMPLE") {
       const channel = data_array[1];
       const sample_index = data_array[2];

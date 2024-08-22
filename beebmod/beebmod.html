@@ -32,47 +32,41 @@ beebmod
 <label>7kHz low-pass filter</label>
 <p></p>
 <label for="number_beeb_merged_gain">Beeb merged gain:</label>
-<input id="number_beeb_merged_gain" type="number" value="2.0" step="0.1"></input>
-<label for="number_beeb_merged_offset">Beeb merged offset:</label>
-<input id="number_beeb_merged_offset" type="number" value="0"></input>
+<input id="number_beeb_merged_gain" type="number" step="0.1"></input>
+<label for="number_beeb_offset">Beeb offset:</label>
+<input id="number_beeb_offset" type="number"></input>
 <p></p>
 <button id="play">Play</button>
 <button id="stop">Stop</button>
 <label for="number_start_position">Start position:</label>
-<input id="number_start_position" type="number" value="1"></input>
+<input id="number_start_position" type="number"></input>
 <p></p>
-<table id="channels_table">
+<table style="display: inline-block;">
   <thead>
     <tr>
-      <th scope="col">Channel</th>
+      <th scope="col">MOD Channel</th>
       <th scope="col">Play?</th>
     </tr>
   </thead>
   <tbody>
+    <tr><td>1</td><td><input id="checkbox_play1" type="checkbox" checked></input></td></tr>
+    <tr><td>2</td><td><input id="checkbox_play2" type="checkbox" checked></input></td></tr>
+    <tr><td>3</td><td><input id="checkbox_play3" type="checkbox" checked></input></td></tr>
+    <tr><td>4</td><td><input id="checkbox_play4" type="checkbox" checked></input></td></tr>
+  </tbody>
+</table>
+<table style="display: inline-block;">
+  <thead>
     <tr>
-      <td>1</td>
-      <td>
-        <input id="checkbox_play1" type="checkbox" checked></input>
-      </td>
+      <th scope="col">SN Channel</th>
+      <th scope="col">Period</th>
     </tr>
-    <tr>
-      <td>2</td>
-      <td>
-        <input id="checkbox_play2" type="checkbox" checked></input>
-      </td>
-    </tr>
-    <tr>
-      <td>3</td>
-      <td>
-        <input id="checkbox_play3" type="checkbox" checked></input>
-      </td>
-    </tr>
-    <tr>
-      <td>4</td>
-      <td>
-        <input id="checkbox_play4" type="checkbox" checked></input>
-      </td>
-    </tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td><input id="number_period1" type="number"></input></td></tr>
+    <tr><td>2</td><td><input id="number_period2" type="number"></input></td></tr>
+    <tr><td>3</td><td><input id="number_period3" type="number"></input></td></tr>
+    <tr><td>4</td><td><input id="number_period4" type="number"></input></td></tr>
   </tbody>
 </table>
 <p></p>

@@ -7,6 +7,7 @@ async function beebmod() {
   // Wait for audio setup to finish because loading a file needs to post
   // information to the AudioWorklet context.
   await beebmod_setup_audio();
+  beebmod_set_default_config();
   beebmod_load_initial_file();
 }
 
@@ -37,16 +38,18 @@ function beebmod_setup_listeners() {
     const checkbox_play = document.getElementById("checkbox_play" + i);
     checkbox_play.addEventListener("change", beebmod_checkbox_play);
   }
+  for (let i = 1; i <= 4; ++i) {
+    const input_period = document.getElementById("number_period" + i);
+    input_period.addEventListener("change", beebmod_number_period);
+  }
   const checkbox_filter = document.getElementById("checkbox_filter");
   checkbox_filter.addEventListener("change", beebmod_checkbox_filter);
   const number_beeb_merged_gain =
       document.getElementById("number_beeb_merged_gain");
   number_beeb_merged_gain.addEventListener("change",
                                            beebmod_number_beeb_merged_gain);
-  const number_beeb_merged_offset =
-      document.getElementById("number_beeb_merged_offset");
-  number_beeb_merged_offset.addEventListener(
-      "change", beebmod_number_beeb_merged_offset);
+  const number_beeb_offset = document.getElementById("number_beeb_offset");
+  number_beeb_offset.addEventListener("change", beebmod_number_beeb_offset);
 
   // This is the actual drop handler.
   document.addEventListener("drop", file_dropped);
@@ -77,6 +80,23 @@ async function beebmod_setup_audio() {
   window.beebmod_audio_node = audio_node;
   window.beebmod_filter_node = filter_node;
   window.beebmod_port = audio_node.port;
+}
+
+function beebmod_set_default_config() {
+  beebmod_load_number_config("number_start_position", 1);
+  beebmod_load_number_config("number_beeb_merged_gain", 2.0);
+  beebmod_load_number_config("number_beeb_offset", 0);
+  beebmod_load_number_config("number_period1", 2);
+  beebmod_load_number_config("number_period2", 3);
+  beebmod_load_number_config("number_period3", 5);
+  beebmod_load_number_config("number_period4", 1);
+}
+
+function beebmod_load_number_config(name, value) {
+  const element = document.getElementById(name);
+  element.value = value;
+  const event = new Event("change");
+  element.dispatchEvent(event);
 }
 
 function beebmod_load_initial_file() {
@@ -257,12 +277,12 @@ function beebmod_number_beeb_merged_gain(event) {
   window.beebmod_port.postMessage(["BEEB_MERGED_GAIN", value]);
 }
 
-function beebmod_number_beeb_merged_offset(event) {
+function beebmod_number_beeb_offset(event) {
   const target = event.target;
   // Need explicit conversion to Number, otherwise negative values were coming
   // in as strings.
   const value = Number(target.value);
-  window.beebmod_port.postMessage(["BEEB_MERGED_OFFSET", value]);
+  window.beebmod_port.postMessage(["BEEB_OFFSET", value]);
 }
 
 function beebmod_checkbox_play(event) {
@@ -271,6 +291,14 @@ function beebmod_checkbox_play(event) {
   channel--;
   const checked = event.target.checked;
   window.beebmod_port.postMessage(["PLAY_CHANNEL", channel, checked]);
+}
+
+function beebmod_number_period(event) {
+  const id = event.target.id;
+  let channel = Number(id.slice(-1));
+  channel--;
+  const period = event.target.value;
+  window.beebmod_port.postMessage(["SN_PERIOD", channel, period]);
 }
 
 function beebmod_play_sample(event) {
