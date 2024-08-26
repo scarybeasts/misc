@@ -41,6 +41,7 @@ class MODProcessor extends AudioWorkletProcessor {
     this.mod_row_index = 0;
     this.mod_speed = 0;
     this.mod_sample = new Array(4);
+    this.mod_sample_binary = new Array(4);
     this.mod_sample_end = new Uint16Array(4);
     this.mod_sample_repeat_start = new Uint16Array(4);
     this.mod_sample_repeat_length = new Uint16Array(4);
@@ -54,6 +55,7 @@ class MODProcessor extends AudioWorkletProcessor {
     this.s8_outputs = new Int8Array(4);
     for (let i = 0; i < 4; ++i) {
       this.mod_sample[i] = null;
+      this.mod_sample_binary[i] = null;
       this.mod_sample_effect_table[i] = null;
     }
 
@@ -432,7 +434,7 @@ console.log("unique values: " + unique_values);
         index = this.mod_sample_index[channel];
       }
     }
-    let s8_output = this.mod_sample[channel][index];
+    let s8_output = this.mod_sample_binary[channel][index];
     const effect_table = this.mod_sample_effect_table[channel];
     if (effect_table != null) {
       // Need to convert to u8 for an index into the lookup table.
@@ -750,14 +752,20 @@ console.log("unique values: " + unique_values);
     for (let i = 0; i < 4; ++i) {
       const note = row.channels[i];
   
-      const song_period = note.period;
-      const sample_index = note.sample;
-
-      const current_period = this.mod_period[i];
-      let new_period = song_period;
-      if (new_period == 0) {
-        new_period = current_period;
+      let sample_index = note.sample;
+      if (sample_index == 0) {
+        // If no sample specified, use -1 to represent "no change from current
+        // sample". Sample number 0 is reserved for the silent sample.
+        sample_index = -1;
       }
+
+      // The note, if any, in the song data.
+      // This may be a note to play, or it can be something else, such as a
+      // note to slide towards.
+      const song_period = note.period;
+      // The note, if any, to actually play.
+      let play_period = song_period;
+
       let new_volume = -1;
       let new_portamento = 0;
       let new_volume_slide = 0;
@@ -782,15 +790,15 @@ console.log("unique values: " + unique_values);
         if (song_period != 0) {
           this.mod_portamento_target[i] = song_period;
         }
-        if (this.mod_portamento_target[i] > current_period) {
+        if (this.mod_portamento_target[i] > this.mod_period[i]) {
           // Sliding positively, which is a portamento down.
           new_portamento = minor_command;
         } else {
           // Sliding negatively, which is a portamento up.
           new_portamento = -minor_command;
         }
-        // This command doesn't change the current period.
-        new_period = current_period;
+        // This command doesn't play a note.
+        play_period = 0;
         break;
       // Volume slide.
       case 0xA:
@@ -831,12 +839,19 @@ console.log("unique values: " + unique_values);
       case 0xE:
         major_command = (minor_command & 0xF0);
         minor_command = (minor_command & 0x0F);
+
+        // Work out baseline period for fine slide.
+        let baseline_period = song_period;
+        if (baseline_period == 0) {
+          baseline_period = this.mod_period[i];
+        }
+
         switch (major_command) {
         // Fineslide up.
         case 0x10:
         {
           new_portamento = -minor_command;
-          let target = new_period;
+          let target = baseline_period;
           target -= minor_command;
           this.mod_portamento_target[i] = target;
           break;
@@ -845,7 +860,7 @@ console.log("unique values: " + unique_values);
         case 0x20:
         {
           new_portamento = minor_command;
-          let target = new_period;
+          let target = baseline_period;
           target += minor_command;
           this.mod_portamento_target[i] = target;
           break;
@@ -866,17 +881,19 @@ console.log("unique values: " + unique_values);
         break;
       }
 
-      // Always set the period even if there's no sample specified.
-      // Example: winners.mod (position 21 / pattern 15)
-      this.setMODPeriod(i, new_period);
-
-      if ((sample_index > 0) && (sample_index < 32)) {
+      if (play_period != 0) {
         if (this.is_channel_playing[i]) {
-          this.loadMODSample(i, sample_index, new_period);
+          this.loadMODSample(i, sample_index, play_period);
+        }
+      } else {
+        // No new note struck. However, if a sample was specified, it resets
+        // the volume on the channel.
+        if (sample_index != -1) {
+          this.mod_volume[i] = this.mod_sample[i].volume;
         }
       }
 
-      // Set these last because loadMODSample clears it.
+      // Set these last because we may have reset them above.
       if (new_volume != -1) {
         this.mod_volume[i] = new_volume;
       }
@@ -886,19 +903,26 @@ console.log("unique values: " + unique_values);
   }
 
   loadMODSample(channel, sample_index, period) {
-    const sample = this.samples[sample_index];
-    this.mod_sample[channel] = sample.binary;
-    this.mod_sample_end[channel] = sample.binary.length;
-    this.mod_sample_repeat_start[channel] = sample.repeat_start;
-    this.mod_sample_repeat_length[channel] = sample.repeat_length;
+    // There will be a period (the note played) but the sample may be the
+    // current one for this channel.
+    if (sample_index != -1) {
+      const sample = this.samples[sample_index];
+      this.mod_sample[channel] = sample;
+      this.mod_sample_binary[channel] = sample.binary;
+      this.mod_sample_end[channel] = sample.binary.length;
+      this.mod_sample_repeat_start[channel] = sample.repeat_start;
+      this.mod_sample_repeat_length[channel] = sample.repeat_length;
+      const effect = this.sample_effect[sample_index];
+      const effect_table = this.effects_tables[effect];
+      this.mod_sample_effect_table[channel] = effect_table;
+
+      this.mod_volume[channel] = this.mod_sample[channel].volume;
+    }
+
     this.mod_sample_index[channel] = -1;
-    const effect = this.sample_effect[sample_index];
-    const effect_table = this.effects_tables[effect];
-    this.mod_sample_effect_table[channel] = effect_table;
 
     this.setMODPeriod(channel, period);
 
-    this.mod_volume[channel] = sample.volume;
     this.mod_volume_slide[channel] = 0;
     this.mod_portamento[channel] = 0;
 
