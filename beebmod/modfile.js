@@ -136,7 +136,11 @@ MODFile.prototype.parse = function() {
     let volume = binary[sample_meta_offset + 25];
     let repeat_start = (binary[sample_meta_offset + 26] * 256);
     repeat_start += binary[sample_meta_offset + 27];
-    repeat_start *= 2;
+    // Old-style 15 sample SoundTracker modules have the repeat start in
+    // bytes, not words.
+    if (num_samples == 31) {
+      repeat_start *= 2;
+    }
     let repeat_length = (binary[sample_meta_offset + 28] * 256);
     repeat_length += binary[sample_meta_offset + 29];
     repeat_length *= 2;
@@ -145,6 +149,7 @@ MODFile.prototype.parse = function() {
     if (sample_extent > binary_length) {
       return 0;
     }
+
     let sample_binary = binary.slice(samples_offset, sample_extent);
     // MOD files store sample data as signed 8-bit.
     sample_binary = new Int8Array(sample_binary);
