@@ -67,6 +67,8 @@ function MODFile(binary) {
   this.num_patterns = 0;
   this.positions = new Uint8Array(128);
   this.patterns = new Array();
+
+  this.samples.fill(null);
 }
 
 MODFile.prototype.parse = function() {
@@ -157,6 +159,8 @@ MODFile.prototype.parse = function() {
 
     samples_offset += sample_length;
   }
+
+  return 1;
 }
 
 MODFile.prototype.getName = function() {

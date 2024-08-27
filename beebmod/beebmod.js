@@ -2,6 +2,7 @@
 
 async function beebmod() {
   window.beebmod_play_sample_channel = 0;
+  window.beebmod_mod_file = null;
 
   beebmod_setup_listeners();
   // Wait for audio setup to finish because loading a file needs to post
@@ -183,16 +184,20 @@ function beebmod_loaded(e) {
 }
 
 function load_mod_file(binary) {
+  window.beebmod_mod_file = null;
+
   sample_table_clear();
 
   log("MOD file length: " + binary.length);
 
   const modfile = new MODFile(binary);
   const ret = modfile.parse();
-  if (ret == 0) {
+  if (ret != 1) {
     log("MOD parse failure");
     return;
   }
+
+  window.beebmod_mod_file = modfile;
 
   const num_positions = modfile.getNumPositions();
   const num_patterns = modfile.getNumPatterns();
@@ -205,6 +210,9 @@ function load_mod_file(binary) {
 
   for (let i = 1; i < 32; ++i) {
     const sample = modfile.getSample(i);
+    if (sample == null) {
+      continue;
+    }
     const name = sample.name;
     const length = sample.binary.length;
     if ((name.length > 0) || (length > 0)) {
