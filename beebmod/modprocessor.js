@@ -50,6 +50,7 @@ class MODProcessor extends AudioWorkletProcessor {
     this.mod_period = new Uint16Array(4);
     this.mod_volume = new Uint16Array(4);
     this.mod_portamento = new Int16Array(4);
+    this.mod_last_portamento = new Int16Array(4);
     this.mod_portamento_target = new Uint16Array(4);
     this.mod_volume_slide = new Int8Array(4);
     this.s8_outputs = new Int8Array(4);
@@ -362,15 +363,6 @@ console.log("unique values: " + unique_values);
         this.mod_ticks_counter--;
         if (this.mod_ticks_counter == 0) {
           this.mod_ticks_counter = this.mod_speed;
-
-          this.mod_portamento[0] = 0;
-          this.mod_portamento[1] = 0;
-          this.mod_portamento[2] = 0;
-          this.mod_portamento[3] = 0;
-          this.mod_volume_slide[0] = 0;
-          this.mod_volume_slide[1] = 0;
-          this.mod_volume_slide[2] = 0;
-          this.mod_volume_slide[3] = 0;
 
           if (this.is_playing) {
             this.loadMODRowAndAdvance();
@@ -790,6 +782,11 @@ console.log("unique values: " + unique_values);
         if (song_period != 0) {
           this.mod_portamento_target[i] = song_period;
         }
+        // If the slide rate is zero, use the old slide rate.
+        if (minor_command == 0) {
+          minor_command = this.mod_last_portamento[i];
+        }
+        this.mod_last_portamento[i] = minor_command;
         if (this.mod_portamento_target[i] > this.mod_period[i]) {
           // Sliding positively, which is a portamento down.
           new_portamento = minor_command;
