@@ -330,8 +330,22 @@ console.log("unique values: " + unique_values);
       output_channel[i] = value;
 
       this.host_samples_counter--;
-      if (this.host_samples_counter == 0) {
-        // Do 50Hz tick effects.
+      if (this.host_samples_counter > 0) {
+        continue;
+      }
+
+      // It's a song tick.
+      // Check if it's the first tick in a line, or not.
+      this.host_samples_counter = this.host_samples_per_tick;
+      this.mod_ticks_counter--;
+      if (this.mod_ticks_counter == 0) {
+        this.mod_ticks_counter = this.mod_speed;
+
+        if (this.is_playing) {
+          this.loadMODRowAndAdvance();
+        }
+      } else {
+        // Do post-first-tick effects.
         for (let j = 0; j < 4; ++j) {
           const volume_slide = this.mod_volume_slide[j];
           let new_volume = (this.mod_volume[j] + volume_slide);
@@ -356,17 +370,6 @@ console.log("unique values: " + unique_values);
             }
           }
           this.setMODPeriod(j, period);
-        }
-
-        // Check if it's a song SPEED tick.
-        this.host_samples_counter = this.host_samples_per_tick;
-        this.mod_ticks_counter--;
-        if (this.mod_ticks_counter == 0) {
-          this.mod_ticks_counter = this.mod_speed;
-
-          if (this.is_playing) {
-            this.loadMODRowAndAdvance();
-          }
         }
       }
     }
