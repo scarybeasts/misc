@@ -761,6 +761,7 @@ console.log("unique values: " + unique_values);
       let new_volume = -1;
       let new_portamento = 0;
       let new_volume_slide = 0;
+      let period_adjust = 0;
 
       const command = note.command;
       let major_command = (command >> 8);
@@ -837,31 +838,15 @@ console.log("unique values: " + unique_values);
         major_command = (minor_command & 0xF0);
         minor_command = (minor_command & 0x0F);
 
-        // Work out baseline period for fine slide.
-        let baseline_period = song_period;
-        if (baseline_period == 0) {
-          baseline_period = this.mod_period[i];
-        }
-
         switch (major_command) {
         // Fineslide up.
         case 0x10:
-        {
-          new_portamento = -minor_command;
-          let target = baseline_period;
-          target -= minor_command;
-          this.mod_portamento_target[i] = target;
+          period_adjust = -minor_command;
           break;
-        }
         // Fineslide down.
         case 0x20:
-        {
-          new_portamento = minor_command;
-          let target = baseline_period;
-          target += minor_command;
-          this.mod_portamento_target[i] = target;
+          period_adjust = minor_command;
           break;
-        }
         default:
           break;
         }
@@ -896,6 +881,9 @@ console.log("unique values: " + unique_values);
       }
       this.mod_portamento[i] = new_portamento;
       this.mod_volume_slide[i] = new_volume_slide;
+      if (period_adjust != 0) {
+        this.setMODPeriod(i, (this.mod_period[i] + period_adjust));
+      }
     }
   }
 
