@@ -51,8 +51,12 @@ class MODProcessor extends AudioWorkletProcessor {
     this.mod_volume = new Uint16Array(4);
     this.mod_portamento = new Int16Array(4);
     this.mod_last_portamento = new Int16Array(4);
+    this.mod_last_note_period = new Uint16Array(4);
     this.mod_portamento_target = new Uint16Array(4);
     this.mod_volume_slide = new Int8Array(4);
+    this.mod_arp_base_note = new Int8Array(4);
+    this.mod_arp_note2 = new Int8Array(4);
+    this.mod_arp_note3 = new Int8Array(4);
     this.s8_outputs = new Int8Array(4);
     for (let i = 0; i < 4; ++i) {
       this.mod_sample[i] = null;
@@ -337,9 +341,9 @@ console.log("unique values: " + unique_values);
       // It's a song tick.
       // Check if it's the first tick in a line, or not.
       this.host_samples_counter = this.host_samples_per_tick;
-      this.mod_ticks_counter--;
-      if (this.mod_ticks_counter == 0) {
-        this.mod_ticks_counter = this.mod_speed;
+      this.mod_ticks_counter++;
+      if (this.mod_ticks_counter == this.mod_speed) {
+        this.mod_ticks_counter = 0;
 
         if (this.is_playing) {
           this.loadMODRowAndAdvance();
@@ -347,6 +351,23 @@ console.log("unique values: " + unique_values);
       } else {
         // Do post-first-tick effects.
         for (let j = 0; j < 4; ++j) {
+          const arp_base_note = this.mod_arp_base_note[j];
+          if (arp_base_note != -1) {
+            let arp_note;
+            switch (this.mod_ticks_counter % 3) {
+            case 0:
+              arp_note = arp_base_note;
+              break;
+            case 1:
+              arp_note = this.mod_arp_note2[j];
+              break;
+            case 2:
+              arp_note = this.mod_arp_note3[j];
+              break;
+            }
+            const arp_period = this.note_to_period[arp_note];
+            this.setMODPeriod(j, arp_period);
+          }
           const volume_slide = this.mod_volume_slide[j];
           let new_volume = (this.mod_volume[j] + volume_slide);
           if (new_volume < 0) {
@@ -758,6 +779,9 @@ console.log("unique values: " + unique_values);
       // This may be a note to play, or it can be something else, such as a
       // note to slide towards.
       const song_period = note.period;
+      if (song_period != 0) {
+        this.mod_last_note_period[i] = song_period;
+      }
       // The note, if any, to actually play.
       let play_period = song_period;
 
@@ -765,11 +789,33 @@ console.log("unique values: " + unique_values);
       let new_portamento = 0;
       let new_volume_slide = 0;
       let period_adjust = 0;
+      let new_arp_base_note = -1;
 
       const command = note.command;
       let major_command = (command >> 8);
       let minor_command = (command & 0xFF);
       switch (major_command) {
+      // Arpeggio.
+      case 0x0:
+      {
+        const note2 = (minor_command >> 4);
+        const note3 = (minor_command & 0x0F);
+        // Check if it's simply an empty command.
+        if ((note2 == 0) && (note3 == 0)) {
+          break;
+        }
+
+        for (let j = 0; j < 36; ++j) {
+          if (this.note_to_period[j] <= this.mod_last_note_period[i]) {
+            new_arp_base_note = j;
+            break;
+          }
+        }
+        // Lacks bounds checking.
+        this.mod_arp_note2[i] = (new_arp_base_note + note2);
+        this.mod_arp_note3[i] = (new_arp_base_note + note3);
+        break;
+      }
       // Portamento up.
       case 0x1:
         new_portamento = -minor_command;
@@ -887,6 +933,7 @@ console.log("unique values: " + unique_values);
       if (period_adjust != 0) {
         this.setMODPeriod(i, (this.mod_period[i] + period_adjust));
       }
+      this.mod_arp_base_note[i] = new_arp_base_note;
     }
   }
 
@@ -949,7 +996,7 @@ console.log("unique values: " + unique_values);
   setMODSpeed(speed) {
     // speed, aka. SPD, is the number of 50Hz ticks between pattern rows.
     this.mod_speed = speed;
-    this.mod_ticks_counter = speed;
+    this.mod_ticks_counter = 0;
     this.host_samples_per_tick = Math.round(this.rate / 50);
     this.host_samples_counter = this.host_samples_per_tick;
   }
