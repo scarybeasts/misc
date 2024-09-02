@@ -20,10 +20,11 @@ class MODProcessor extends AudioWorkletProcessor {
 
     // State the main page can configure.
     this.is_channel_playing = new Uint8Array(4);
-    this.sample_effect = new Uint8Array(32);
     for (let i = 0; i < 4; ++i) {
       this.is_channel_playing[i] = 1;
     }
+    this.sample_half_res = new Uint8Array(32);
+    this.sample_effect = new Uint8Array(32);
 
     // Play state.
     this.is_amiga = true;
@@ -46,6 +47,7 @@ class MODProcessor extends AudioWorkletProcessor {
     this.mod_sample_repeat_start = new Uint16Array(4);
     this.mod_sample_repeat_length = new Uint16Array(4);
     this.mod_sample_index = new Int32Array(4);
+    this.mod_sample_half_res = new Uint8Array(4);
     this.mod_sample_effect_table = new Array(4);
     this.mod_period = new Uint16Array(4);
     this.mod_volume = new Uint16Array(4);
@@ -450,6 +452,12 @@ console.log("unique values: " + unique_values);
         index = this.mod_sample_index[channel];
       }
     }
+    this.mod_sample_index[channel] = index;
+
+    if (this.mod_sample_half_res[channel]) {
+      index &= ~1;
+    }
+
     let s8_output = this.mod_sample_binary[channel][index];
     const effect_table = this.mod_sample_effect_table[channel];
     if (effect_table != null) {
@@ -466,7 +474,6 @@ console.log("unique values: " + unique_values);
     s8_output = Math.round(s8_output / 8);
 
     this.s8_outputs[channel] = s8_output;
-    this.mod_sample_index[channel] = index;
   }
 
   processBeeb() {
@@ -693,6 +700,10 @@ console.log("unique values: " + unique_values);
       const sample_index = data_array[2];
       const note = data_array[3];
       this.handlePlaySample(channel, sample_index, note);
+    } else if (name == "SAMPLE_HALF_RES") {
+      const sample_index = data_array[1];
+      const half_res = data_array[2];
+      this.sample_half_res[sample_index] = half_res;
     } else if (name == "SAMPLE_EFFECT") {
       const sample_index = data_array[1];
       const effect = data_array[2];
@@ -950,6 +961,7 @@ console.log("unique values: " + unique_values);
       const effect = this.sample_effect[sample_index];
       const effect_table = this.effects_tables[effect];
       this.mod_sample_effect_table[channel] = effect_table;
+      this.mod_sample_half_res[channel] = this.sample_half_res[sample_index];
 
       this.mod_volume[channel] = this.mod_sample[channel].volume;
     }
@@ -960,6 +972,7 @@ console.log("unique values: " + unique_values);
 
     this.mod_volume_slide[channel] = 0;
     this.mod_portamento[channel] = 0;
+    this.mod_arp_base_note[channel] = -1;
 
     // Need to set this to 0 so that our index of -1 gets incremented to 0
     // at first tick.

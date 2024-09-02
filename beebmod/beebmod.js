@@ -153,14 +153,21 @@ function sample_table_add(i,
   repeat_start_cell.innerText = repeat_start.toString();
   const repeat_length_cell = row.insertCell(5);
   repeat_length_cell.innerText = repeat_length.toString();
-  const effect_cell = row.insertCell(6);
+  const half_res_cell = row.insertCell(6);
+  const half_res_checkbox = document.createElement("input");
+  half_res_checkbox.name = index_string;
+  half_res_checkbox.type = "checkbox";
+  half_res_checkbox.checked = false;
+  half_res_checkbox.addEventListener("change", beebmod_sample_half_res_changed);
+  half_res_cell.appendChild(half_res_checkbox);
+  const effect_cell = row.insertCell(7);
   const effect_input = document.createElement("input");
   effect_input.name = index_string;
   effect_input.type = "number";
   effect_input.value = 0;
   effect_input.addEventListener("change", beebmod_sample_effect_changed);
   effect_cell.appendChild(effect_input);
-  const play_cell = row.insertCell(7);
+  const play_cell = row.insertCell(8);
   const play_input = document.createElement("input");
   play_input.name = index_string;
   play_input.type = "text";
@@ -378,6 +385,14 @@ function beebmod_play_sample(event) {
     channel = 0;
   }
   window.beebmod_play_sample_channel = channel;
+}
+
+function beebmod_sample_half_res_changed(event) {
+  const target = event.target;
+  const name = target.name;
+  const sample_index = Number(name);
+  const checked = target.checked;
+  window.beebmod_port.postMessage(["SAMPLE_HALF_RES", sample_index, checked]);
 }
 
 function beebmod_sample_effect_changed(event) {
