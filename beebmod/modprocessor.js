@@ -675,11 +675,17 @@ console.log("unique values: " + unique_values);
       this.beeb_period_advances = this.beeb_period_advances_15k;
       this.beeb_max_channel = 1;
       this.beeb_output_divider = 2.0;
-    } else if (name == "BEEB_MERGED3") {
+    } else if (name == "BEEB_MERGED3_7K") {
       this.is_amiga = false;
       this.beeb_channels = 3;
       this.beeb_max_channel = 3;
       this.beeb_period_advances = this.beeb_period_advances_7k;
+      this.beeb_output_divider = 3.0;
+    } else if (name == "BEEB_MERGED3_10K") {
+      this.is_amiga = false;
+      this.beeb_channels = 3;
+      this.beeb_max_channel = 2;
+      this.beeb_period_advances = this.beeb_period_advances_10k;
       this.beeb_output_divider = 3.0;
     } else if (name == "BEEB_MERGED_GAIN") {
       const gain = data_array[1];

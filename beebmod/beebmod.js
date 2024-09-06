@@ -33,8 +33,14 @@ function beebmod_setup_listeners() {
       document.getElementById("radio_beeb_merged2_15k");
   radio_beeb_merged2_15k.addEventListener("change",
                                           beebmod_radio_beeb_merged2_15k);
-  const radio_beeb_merged3 = document.getElementById("radio_beeb_merged3");
-  radio_beeb_merged3.addEventListener("change", beebmod_radio_beeb_merged3);
+  const radio_beeb_merged3_7k =
+      document.getElementById("radio_beeb_merged3_7k");
+  radio_beeb_merged3_7k.addEventListener("change",
+                                         beebmod_radio_beeb_merged3_7k);
+  const radio_beeb_merged3_10k =
+      document.getElementById("radio_beeb_merged3_10k");
+  radio_beeb_merged3_10k.addEventListener("change",
+                                          beebmod_radio_beeb_merged3_10k);
   for (let i = 1; i <= 4; ++i) {
     const checkbox_play = document.getElementById("checkbox_play" + i);
     checkbox_play.addEventListener("change", beebmod_checkbox_play);
@@ -271,8 +277,12 @@ function beebmod_radio_beeb_merged2_15k() {
   window.beebmod_port.postMessage(["BEEB_MERGED2_15K"]);
 }
 
-function beebmod_radio_beeb_merged3() {
-  window.beebmod_port.postMessage(["BEEB_MERGED3"]);
+function beebmod_radio_beeb_merged3_7k() {
+  window.beebmod_port.postMessage(["BEEB_MERGED3_7K"]);
+}
+
+function beebmod_radio_beeb_merged3_10k() {
+  window.beebmod_port.postMessage(["BEEB_MERGED3_10K"]);
 }
 
 function beebmod_checkbox_filter(event) {
