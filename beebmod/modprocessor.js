@@ -31,9 +31,10 @@ class MODProcessor extends AudioWorkletProcessor {
     this.beeb_channels = 0;
     this.beeb_merged_gain = 0.0;
     this.beeb_offset = 0;
-    this.beeb_max_channel = 0;
+    this.beeb_num_sn_write_slots = 0;
     this.beeb_output_divider = 0.0;
     this.beeb_sn_period = new Uint16Array(4);
+
     this.is_playing = false;
     this.rate = sampleRate;
     this.mod_position = 0;
@@ -479,13 +480,14 @@ console.log("unique values: " + unique_values);
   processBeeb() {
     this.beeb_sn_cycles_counter--;
     if (this.beeb_sn_cycles_counter == 0) {
-      // A new command can be given to the SN chip once every 8 SN cycles,
-      // which is 32us / 31.25kHz.
-      this.beeb_sn_cycles_counter = 8;
+      // A new command can be given to the SN chip once every 4 SN cycles,
+      // which is 16us / 62.5kHz.
+      this.beeb_sn_cycles_counter = 4;
 
-      let channel = this.beeb_sn_channel;
+      let beeb_sn_write_slot = this.beeb_sn_write_slot;
       if (this.beeb_channels > 1) {
-        if (channel == 0) {
+        /* Some form of merged channels output scheme. */
+        if (beeb_sn_write_slot == 0) {
           this.advanceBeeb(0);
           this.advanceBeeb(1);
           this.advanceBeeb(2);
@@ -517,54 +519,58 @@ console.log("unique values: " + unique_values);
 
         const samples_total = this.beeb_samples_total;
         if (this.beeb_channels == 2) {
-          if (channel == 0) {
+          /* Output via 2 merged channels. */
+          if (beeb_sn_write_slot == 0) {
             const sn_vol1 = this.beeb_u8_to_sn_vol_pair1[samples_total];
             this.beeb_sn_vols[0] = sn_vol1;
             // Silence the unused channels in this mode in case coming from a
             // different mode.
             this.beeb_sn_vols[2] = 0xF;
             this.beeb_sn_vols[3] = 0xF;
-          } else if (channel == 1) {
+          } else if (beeb_sn_write_slot == 1) {
             const sn_vol2 = this.beeb_u8_to_sn_vol_pair2[samples_total];
             this.beeb_sn_vols[1] = sn_vol2;
           }
         } else {
-          if (channel == 0) {
+          /* Output via 3 merged channels. */
+          if (beeb_sn_write_slot == 0) {
             const sn_vol1 = this.beeb_u8_to_sn_vol_trio1[samples_total];
             this.beeb_sn_vols[0] = sn_vol1;
             // Silence the unused channels in this mode in case coming from a
             // different mode.
             this.beeb_sn_vols[3] = 0xF;
-          } else if (channel == 1) {
+          } else if (beeb_sn_write_slot == 1) {
             const sn_vol2 = this.beeb_u8_to_sn_vol_trio2[samples_total];
             this.beeb_sn_vols[1] = sn_vol2;
-          } else if (channel == 2) {
+          } else if (beeb_sn_write_slot == 2) {
             const sn_vol3 = this.beeb_u8_to_sn_vol_trio3[samples_total];
             this.beeb_sn_vols[2] = sn_vol3;
           }
         }
       } else {
-        this.advanceBeeb(channel);
-        let u8_sample_value = (this.s8_outputs[channel] + 128);
-        u8_sample_value += this.beeb_offset;
-        if (u8_sample_value > 255) {
-          u8_sample_value = 255;
-        } else if (u8_sample_value < 0) {
-          u8_sample_value = 0;
+        /* One SN channel per MOD output channel scheme. */
+        if (beeb_sn_write_slot < 4) {
+          this.advanceBeeb(beeb_sn_write_slot);
+          let u8_sample_value = (this.s8_outputs[beeb_sn_write_slot] + 128);
+          u8_sample_value += this.beeb_offset;
+          if (u8_sample_value > 255) {
+            u8_sample_value = 255;
+          } else if (u8_sample_value < 0) {
+            u8_sample_value = 0;
+          }
+          const sn_vol = this.beeb_u8_to_sn_vol[u8_sample_value];
+          this.beeb_sn_vols[beeb_sn_write_slot] = sn_vol;
         }
-        const sn_vol = this.beeb_u8_to_sn_vol[u8_sample_value];
-        this.beeb_sn_vols[channel] = sn_vol;
       }
 
-      channel++;
-      // 7kHz: 4 channel slots.
-      // 10kHz: 3 channel slots.
-      // 15kHz: 2 channel slots.
-      const max_channel = this.beeb_max_channel;
-      if (channel > max_channel) {
-        channel = 0;
+      beeb_sn_write_slot++;
+      // 7kHz: 8 write slots.
+      // 10kHz: 6 write slots.
+      // 15kHz: 4 write slots.
+      if (beeb_sn_write_slot >= this.beeb_num_sn_write_slots) {
+        beeb_sn_write_slot = 0;
       }
-      this.beeb_sn_channel = channel;
+      this.beeb_sn_write_slot = beeb_sn_write_slot;
     }
 
     let value = 0;
@@ -655,36 +661,36 @@ console.log("unique values: " + unique_values);
       this.is_amiga = false;
       this.beeb_channels = 1;
       this.beeb_period_advances = this.beeb_period_advances_7k;
-      this.beeb_max_channel = 3;
+      this.beeb_num_sn_write_slots = 8;
       this.beeb_output_divider = 3.0;
     } else if (name == "BEEB_MERGED2_7K") {
       this.is_amiga = false;
       this.beeb_channels = 2;
       this.beeb_period_advances = this.beeb_period_advances_7k;
-      this.beeb_max_channel = 3;
+      this.beeb_num_sn_write_slots = 8;
       this.beeb_output_divider = 2.0;
     } else if (name == "BEEB_MERGED2_10K") {
       this.is_amiga = false;
       this.beeb_channels = 2;
       this.beeb_period_advances = this.beeb_period_advances_10k;
-      this.beeb_max_channel = 2;
+      this.beeb_num_sn_write_slots = 6;
       this.beeb_output_divider = 2.0;
     } else if (name == "BEEB_MERGED2_15K") {
       this.is_amiga = false;
       this.beeb_channels = 2;
       this.beeb_period_advances = this.beeb_period_advances_15k;
-      this.beeb_max_channel = 1;
+      this.beeb_num_sn_write_slots = 4;
       this.beeb_output_divider = 2.0;
     } else if (name == "BEEB_MERGED3_7K") {
       this.is_amiga = false;
       this.beeb_channels = 3;
-      this.beeb_max_channel = 3;
+      this.beeb_num_sn_write_slots = 8;
       this.beeb_period_advances = this.beeb_period_advances_7k;
       this.beeb_output_divider = 3.0;
     } else if (name == "BEEB_MERGED3_10K") {
       this.is_amiga = false;
       this.beeb_channels = 3;
-      this.beeb_max_channel = 2;
+      this.beeb_num_sn_write_slots = 6;
       this.beeb_period_advances = this.beeb_period_advances_10k;
       this.beeb_output_divider = 3.0;
     } else if (name == "BEEB_MERGED_GAIN") {
@@ -1022,7 +1028,7 @@ console.log("unique values: " + unique_values);
 
   resetBeeb() {
     this.beeb_sn_cycles_counter = 1;
-    this.beeb_sn_channel = 0;
+    this.beeb_sn_write_slot = 0;
 
     for (let i = 0; i < 4; ++i) {
       this.beeb_sn_is_highs[i] = 0;
