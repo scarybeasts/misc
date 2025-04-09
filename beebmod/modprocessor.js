@@ -657,11 +657,11 @@ console.log("unique values: " + unique_values);
       this.handleStop();
     } else if (name == "AMIGA") {
       this.is_amiga = true;
-    } else if (name == "BEEB_SEPARATE_10K") {
+    } else if (name == "BEEB_SEPARATE_15K") {
       this.is_amiga = false;
       this.beeb_channels = 1;
-      this.beeb_period_advances = this.beeb_period_advances_10k;
-      this.beeb_num_sn_write_slots = 6;
+      this.beeb_period_advances = this.beeb_period_advances_15k;
+      this.beeb_num_sn_write_slots = 4;
       this.beeb_output_divider = 3.0;
     } else if (name == "BEEB_MERGED2_7K") {
       this.is_amiga = false;
