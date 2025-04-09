@@ -53,6 +53,8 @@ function beebmod_setup_listeners() {
   }
   const checkbox_filter = document.getElementById("checkbox_filter");
   checkbox_filter.addEventListener("change", beebmod_checkbox_filter);
+  const checkbox_volumes = document.getElementById("checkbox_volumes");
+  checkbox_volumes.addEventListener("change", beebmod_checkbox_volumes);
   const number_beeb_merged_gain =
       document.getElementById("number_beeb_merged_gain");
   number_beeb_merged_gain.addEventListener("change",
@@ -296,6 +298,11 @@ function beebmod_checkbox_filter(event) {
     frequency = 48000;
   }
   window.beebmod_filter_node.frequency.value = frequency;
+}
+
+function beebmod_checkbox_volumes(event) {
+  const checked = event.target.checked;
+  window.beebmod_port.postMessage(["VOLUMES", checked]);
 }
 
 function beebmod_number_beeb_merged_gain(event) {

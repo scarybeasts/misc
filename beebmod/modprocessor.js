@@ -25,6 +25,7 @@ class MODProcessor extends AudioWorkletProcessor {
     }
     this.sample_half_res = new Uint8Array(32);
     this.sample_effect = new Uint8Array(32);
+    this.do_volumes = false;
 
     // Play state.
     this.is_amiga = true;
@@ -467,12 +468,11 @@ console.log("unique values: " + unique_values);
       s8_output = effect_table[u8_index];
     }
 
-    // 8 levels of volume for now.
-    let volume = this.mod_volume[channel];
-    volume += 7;
-    volume = Math.floor(volume / 8);
-    s8_output *= volume;
-    s8_output = Math.round(s8_output / 8);
+    if (this.do_volumes) {
+      let volume = this.mod_volume[channel];
+      s8_output *= volume;
+      s8_output = Math.round(s8_output / 64.0);
+   }
 
     this.s8_outputs[channel] = s8_output;
   }
@@ -724,6 +724,9 @@ console.log("unique values: " + unique_values);
       const sample_index = data_array[1];
       const volume = data_array[2];
       this.samples[sample_index].volume = volume;
+    } else if (name == "VOLUMES") {
+      const do_volumes = data_array[1];
+      this.do_volumes = do_volumes;
     } else {
       console.log("unknown command: " + name);
     }
