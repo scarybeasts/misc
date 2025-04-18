@@ -103,7 +103,10 @@ main(int argc, const char* argv[]) {
   if (remain < 8) {
     errx(1, "rjp file too small");
   }
-  if (memcmp(p_rjp, "RJP1SMOD", 8)) {
+  if (memcmp(p_rjp, "RJP0SMOD", 8) &&
+      memcmp(p_rjp, "RJP1SMOD", 8) &&
+      memcmp(p_rjp, "RJP2SMOD", 8) &&
+      memcmp(p_rjp, "RJP3SMOD", 8)) {
     errx(1, "rjp file bad magic");
   }
   if (smp_len < 4) {
