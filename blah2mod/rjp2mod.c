@@ -30,6 +30,7 @@ main(int argc, const char* argv[]) {
   uint32_t subsong;
   size_t rjp_len;
   size_t smp_len;
+  size_t smp_offset;
   uint8_t* p_rjp;
   uint8_t* p_smp;
   int fd;
@@ -109,15 +110,20 @@ main(int argc, const char* argv[]) {
       memcmp(p_rjp, "RJP3SMOD", 8)) {
     errx(1, "rjp file bad magic");
   }
-  if (smp_len < 4) {
-    errx(1, "smp file too small");
-  }
-  if (memcmp(p_smp, "RJP1", 4)) {
+  if ((smp_len >= 4) && !memcmp(p_smp, "RJP1", 4)) {
+    smp_offset = 4;
+  } else if ((smp_len >= 12) && !memcmp((p_smp + 8), "RJP0", 4)) {
+    /* The offset the player uses (in uade) still seems to be 4, even though
+     * this means a sample starting at offset 2 (as per rjp.menu) has RJP0
+     * stamped at the beginning.
+     */
+    smp_offset = 4;
+  } else {
     errx(1, "smp file bad magic");
   }
 
-  p_samples_base = (p_smp + 4);
-  smp_len -= 4;
+  p_samples_base = (p_smp + smp_offset);
+  smp_len -= smp_offset;
 
   p_buf += 8;
   remain -= 8;
