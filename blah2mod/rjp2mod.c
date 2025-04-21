@@ -43,6 +43,8 @@ main(int argc, const char* argv[]) {
   size_t chunk_lengths[8];
   uint8_t* p_sample_chunk;
   uint32_t num_samples;
+  uint8_t* p_sample_envelope_chunk;
+  uint32_t sample_envelope_data_size;
   uint8_t* p_subsongs_chunk;
   uint32_t num_subsongs;
   uint8_t* p_sequence_indexes_chunk;
@@ -160,6 +162,10 @@ main(int argc, const char* argv[]) {
     errx(1, "too few chunks");
   }
 
+  /* Second chunk includes at least sample envelope data. */
+  p_sample_envelope_chunk = p_chunks[1];
+  sample_envelope_data_size = chunk_lengths[1];
+
   /* First chunk is samples. */
   if ((chunk_lengths[0] % 32) != 0) {
     errx(1, "sample chunk size not aligned");
@@ -172,6 +178,7 @@ main(int argc, const char* argv[]) {
     uint8_t* p_sample = (p_sample_chunk + (i * 32));
     uint32_t sample_start = get_u32be(p_sample);
     uint32_t sample_length = get_u16be(p_sample + 18);
+    uint32_t sample_envelope_start = get_u16be(p_sample + 12);
     /* Length is in words, so double for bytes. */
     sample_length *= 2;
     /* (void) printf("sample %d, start %d length %d\n",
@@ -187,6 +194,13 @@ main(int argc, const char* argv[]) {
     if ((sample_start + sample_length) > smp_len) {
       errx(1, "sample end out of bounds");
     }
+    /* TODO: validate repeat start and length. */
+    if (sample_envelope_start > 0) {
+      if ((sample_envelope_start + 6) > sample_envelope_data_size) {
+        errx(1, "sample envelope data out of bounds");
+      }
+    }
+
     (void) snprintf(sample_filename, sizeof(sample_filename), "rjpsmp%d", i);
     /* fd = open(sample_filename, O_WRONLY | O_CREAT | O_TRUNC, 0600);
     if (fd == -1) {
@@ -195,8 +209,6 @@ main(int argc, const char* argv[]) {
     (void) write(fd, (p_samples_base + sample_start), sample_length);
     (void) close(fd); */
   }
-
-  /* Second chunk is some mysterious data of unknown purpose. */
 
   /* Third chunk is subsongs. */
   if ((chunk_lengths[2] % 4) != 0) {
@@ -235,7 +247,10 @@ main(int argc, const char* argv[]) {
   for (i = 0; i < 4; ++i) {
     uint32_t sequence_start_index;
     uint32_t sequence_index;
-    uint8_t channel_volume = 0;
+    uint8_t channel_volume;
+    uint8_t envelope_start;
+    uint8_t envelope_end;
+    uint8_t envelope_ticks;
     uint8_t channel_sequence_id = p_subsongs_chunk[(subsong * 4) + i];
     if (channel_sequence_id >= num_sequence_indexes) {
       errx(1, "channel sequence id out of range");
@@ -254,6 +269,12 @@ main(int argc, const char* argv[]) {
     /* Reset MOD output position for each channel. */
     mod_pattern = 0;
     mod_row = 0;
+
+    /* Reset RJP state. */
+    channel_volume = 0;
+    envelope_start = 0;
+    envelope_end = 0;
+    envelope_ticks = 0;
 
     sequence_index = sequence_start_index;
 
@@ -356,6 +377,7 @@ main(int argc, const char* argv[]) {
           }
         } else {
           uint8_t* p_rjp_sample;
+          uint32_t rjp_sample_envelope;
           static const uint16_t period_mapping[] = {
               /* B-1 to C-1, descending. */
               453, 480, 508, 538, 570, 604, 640, 678, 720, 762, 808, 856,
@@ -394,6 +416,28 @@ main(int argc, const char* argv[]) {
           /* Set channel volume from played sample. */
           p_rjp_sample = (p_sample_chunk + (rjp_sample * 32));
           channel_volume = p_rjp_sample[15];
+
+          /* Set up for a volume envelope if the sample has one. */
+          rjp_sample_envelope = get_u16be(p_rjp_sample + 12);
+          if (rjp_sample_envelope > 0) {
+            uint8_t* p_envelope =
+                (p_sample_envelope_chunk + rjp_sample_envelope);
+            /* Envelope appears to be something like 6 bytes:
+             * Start volume (0-0x40, all as percentage of declared volume)
+             * First target volume (0-0x40)
+             * Ticks to target
+             * Second target volume (0-0x40)
+             * Ticks to target
+             * (unknown?) Ticks to release?
+             */
+            envelope_start = p_envelope[0];
+            envelope_end = p_envelope[1];
+            envelope_ticks = p_envelope[2];
+          } else {
+            envelope_start = 0;
+            envelope_end = 0;
+            envelope_ticks = 0;
+          }
 
           if (rjp_next_set_speed != -1) {
             mod_command = (0xF00 | rjp_next_set_speed);
@@ -475,6 +519,12 @@ main(int argc, const char* argv[]) {
     uint8_t rjp_sample = mod_mod_to_rjp_sample_mapping[i];
     uint8_t* p_rjp_sample = (p_sample_chunk + (rjp_sample * 32));
     uint8_t finetune = 0;
+
+    (void) printf("    MOD sample %d is RJP sample %d @0x%x\n",
+                  i,
+                  rjp_sample,
+                  (0xc + (rjp_sample * 32)));
+
     (void) memset(string, '\0', sizeof(string));
     (void) snprintf(string, sizeof(string), "%s:%d", p_smp_file, rjp_sample);
     (void) write(fd, string, 22);
