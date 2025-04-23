@@ -56,19 +56,19 @@ main(int argc, const char* argv[]) {
   const char* p_rjp_file;
   const char* p_smp_file;
   uint32_t subsong;
-  size_t rjp_len;
-  size_t smp_len;
-  size_t smp_offset;
+  uint64_t rjp_len;
+  uint64_t smp_len;
+  uint64_t smp_offset;
   uint8_t* p_rjp;
   uint8_t* p_smp;
   int fd;
   struct stat statbuf;
   uint8_t* p_buf;
   uint8_t* p_samples_base;
-  size_t remain;
-  size_t num_chunks;
+  uint64_t remain;
+  uint64_t num_chunks;
   uint8_t* p_chunks[8];
-  size_t chunk_lengths[8];
+  uint64_t chunk_lengths[8];
   uint8_t* p_sample_chunk;
   uint32_t num_samples;
   uint8_t* p_sample_envelope_chunk;
@@ -204,23 +204,19 @@ main(int argc, const char* argv[]) {
   for (i = 0; i < num_samples; ++i) {
     char sample_filename[32];
     uint8_t* p_sample = (p_sample_chunk + (i * 32));
-    uint32_t sample_start = get_u32be(p_sample);
+    uint32_t sample_base = get_u32be(p_sample);
+    uint32_t sample_start_offset = get_u16be(p_sample + 16);
     uint32_t sample_length = get_u16be(p_sample + 18);
     uint32_t sample_envelope_start = get_u16be(p_sample + 12);
-    /* Length is in words, so double for bytes. */
+    /* Start offset / length is in words, so double for bytes. */
+    sample_start_offset *= 2;
     sample_length *= 2;
     /* (void) printf("sample %d, start %d length %d\n",
                   i,
                   sample_start,
                   sample_length); */
-    if (sample_start > smp_len) {
-      errx(1, "sample start out of bounds");
-    }
-    if ((sample_start + sample_length) < sample_start) {
-      errx(1, "wild sample size");
-    }
-    if ((sample_start + sample_length) > smp_len) {
-      errx(1, "sample end out of bounds");
+    if ((sample_base + sample_start_offset + sample_length) > smp_len) {
+      errx(1, "sample out of bounds");
     }
     /* TODO: validate repeat start and length. */
     if (sample_envelope_start > 0) {
