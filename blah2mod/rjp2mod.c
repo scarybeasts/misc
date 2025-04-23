@@ -8,6 +8,33 @@
 #include <unistd.h>
 #include <sys/stat.h>
 
+/* Not yet used in code. Adding here for documenation. */
+/* The structure of the sample records in the RJP file. */
+struct rjp_sample {
+  /* Offset in SMP file in bytes. Offsets start at byte 4, after the header. */
+  uint32_t base_offset;
+  /* Offset in SMP file in bytes. Used to modulate pitch of sample. */
+  uint32_t modulation_offset;
+  uint32_t unknown1;
+  /* Offset to a 6(?) byte envelope descriptor in the second RJP chunk. */
+  uint16_t envelope_offset;
+  /* 0 to 64. */
+  uint16_t volume;
+  /* Offset from base for the start, in words. Often 0. */
+  uint16_t start_offset;
+  /* Length from base + offset, in words. */
+  uint16_t length;
+  /* Offset from base for the repeat, in words. */
+  uint16_t repeat_offset;
+  /* In words. */
+  uint16_t repeat_length;
+  /* Could be a start offset to apply to the modulation base? */
+  uint16_t unknown2;
+  /* In words. */
+  uint16_t modulation_length;
+  uint32_t unknown3;
+};
+
 static uint32_t
 get_u16be(uint8_t* p) {
   uint32_t ret = p[1];
