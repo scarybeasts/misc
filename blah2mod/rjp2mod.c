@@ -1,5 +1,6 @@
 #include <err.h>
 #include <fcntl.h>
+#include <math.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -251,6 +252,8 @@ main(int argc, const char* argv[]) {
     uint8_t envelope_start;
     uint8_t envelope_end;
     uint8_t envelope_ticks;
+    uint8_t rjp_speed;
+    uint8_t mod_speed;
     uint8_t channel_sequence_id = p_subsongs_chunk[(subsong * 4) + i];
     if (channel_sequence_id >= num_sequence_indexes) {
       errx(1, "channel sequence id out of range");
@@ -271,6 +274,8 @@ main(int argc, const char* argv[]) {
     mod_row = 0;
 
     /* Reset RJP state. */
+    rjp_speed = 6;
+    mod_speed = 6;
     channel_volume = 0;
     envelope_start = 0;
     envelope_end = 0;
@@ -282,7 +287,6 @@ main(int argc, const char* argv[]) {
       uint32_t pattern_data_index;
       int32_t rjp_duration;
       int32_t rjp_sample;
-      int32_t rjp_next_set_speed;
       uint8_t pattern_id = p_pattern_ids_chunk[sequence_index];
       if (pattern_id == 0) {
         if (i == 0) {
@@ -315,7 +319,6 @@ main(int argc, const char* argv[]) {
       /* Iterate the RJP pattern data and convert to MOD. */
       rjp_duration = -1;
       rjp_sample = -1;
-      rjp_next_set_speed = -1;
       while (1) {
         uint8_t pattern_byte = p_pattern_data_chunk[pattern_data_index];
         int do_output_advance = 0;
@@ -349,7 +352,7 @@ main(int argc, const char* argv[]) {
               errx(1, "pattern data ran out of range");
             }
             if (i == 0) {
-              rjp_next_set_speed = p_pattern_data_chunk[pattern_data_index];
+              rjp_speed = p_pattern_data_chunk[pattern_data_index];
             }
             break;
           case 0x83:
@@ -439,11 +442,6 @@ main(int argc, const char* argv[]) {
             envelope_ticks = 0;
           }
 
-          if (rjp_next_set_speed != -1) {
-            mod_command = (0xF00 | rjp_next_set_speed);
-            rjp_next_set_speed = -1;
-          }
-
           do_output_advance = 1;
         }
         if (rjp_duration == 0xFF) {
@@ -452,22 +450,84 @@ main(int argc, const char* argv[]) {
         }
 
         if (do_output_advance) {
-          /* Write single MOD cell (value for one channel on one row). */
-          uint8_t* p_mod = mod_patterns;
-          p_mod += (((mod_pattern * 64) + mod_row) * 4 * 4);
-          p_mod += (i * 4);
+          uint32_t output_tick;
+          uint16_t volume_command = 0;
+          uint8_t channel_volume_delta = 0;
 
-          p_mod[0] = ((mod_sample & 0xF0) | (amiga_period >> 8));
-          p_mod[1] = ((uint8_t) amiga_period);
-          p_mod[2] = (((mod_sample & 0x0F) << 4) | (mod_command >> 8));
-          p_mod[3] = (mod_command & 0xFF);
+          if (mod_speed != rjp_speed) {
+            mod_speed = rjp_speed;
+            mod_command = (0xF00 | mod_speed);
+          }
 
-          mod_row += rjp_duration;
-          if (mod_row >= 64) {
-            mod_row -= 64;
-            mod_pattern++;
+          /* Calculate slope on any volume slide. */
+          if (envelope_ticks > 0) {
+            double volume_slope;
+            /* Envelope ticks are 50Hz ticks. This is different from song ticks,
+             * which are some multiple of 50Hz depending on the song speed.
+             */
+            volume_slope = (channel_volume * (envelope_start / 64.0));
+            volume_slope -= (channel_volume * (envelope_end / 64.0));
+            volume_slope /= envelope_ticks;
+            if (volume_slope < 0) {
+              //errx(1, "volume slide up not handled");
+            }
+            if (volume_slope >= 0.50) {
+              uint32_t volume_slope_rounded = (uint32_t) round(volume_slope);
+              /* Sharper slope: have to use volume slide. */
+              volume_command = (0xA00 | volume_slope_rounded);
+              channel_volume_delta = volume_slope_rounded;
+              channel_volume_delta *= (rjp_speed - 1);
+            } else if (volume_slope > 0) {
+              uint32_t volume_slope_rounded =
+                  (uint32_t) round(volume_slope * rjp_speed);
+              volume_command = 0xC00;
+              channel_volume_delta = volume_slope_rounded;
+            }
+          }
+
+          for (output_tick = 0; output_tick < rjp_duration; ++output_tick) {
+            uint8_t* p_mod;
+
             if (mod_pattern == k_mod_max_patterns) {
               errx(1, "exceeded max MOD patterns");
+            }
+
+            /* Write single MOD cell (value for one channel on one row). */
+            p_mod = mod_patterns;
+            p_mod += (((mod_pattern * 64) + mod_row) * 4 * 4);
+            p_mod += (i * 4);
+
+            /* If we have a non-volume command, that takes precedence for the
+             * first song time.
+             * This will happen if there's a song speed command.
+             */
+            if ((mod_command == 0) && (volume_command > 0)) {
+              mod_command = volume_command;
+	      if (volume_command == 0xC00) {
+                mod_command |= channel_volume;
+              }
+            }
+
+            p_mod[0] = ((mod_sample & 0xF0) | (amiga_period >> 8));
+            p_mod[1] = ((uint8_t) amiga_period);
+            p_mod[2] = (((mod_sample & 0x0F) << 4) | (mod_command >> 8));
+            p_mod[3] = (mod_command & 0xFF);
+
+            /* Only output the note once. */
+            mod_sample = 0;
+            amiga_period = 0;
+            mod_command = 0;
+
+            if (channel_volume_delta > channel_volume) {
+              channel_volume = 0;
+            } else {
+              channel_volume -= channel_volume_delta;
+            }
+
+            mod_row++;
+            if (mod_row == 64) {
+              mod_row = 0;
+              mod_pattern++;
             }
           }
           /* For channels other than the first, end when we fill the same
