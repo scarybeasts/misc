@@ -35,6 +35,14 @@ struct rjp_sample {
   uint32_t unknown3;
 };
 
+struct mod_sample {
+  struct rjp_sample rjp;
+  uint8_t* p_data;
+  uint32_t byte_len;
+  uint16_t repeat_start_words;
+  uint16_t repeat_len_words;
+};
+
 static uint32_t
 get_u16be(uint8_t* p) {
   uint32_t ret = p[1];
@@ -51,6 +59,12 @@ get_u32be(uint8_t* p) {
   return ret;
 }
 
+void
+put_u16be(uint8_t* p_buf, uint16_t val) {
+  p_buf[0] = (val >> 8);
+  p_buf[1] = (val & 0xFF);
+}
+
 int
 main(int argc, const char* argv[]) {
   const char* p_rjp_file;
@@ -64,13 +78,14 @@ main(int argc, const char* argv[]) {
   int fd;
   struct stat statbuf;
   uint8_t* p_buf;
-  uint8_t* p_samples_base;
+  uint8_t* p_sample_data_base;
   uint64_t remain;
   uint64_t num_chunks;
   uint8_t* p_chunks[8];
   uint64_t chunk_lengths[8];
   uint8_t* p_sample_chunk;
   uint32_t num_samples;
+  struct mod_sample* p_samples;
   uint8_t* p_sample_envelope_chunk;
   uint32_t sample_envelope_data_size;
   uint8_t* p_subsongs_chunk;
@@ -152,7 +167,7 @@ main(int argc, const char* argv[]) {
     errx(1, "smp file bad magic");
   }
 
-  p_samples_base = (p_smp + smp_offset);
+  p_sample_data_base = (p_smp + smp_offset);
   smp_len -= smp_offset;
 
   p_buf += 8;
@@ -201,29 +216,44 @@ main(int argc, const char* argv[]) {
   p_sample_chunk = p_chunks[0];
   num_samples = (chunk_lengths[0] / 32);
   (void) printf("num samples: %d\n", num_samples);
+
+  p_samples = calloc(num_samples, sizeof(struct mod_sample));
+
   for (i = 0; i < num_samples; ++i) {
     char sample_filename[32];
-    uint8_t* p_sample = (p_sample_chunk + (i * 32));
-    uint32_t sample_base = get_u32be(p_sample);
-    uint32_t sample_start_offset = get_u16be(p_sample + 16);
-    uint32_t sample_length = get_u16be(p_sample + 18);
-    uint32_t sample_envelope_start = get_u16be(p_sample + 12);
-    /* Start offset / length is in words, so double for bytes. */
-    sample_start_offset *= 2;
-    sample_length *= 2;
+    struct mod_sample* p_sample = (p_samples + i);
+    uint8_t* p_rjp_sample = (p_sample_chunk + (i * 32));
+
+    p_sample->rjp.base_offset = get_u32be(p_rjp_sample);
+    p_sample->rjp.start_offset = get_u16be(p_rjp_sample + 16);
+    p_sample->rjp.length = get_u16be(p_rjp_sample + 18);
+    p_sample->rjp.repeat_offset = get_u16be(p_rjp_sample + 20);
+    p_sample->rjp.repeat_length = get_u16be(p_rjp_sample + 22);
+    p_sample->rjp.envelope_offset = get_u16be(p_rjp_sample + 12);
+    p_sample->rjp.volume = get_u16be(p_rjp_sample + 14);
+
     /* (void) printf("sample %d, start %d length %d\n",
                   i,
                   sample_start,
                   sample_length); */
-    if ((sample_base + sample_start_offset + sample_length) > smp_len) {
+    if ((p_sample->rjp.base_offset +
+         (p_sample->rjp.start_offset * 2) +
+         (p_sample->rjp.length * 2)) > smp_len) {
       errx(1, "sample out of bounds");
     }
-    /* TODO: validate repeat start and length. */
-    if (sample_envelope_start > 0) {
-      if ((sample_envelope_start + 6) > sample_envelope_data_size) {
-        errx(1, "sample envelope data out of bounds");
-      }
+    if ((p_sample->rjp.base_offset +
+         (p_sample->rjp.repeat_offset * 2) +
+         (p_sample->rjp.repeat_length * 2)) > smp_len) {
+      errx(1, "sample repeat out of bounds");
     }
+    if ((p_sample->rjp.envelope_offset + 6) > sample_envelope_data_size) {
+      errx(1, "sample envelope data out of bounds");
+    }
+
+    p_sample->p_data = (p_sample_data_base + p_sample->rjp.base_offset);
+    p_sample->byte_len = (p_sample->rjp.length * 2);
+    p_sample->repeat_start_words = p_sample->rjp.repeat_offset;
+    p_sample->repeat_len_words = p_sample->rjp.repeat_length;
 
     (void) snprintf(sample_filename, sizeof(sample_filename), "rjpsmp%d", i);
     /* fd = open(sample_filename, O_WRONLY | O_CREAT | O_TRUNC, 0600);
@@ -599,9 +629,10 @@ main(int argc, const char* argv[]) {
   (void) write(fd, string, 20);
   /* MOD samples. */
   for (i = 1; i <= mod_num_samples; ++i) {
+    uint8_t buf[4];
     uint8_t rjp_sample = mod_mod_to_rjp_sample_mapping[i];
     uint8_t* p_rjp_sample = (p_sample_chunk + (rjp_sample * 32));
-    uint8_t finetune = 0;
+    struct mod_sample* p_sample = (p_samples + rjp_sample);
 
     (void) printf("    MOD sample %d is RJP sample %d @0x%x\n",
                   i,
@@ -611,14 +642,20 @@ main(int argc, const char* argv[]) {
     (void) memset(string, '\0', sizeof(string));
     (void) snprintf(string, sizeof(string), "%s:%d", p_smp_file, rjp_sample);
     (void) write(fd, string, 22);
-    /* Length in words, big endian (copy from RJP). */
-    (void) write(fd, (p_rjp_sample + 18), 2);
+    /* Length in words, big endian. */
+    put_u16be(buf, (p_sample->byte_len / 2));
+    (void) write(fd, buf, 2);
     /* Finetune. */
-    (void) write(fd, &finetune, 1);
+    buf[0] = 0;
+    (void) write(fd, buf, 1);
     /* Volume (copy from RJP). */
-    (void) write(fd, (p_rjp_sample + 15), 1);
-    /* Repeat start and length, both in words, big endian (copy from RJP). */
-    (void) write(fd, (p_rjp_sample + 20), 4);
+    buf[0] = p_sample->rjp.volume;
+    (void) write(fd, buf, 1);
+    /* Repeat start and length, both in words, big endian. */
+    put_u16be(buf, p_sample->repeat_start_words);
+    (void) write(fd, buf, 2);
+    put_u16be(buf, p_sample->repeat_len_words);
+    (void) write(fd, buf, 2);
   }
   (void) memset(string, '\0', sizeof(string));
   for (i = (mod_num_samples + 1); i <= 31; ++i) {
@@ -644,14 +681,15 @@ main(int argc, const char* argv[]) {
   /* MOD sample data. */
   for (i = 1; i <= mod_num_samples; ++i) {
     uint8_t rjp_sample = mod_mod_to_rjp_sample_mapping[i];
-    uint8_t* p_rjp_sample = (p_sample_chunk + (rjp_sample * 32));
-    uint32_t sample_start = get_u32be(p_rjp_sample);
-    uint32_t sample_length = (get_u16be(p_rjp_sample + 18) * 2);
-    uint8_t* p_sample_raw = (p_samples_base + sample_start);
-    (void) write(fd, p_sample_raw, sample_length);
+    struct mod_sample* p_sample = (p_samples + rjp_sample);
+    (void) write(fd, p_sample->p_data, p_sample->byte_len);
   }
 
   (void) close(fd);
+
+  (void) free(p_samples);
+  (void) free(p_smp);
+  (void) free(p_rjp);
 
   return 0;
 }
