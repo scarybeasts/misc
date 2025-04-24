@@ -436,6 +436,12 @@ main(int argc, const char* argv[]) {
               errx(1, "sample number out of range");
             }
             break;
+          case 0x87:
+            /* Not sure if this command does anything specifc other than
+             * consume time.
+             */
+            do_output_advance = 1;
+            break;
           default:
             errx(1, "unknown pattern command 0x%x", pattern_byte);
             break;
