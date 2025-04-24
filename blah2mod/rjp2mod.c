@@ -255,6 +255,15 @@ main(int argc, const char* argv[]) {
     p_sample->repeat_start_words = p_sample->rjp.repeat_offset;
     p_sample->repeat_len_words = p_sample->rjp.repeat_length;
 
+    if (p_sample->rjp.start_offset > 0) {
+      if (p_sample->rjp.start_offset > p_sample->rjp.repeat_offset) {
+        (void) printf("warning: sample %d start is after repeat\n", i);
+      } else {
+        /* Adjust MOD sample to account for RJP start offset. */
+        p_sample->repeat_start_words -= p_sample->rjp.start_offset;
+      }
+    }
+
     (void) snprintf(sample_filename, sizeof(sample_filename), "rjpsmp%d", i);
     /* fd = open(sample_filename, O_WRONLY | O_CREAT | O_TRUNC, 0600);
     if (fd == -1) {
