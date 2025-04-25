@@ -221,6 +221,7 @@ main(int argc, const char* argv[]) {
 
   for (i = 0; i < num_samples; ++i) {
     char sample_filename[32];
+    int has_repeat;
     struct mod_sample* p_sample = (p_samples + i);
     uint8_t* p_rjp_sample = (p_sample_chunk + (i * 32));
 
@@ -255,12 +256,21 @@ main(int argc, const char* argv[]) {
     p_sample->repeat_start_words = p_sample->rjp.repeat_offset;
     p_sample->repeat_len_words = p_sample->rjp.repeat_length;
 
+    has_repeat = 0;
+    if ((p_sample->rjp.repeat_offset != 0) ||
+        (p_sample->rjp.repeat_length > 1)) {
+      has_repeat = 1;
+    }
     if (p_sample->rjp.start_offset > 0) {
-      if (p_sample->rjp.start_offset > p_sample->rjp.repeat_offset) {
+      if (has_repeat &&
+          (p_sample->rjp.start_offset > p_sample->rjp.repeat_offset)) {
         (void) printf("warning: sample %d start is after repeat\n", i);
       } else {
         /* Adjust MOD sample to account for RJP start offset. */
-        p_sample->repeat_start_words -= p_sample->rjp.start_offset;
+        p_sample->p_data += (p_sample->rjp.start_offset * 2);
+        if (has_repeat) {
+          p_sample->repeat_start_words -= p_sample->rjp.start_offset;
+        }
       }
     }
 
@@ -391,6 +401,13 @@ main(int argc, const char* argv[]) {
         if (pattern_byte >= 0x80) {
           /* Command byte. */
           switch (pattern_byte) {
+          case 0x80:
+            /* End run of pattern data.
+             * Many songs use 0x83 0xFF (set duration 0xFF) instead.
+             * First seen: Ruff'n'Tumble, rjp.loader, subsong 1.
+             */
+            rjp_duration = 0xFF;
+            break;
           case 0x81:
             /* Fade out. */
             if (channel_volume > 0) {
