@@ -77,7 +77,7 @@ put_u16be(uint8_t* p_buf, uint16_t val) {
 int
 tfmx_read_trackstep(struct tfmx_state* p_tfmx_state) {
   uint8_t* p_mdat = p_tfmx_state->p_mdat;
-  uint64_t mdat_len = p_tfmx_state->mdat_len;
+  uint8_t* p_mdat_end = p_tfmx_state->p_mdat_end;
   int ended = 0;
 
   while (1) {
@@ -100,17 +100,18 @@ tfmx_read_trackstep(struct tfmx_state* p_tfmx_state) {
       p_tfmx_state->p_curr_trackstep += 16;
     } else {
       uint32_t i;
+      uint8_t* p_pattern_indexes = p_tfmx_state->p_pattern_indexes;
       /* Row of 8 pattern IDs. */
       for (i = 0; i < 8; ++i) {
         uint8_t pattern_id = p_tfmx_state->p_curr_trackstep[i * 2];
         if (pattern_id < 0x80) {
           uint32_t pattern_offset;
           p_tfmx_state->tracks[i].pattern_id = pattern_id;
-          if ((0x400 + (pattern_id * 4) + 4) > mdat_len) {
+          if ((p_pattern_indexes + (pattern_id * 4) + 4) > p_mdat_end) {
             errx(1, "pattern id out of bounds");
           }
-          pattern_offset = get_u32be(p_mdat + 0x400 + (pattern_id * 4));
-          if (pattern_offset >= mdat_len) {
+          pattern_offset = get_u32be(p_pattern_indexes + (pattern_id * 4));
+          if ((p_mdat + pattern_offset) > p_mdat_end) {
             errx(1, "pattern offset out of bounds");
           }
           p_tfmx_state->tracks[i].p_data = (p_mdat + pattern_offset);
@@ -351,6 +352,7 @@ main(int argc, const char* argv[]) {
 
   uint32_t num_subsongs;
 
+  uint32_t tfmx_trackstep_start;
   uint16_t tfmx_subsong_start[16];
   uint16_t tfmx_subsong_end[16];
   struct tfmx_state tfmx_state;
@@ -396,6 +398,18 @@ main(int argc, const char* argv[]) {
     errx(1, "mdat file bad magic");
   }
 
+  /* Two types of TFMX: fixed offset and dynamic offset structures. */
+  tfmx_trackstep_start = get_u32be(p_mdat + 0x1d0);
+  if (tfmx_trackstep_start > 0) {
+    tfmx_state.p_trackstep = (p_mdat + tfmx_trackstep_start);
+    tfmx_state.p_pattern_indexes = (p_mdat + get_u32be(p_mdat + 0x1d4));
+    tfmx_state.p_macro_indexes = (p_mdat + get_u32be(p_mdat + 0x1d8));
+  } else {
+    tfmx_state.p_trackstep = (p_mdat + 0x800);
+    tfmx_state.p_pattern_indexes = (p_mdat + 0x400);
+    tfmx_state.p_macro_indexes = (p_mdat + 0x600);
+  }
+
   num_subsongs = 0;
   for (i = 0; i < 16; ++i) {
     uint16_t start = get_u16be(p_mdat + 0x100 + (i * 2));
@@ -404,7 +418,7 @@ main(int argc, const char* argv[]) {
       break;
     }
 
-    if (p_mdat + 0x800 + ((end + 1) * 16) > tfmx_state.p_mdat_end) {
+    if (tfmx_state.p_trackstep + ((end + 1) * 16) > tfmx_state.p_mdat_end) {
       errx(1, "subsong trackstep out of range");
     }
 
@@ -415,10 +429,6 @@ main(int argc, const char* argv[]) {
   if (subsong >= num_subsongs) {
     errx(1, "subsong out of range");
   }
-
-  tfmx_state.p_pattern_indexes = (p_mdat + 0x400);
-  tfmx_state.p_macro_indexes = (p_mdat + 0x600);
-  tfmx_state.p_trackstep = (p_mdat + 0x800);
 
   tfmx_state.p_curr_trackstep =
       (tfmx_state.p_trackstep + (tfmx_subsong_start[subsong] * 16));
