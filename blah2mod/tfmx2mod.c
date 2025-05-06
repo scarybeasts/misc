@@ -415,6 +415,8 @@ main(int argc, const char* argv[]) {
   uint8_t buf[4];
 
   uint32_t num_subsongs;
+  uint16_t start;
+  uint16_t end;
 
   uint32_t tfmx_trackstep_start;
   uint16_t tfmx_subsong_start[16];
@@ -469,6 +471,7 @@ main(int argc, const char* argv[]) {
     tfmx_state.p_pattern_indexes = (p_mdat + get_u32be(p_mdat + 0x1d4));
     tfmx_state.p_macro_indexes = (p_mdat + get_u32be(p_mdat + 0x1d8));
   } else {
+    tfmx_trackstep_start = 0x800;
     tfmx_state.p_trackstep = (p_mdat + 0x800);
     tfmx_state.p_pattern_indexes = (p_mdat + 0x400);
     tfmx_state.p_macro_indexes = (p_mdat + 0x600);
@@ -476,8 +479,8 @@ main(int argc, const char* argv[]) {
 
   num_subsongs = 0;
   for (i = 0; i < 16; ++i) {
-    uint16_t start = get_u16be(p_mdat + 0x100 + (i * 2));
-    uint16_t end = get_u16be(p_mdat + 0x140 + (i * 2));
+    start = get_u16be(p_mdat + 0x100 + (i * 2));
+    end = get_u16be(p_mdat + 0x140 + (i * 2));
     if ((start != 0) || (end != 0)) {
       if (start > end) {
         errx(1, "subsong start after end");
@@ -496,11 +499,17 @@ main(int argc, const char* argv[]) {
     errx(1, "subsong out of range");
   }
 
-  tfmx_state.p_curr_trackstep =
-      (tfmx_state.p_trackstep + (tfmx_subsong_start[subsong] * 16));
-  tfmx_state.p_end_trackstep =
-      (tfmx_state.p_trackstep + (tfmx_subsong_end[subsong] * 16) + 16);
+  start = tfmx_subsong_start[subsong];
+  end = tfmx_subsong_end[subsong];
+  tfmx_state.p_curr_trackstep = (tfmx_state.p_trackstep + (start * 16));
+  tfmx_state.p_end_trackstep = (tfmx_state.p_trackstep + (end * 16) + 16);
   tfmx_num_tracksteps = 0;
+
+  (void) printf("Converting subsong %d start %d@0x%x end %d\n",
+                subsong,
+                start,
+                (tfmx_trackstep_start + (start * 16)),
+                end);
 
   while (tfmx_read_trackstep(&tfmx_state)) {
     mod_state.mod_row_base = mod_state.mod_num_rows;
@@ -512,9 +521,11 @@ main(int argc, const char* argv[]) {
         continue;
       }
       read_track_ret = tfmx_read_track(&tfmx_state, &mod_state, i);
-      (void) printf("trackstep %d track %d ret %d end row %d\n",
+      (void) printf("trackstep %d track %d id %d@0x%x ret %d end row %d\n",
                     tfmx_num_tracksteps,
                     i,
+                    tfmx_state.tracks[i].pattern_id,
+                    tfmx_state.tracks[i].pattern_offset,
                     read_track_ret,
                     mod_state.mod_row);
     }
