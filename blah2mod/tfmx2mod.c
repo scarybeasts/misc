@@ -384,7 +384,7 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
       }
     }
 
-    p_mod_state->mod_row += wait_ticks;
+    p_mod_state->mod_row += (wait_ticks + 1);
 
     if (p_mod_state->mod_row >= k_mod_max_rows) {
       errx(1, "MOD row out of bounds");
