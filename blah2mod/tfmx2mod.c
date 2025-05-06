@@ -10,6 +10,7 @@
 
 struct tfmx_track_state {
   uint8_t pattern_id;
+  uint8_t transpose;
   uint32_t pattern_offset;
   uint8_t* p_data;
 };
@@ -18,6 +19,7 @@ struct tfmx_macro {
   uint32_t start_offset;
   uint32_t first_begin;
   uint16_t first_len;
+  uint8_t transpose;
 };
 
 struct tfmx_state {
@@ -116,6 +118,7 @@ tfmx_read_trackstep(struct tfmx_state* p_tfmx_state) {
       /* Row of 8 pattern IDs. */
       for (i = 0; i < 8; ++i) {
         uint8_t pattern_id = p_curr_trackstep[i * 2];
+        uint8_t transpose = p_curr_trackstep[(i * 2) + 1];
         if (pattern_id < 0x80) {
           uint32_t pattern_offset;
           if ((p_pattern_indexes + (pattern_id * 4) + 4) > p_mdat_end) {
@@ -126,6 +129,7 @@ tfmx_read_trackstep(struct tfmx_state* p_tfmx_state) {
             errx(1, "pattern offset out of bounds");
           }
           p_tfmx_state->tracks[i].pattern_id = pattern_id;
+          p_tfmx_state->tracks[i].transpose = transpose;
           p_tfmx_state->tracks[i].pattern_offset = pattern_offset;
           p_tfmx_state->tracks[i].p_data = (p_mdat + pattern_offset);
         } else {
@@ -151,6 +155,7 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
   uint8_t* p_mdat = p_tfmx_state->p_mdat;
   uint8_t* p_mdat_end = p_tfmx_state->p_mdat_end;
   uint8_t* p_data = p_tfmx_state->tracks[track].p_data;
+  uint8_t track_transpose = p_tfmx_state->tracks[track].transpose;
 
   p_mod_state->mod_row = p_mod_state->mod_row_base;
   end_of_data = 0;
@@ -188,6 +193,7 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
       };
 
       actual_note = (note & 0x3F);
+      actual_note += track_transpose;
       macro = p_data[1];
       channel = (p_data[2] & 0x0F);
       finetune = p_data[3];
@@ -521,13 +527,15 @@ main(int argc, const char* argv[]) {
         continue;
       }
       read_track_ret = tfmx_read_track(&tfmx_state, &mod_state, i);
-      (void) printf("trackstep %d track %d id %d@0x%x ret %d end row %d\n",
-                    tfmx_num_tracksteps,
-                    i,
-                    tfmx_state.tracks[i].pattern_id,
-                    tfmx_state.tracks[i].pattern_offset,
-                    read_track_ret,
-                    mod_state.mod_row);
+      (void) printf(
+          "trackstep %d track %d id %d@0x%x trans %d ret %d end row %d\n",
+          tfmx_num_tracksteps,
+          i,
+          tfmx_state.tracks[i].pattern_id,
+          tfmx_state.tracks[i].pattern_offset,
+          tfmx_state.tracks[i].transpose,
+          read_track_ret,
+          mod_state.mod_row);
     }
 
     tfmx_num_tracksteps++;
