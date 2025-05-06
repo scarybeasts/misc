@@ -154,30 +154,9 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
       errx(1, "pattern data ran out of bounds");
     }
     note = p_data[0];
-    if (note >= 0xF0) {
-      /* Command. */
-      switch (note) {
-      case 0xF0:
-        /* End this piece pattern data, and next trackstep? */
-        end_of_data = note;
-        break;
-      case 0xF1:
-        /* Loop within this piece of pattern data. */
-        (void) printf("warning: ignoring pattern loop command\n");
-      case 0xF3:
-        /* Wait ticks. */
-        p_mod_state->mod_row += p_data[1];
-        break;
-      case 0xF4:
-        /* End this piece of pattern data. */
-        end_of_data = note;
-        break;
-      default:
-        errx(1, "unknown pattern command 0x%x", note);
-        break;
-      }
-    } else {
+    if (note < 0xF0) {
       /* Note. */
+      uint8_t actual_note;
       uint8_t* p_mod;
       uint8_t macro;
       uint8_t channel;
@@ -196,13 +175,31 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
           214,202,191,180,170,160,151,143,135,127,120,113,
       };
 
-      if (note >= 0x80) {
-        errx(1, "note high bits set");
+      actual_note = (note & 0x3F);
+      macro = p_data[1];
+
+      switch (note & 0xC0) {
+      case 0x00:
+        break;
+      case 0x40:
+        errx(1, "note high bits 0x40");
+        break;
+      case 0x80:
+        /* Finetune is actually a wait command. */
+        note = 0xF3;
+        p_data[1] = p_data[3];
+        p_data[3] = 0;
+        break;
+      case 0xC0:
+        errx(1, "note high bits 0xC0");
+        break;
       }
-      if (note >= 48) {
+
+      if (actual_note >= 48) {
         errx(1, "note out of range");
       }
-      macro = p_data[1];
+      amiga_period = note_periods[actual_note];
+
       mod_sample = p_mod_state->tfmx_macro_to_mod_sample[macro];
       if (mod_sample == 0) {
         uint8_t* p_macro;
@@ -313,13 +310,35 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
         errx(1, "finetune not zero");
       }
 
-      amiga_period = note_periods[note];
       p_mod = (p_mod_state->mod_rows + (p_mod_state->mod_row * (4 * 4)));
       p_mod += (channel * 4);
       p_mod[0] = ((mod_sample & 0xF0) | (amiga_period >> 8));
       p_mod[1] = ((uint8_t) amiga_period);
       p_mod[2] = ((mod_sample & 0x0F) << 4);
       p_mod[3] = 0;
+    }
+    if (note >= 0xF0) {
+      /* Command. */
+      switch (note) {
+      case 0xF0:
+        /* End this piece pattern data, and next trackstep? */
+        end_of_data = note;
+        break;
+      case 0xF1:
+        /* Loop within this piece of pattern data. */
+        (void) printf("warning: ignoring pattern loop command\n");
+      case 0xF3:
+        /* Wait ticks. */
+        p_mod_state->mod_row += p_data[1];
+        break;
+      case 0xF4:
+        /* End this piece of pattern data. */
+        end_of_data = note;
+        break;
+      default:
+        errx(1, "unknown pattern command 0x%x", note);
+        break;
+      }
     }
 
     if (p_mod_state->mod_row >= k_mod_max_rows) {
