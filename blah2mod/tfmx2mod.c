@@ -77,19 +77,30 @@ put_u16be(uint8_t* p_buf, uint16_t val) {
 
 int
 tfmx_read_trackstep(struct tfmx_state* p_tfmx_state) {
-  uint8_t* p_mdat = p_tfmx_state->p_mdat;
-  uint8_t* p_mdat_end = p_tfmx_state->p_mdat_end;
-  int ended = 0;
+  uint8_t* p_mdat;
+  uint8_t* p_mdat_end;
+  int is_command;
+  int is_ended;
+  uint8_t* p_curr_trackstep = p_tfmx_state->p_curr_trackstep;
 
-  while (1) {
-    uint16_t trackstep_value = get_u16be(p_tfmx_state->p_curr_trackstep);
+  if (p_curr_trackstep == p_tfmx_state->p_end_trackstep) {
+    return 0;
+  }
+
+  p_mdat = p_tfmx_state->p_mdat;
+  p_mdat_end = p_tfmx_state->p_mdat_end;
+
+  is_ended = 0;
+  is_command = 1;
+  while (!is_ended && is_command) {
+    uint16_t trackstep_value = get_u16be(p_curr_trackstep);
     if (trackstep_value == 0xEFFE) {
-      uint16_t trackstep_command =
-          get_u16be(p_tfmx_state->p_curr_trackstep + 2);
+      uint16_t trackstep_command = get_u16be(p_curr_trackstep + 2);
+      is_command = 1;
       switch (trackstep_command) {
       case 0x01:
         (void) printf("warning: ending on trackstep loop\n");
-        ended = 1;
+        is_ended = 1;
         break;
       case 0x02:
         (void) printf("warning: ignoring trackstep tempo command\n");
@@ -98,13 +109,13 @@ tfmx_read_trackstep(struct tfmx_state* p_tfmx_state) {
         errx(1, "unknown trackstep command 0x%x", trackstep_command);
         break;
       }
-      p_tfmx_state->p_curr_trackstep += 16;
     } else {
       uint32_t i;
       uint8_t* p_pattern_indexes = p_tfmx_state->p_pattern_indexes;
+      is_command = 0;
       /* Row of 8 pattern IDs. */
       for (i = 0; i < 8; ++i) {
-        uint8_t pattern_id = p_tfmx_state->p_curr_trackstep[i * 2];
+        uint8_t pattern_id = p_curr_trackstep[i * 2];
         if (pattern_id < 0x80) {
           uint32_t pattern_offset;
           if ((p_pattern_indexes + (pattern_id * 4) + 4) > p_mdat_end) {
@@ -122,20 +133,14 @@ tfmx_read_trackstep(struct tfmx_state* p_tfmx_state) {
           p_tfmx_state->tracks[i].p_data = NULL;
         }
       }
-      p_tfmx_state->p_curr_trackstep += 16;
-      break;
     }
 
-    if (ended) {
-      return 0;
-    }
-
-    if (p_tfmx_state->p_curr_trackstep == p_tfmx_state->p_end_trackstep) {
-      errx(1, "trackstep ran out of bounds");
-    }
+    p_curr_trackstep += 16;
   }
 
-  return 1;
+  p_tfmx_state->p_curr_trackstep = p_curr_trackstep;
+
+  return !is_ended;
 }
 
 int
