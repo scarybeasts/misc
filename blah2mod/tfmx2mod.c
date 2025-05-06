@@ -10,6 +10,7 @@
 
 struct tfmx_track_state {
   uint8_t pattern_id;
+  uint32_t pattern_offset;
   uint8_t* p_data;
 };
 
@@ -106,7 +107,6 @@ tfmx_read_trackstep(struct tfmx_state* p_tfmx_state) {
         uint8_t pattern_id = p_tfmx_state->p_curr_trackstep[i * 2];
         if (pattern_id < 0x80) {
           uint32_t pattern_offset;
-          p_tfmx_state->tracks[i].pattern_id = pattern_id;
           if ((p_pattern_indexes + (pattern_id * 4) + 4) > p_mdat_end) {
             errx(1, "pattern id out of bounds");
           }
@@ -114,6 +114,8 @@ tfmx_read_trackstep(struct tfmx_state* p_tfmx_state) {
           if ((p_mdat + pattern_offset) > p_mdat_end) {
             errx(1, "pattern offset out of bounds");
           }
+          p_tfmx_state->tracks[i].pattern_id = pattern_id;
+          p_tfmx_state->tracks[i].pattern_offset = pattern_offset;
           p_tfmx_state->tracks[i].p_data = (p_mdat + pattern_offset);
         } else {
           p_tfmx_state->tracks[i].pattern_id = 0;
@@ -150,10 +152,15 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
 
   while (1) {
     uint8_t note;
+    uint8_t wait_ticks;
+
     if ((p_data + 4) > p_mdat_end) {
       errx(1, "pattern data ran out of bounds");
     }
+
+    wait_ticks = 0;
     note = p_data[0];
+
     if (note < 0xF0) {
       /* Note. */
       uint8_t actual_note;
@@ -177,6 +184,8 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
 
       actual_note = (note & 0x3F);
       macro = p_data[1];
+      channel = (p_data[2] & 0x0F);
+      finetune = p_data[3];
 
       switch (note & 0xC0) {
       case 0x00:
@@ -186,9 +195,8 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
         break;
       case 0x80:
         /* Finetune is actually a wait command. */
-        note = 0xF3;
-        p_data[1] = p_data[3];
-        p_data[3] = 0;
+        wait_ticks = finetune;
+        finetune = 0;
         break;
       case 0xC0:
         errx(1, "note high bits 0xC0");
@@ -328,11 +336,9 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
           p_macro += 4;
         }
       }
-      channel = (p_data[2] & 0x0F);
       if (channel > 3) {
         errx(1, "channel out of range");
       }
-      finetune = p_data[3];
       if (finetune != 0) {
         errx(1, "finetune not zero");
       }
@@ -343,8 +349,7 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
       p_mod[1] = ((uint8_t) amiga_period);
       p_mod[2] = ((mod_sample & 0x0F) << 4);
       p_mod[3] = 0;
-    }
-    if (note >= 0xF0) {
+    } else {
       /* Command. */
       switch (note) {
       case 0xF0:
@@ -356,7 +361,7 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
         (void) printf("warning: ignoring pattern loop command\n");
       case 0xF3:
         /* Wait ticks. */
-        p_mod_state->mod_row += p_data[1];
+        wait_ticks = p_data[1];
         break;
       case 0xF4:
         /* End this piece of pattern data. */
@@ -373,6 +378,8 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
         break;
       }
     }
+
+    p_mod_state->mod_row += wait_ticks;
 
     if (p_mod_state->mod_row >= k_mod_max_rows) {
       errx(1, "MOD row out of bounds");
