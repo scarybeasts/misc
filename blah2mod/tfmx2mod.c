@@ -414,8 +414,11 @@ main(int argc, const char* argv[]) {
   for (i = 0; i < 16; ++i) {
     uint16_t start = get_u16be(p_mdat + 0x100 + (i * 2));
     uint16_t end = get_u16be(p_mdat + 0x140 + (i * 2));
-    if (end <= start) {
-      break;
+    if ((start != 0) || (end != 0)) {
+      if (start > end) {
+        errx(1, "subsong start after end");
+      }
+      num_subsongs = (i + 1);
     }
 
     if (tfmx_state.p_trackstep + ((end + 1) * 16) > tfmx_state.p_mdat_end) {
@@ -424,7 +427,6 @@ main(int argc, const char* argv[]) {
 
     tfmx_subsong_start[i] = start;
     tfmx_subsong_end[i] = end;
-    num_subsongs++;
   }
   if (subsong >= num_subsongs) {
     errx(1, "subsong out of range");
