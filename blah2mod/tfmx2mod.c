@@ -429,6 +429,7 @@ main(int argc, const char* argv[]) {
   uint16_t tfmx_subsong_end[16];
   struct tfmx_state tfmx_state;
   uint32_t tfmx_num_tracksteps;
+  uint32_t next_mod_row_start;
 
   struct mod_state mod_state;
   uint32_t mod_num_patterns;
@@ -517,8 +518,10 @@ main(int argc, const char* argv[]) {
                 (tfmx_trackstep_start + (start * 16)),
                 end);
 
+  next_mod_row_start = 0;
   while (tfmx_read_trackstep(&tfmx_state)) {
-    mod_state.mod_row_base = mod_state.mod_num_rows;
+    mod_state.mod_row_base = next_mod_row_start;
+    next_mod_row_start = 0;
 
     for (i = 0; i < 8; ++i) {
       int read_track_ret;
@@ -536,6 +539,23 @@ main(int argc, const char* argv[]) {
           tfmx_state.tracks[i].transpose,
           read_track_ret,
           mod_state.mod_row);
+
+      /* Pattern command 0xF0 sets where the current set of track patterns
+       * ends. Sometimes, one of the tracks runs a little longer but ends with
+       * command 0xF4. We insist on seeing command 0xF4 in one of the tracks.
+       * e.g. Apidya/mdat.ingame_1:7
+       */
+      if (read_track_ret == 0xF0) {
+        if ((next_mod_row_start != 0) &&
+            (mod_state.mod_num_rows != next_mod_row_start)) {
+          errx(1, "row number mismatch for 0xF0 pattern command");
+        }
+        next_mod_row_start = mod_state.mod_num_rows;
+      }
+    }
+
+    if (next_mod_row_start == 0) {
+      errx(1, "no 0xF0 pattern command");
     }
 
     tfmx_num_tracksteps++;
