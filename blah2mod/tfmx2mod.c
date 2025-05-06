@@ -274,7 +274,7 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
           case 0x08:
             /* Add note. */
             if (p_macro[1] != 0) {
-              errx(1, "macro add note has a note");
+              /*errx(1, "macro add note has a note");*/
             }
             if (p_macro[2] != 0) {
               errx(1, "macro add note has unknown");
@@ -283,12 +283,39 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
               errx(1, "macro add note has finetune");
             }
             break;
+          case 0x09:
+            /* Set note. */
+            break;
+          case 0x0B:
+            /* Portamento. */
+            break;
+          case 0x0C:
+            /* Vibrato. */
+            break;
           case 0x0D:
             /* Add volume. */
+            break;
+          case 0x0E:
+            /* Set volume. */
             break;
           case 0x0F:
             /* Envelope. */
             break;
+          case 0x11:
+            /* Add begin. */
+            break;
+          case 0x14:
+            /* Wait for key up. */
+            break;
+          case 0x18:
+            /* Sample loop. */
+            break;
+          case 0x19:
+            /* One shot sample. */
+            break;
+          case 0x1A:
+             /* Wait for DMA. */
+             break;
           default:
             errx(1, "unknown macro %d command 0x%x", macro, p_macro[0]);
             break;
@@ -334,6 +361,12 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
       case 0xF4:
         /* End this piece of pattern data. */
         end_of_data = note;
+        break;
+      case 0xF5:
+        /* Key up. */
+        break;
+      case 0xF7:
+        (void) printf("warning: ignoring pattern envelope command\n");
         break;
       default:
         errx(1, "unknown pattern command 0x%x", note);
