@@ -388,6 +388,9 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
       case 0xF7:
         (void) printf("warning: ignoring pattern envelope command\n");
         break;
+      case 0xFA:
+        (void) printf("warning: ignoring pattern fade command\n");
+        break;
       default:
         errx(1, "unknown pattern command 0x%x", note);
         break;
