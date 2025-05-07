@@ -180,6 +180,7 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
       uint8_t mod_sample;
       uint8_t finetune;
       uint16_t amiga_period;
+      struct tfmx_macro* p_macro;
 
       static const uint16_t note_periods[] = {
           /* C-0 to B-0. */
@@ -192,8 +193,6 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
           214,202,191,180,170,160,151,143,135,127,120,113,
       };
 
-      actual_note = (note + track_transpose);
-      actual_note &= 0x3F;
       macro = p_data[1];
       channel = (p_data[2] & 0x0F);
       finetune = p_data[3];
@@ -214,18 +213,10 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
         break;
       }
 
-      if (actual_note >= 60) {
-        errx(1, "note out of range");
-      } else if (actual_note >= 48) {
-        /* Notes 48 - 59 are the same as notes 36 - 47. */
-        (void) printf("encountered note %d\n", actual_note);
-        actual_note -= 12;
-      }
-      amiga_period = note_periods[actual_note];
-
       mod_sample = p_mod_state->tfmx_macro_to_mod_sample[macro];
+      p_macro = &p_tfmx_state->macros[macro];
       if (mod_sample == 0) {
-        uint8_t* p_macro;
+        uint8_t* p_macro_data;
         uint8_t* p_macro_index;
         uint32_t macro_index;
         int had_macro_begin;
@@ -245,9 +236,10 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
         if ((p_macro_index + 4) > p_mdat_end) {
           errx(1, "macro index out of bounds");
         }
+
         macro_index = get_u32be(p_macro_index);
-        p_tfmx_state->macros[macro].start_offset = macro_index;
-        p_macro = (p_mdat + macro_index);
+        p_macro->start_offset = macro_index;
+        p_macro_data = (p_mdat + macro_index);
         
         had_macro_begin = 0;
         had_macro_len = 0;
@@ -255,10 +247,10 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
 
         while (1) {
           uint32_t arg;
-          if ((p_macro + 4) > p_mdat_end) {
+          if ((p_macro_data + 4) > p_mdat_end) {
             errx(1, "macro ran out of bounds");
           }
-          switch (p_macro[0]) {
+          switch (p_macro_data[0]) {
           case 0x00:
             /* DMA off + reset. */
             break;
@@ -267,20 +259,20 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
             break;
           case 0x02:
             /* Set sample begin (offset into sample file). */
-            arg = p_macro[3];
-            arg |= (p_macro[2] << 8);
-            arg |= (p_macro[1] << 16);
+            arg = p_macro_data[3];
+            arg |= (p_macro_data[2] << 8);
+            arg |= (p_macro_data[1] << 16);
             if (!had_macro_begin) {
-              p_tfmx_state->macros[macro].first_begin = arg;
+              p_macro->first_begin = arg;
               had_macro_begin = 1;
             }
             break;
           case 0x03:
             /* Set sample length (in words). */
-            arg = p_macro[3];
-            arg |= (p_macro[2] << 8);
+            arg = p_macro_data[3];
+            arg |= (p_macro_data[2] << 8);
             if (!had_macro_len) {
-              p_tfmx_state->macros[macro].first_len = arg;
+              p_macro->first_len = arg;
               had_macro_len = 1;
             }
             break;
@@ -296,13 +288,11 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
             break;
           case 0x08:
             /* Add note. */
-            if (p_macro[1] != 0) {
-              (void) printf("warning: ignoring transpose in macro add note\n");
-            }
-            if (p_macro[2] != 0) {
+            p_macro->transpose = p_macro_data[1];
+            if (p_macro_data[2] != 0) {
               errx(1, "macro add note has unknown");
             }
-            if (p_macro[3] != 0) {
+            if (p_macro_data[3] != 0) {
               (void) printf("warning: ignoring finetune in macro add note\n");
             }
             break;
@@ -340,7 +330,7 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
              /* Wait for DMA. */
              break;
           default:
-            errx(1, "unknown macro %d command 0x%x", macro, p_macro[0]);
+            errx(1, "unknown macro %d command 0x%x", macro, p_macro_data[0]);
             break;
           }
 
@@ -348,9 +338,21 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
             break;
           }
 
-          p_macro += 4;
+          p_macro_data += 4;
         }
       }
+
+      actual_note = (note + track_transpose + p_macro->transpose);
+      actual_note &= 0x3F;
+      if (actual_note >= 60) {
+        errx(1, "note out of range");
+      } else if (actual_note >= 48) {
+        /* Notes 48 - 59 are the same as notes 36 - 47. */
+        (void) printf("encountered note %d\n", actual_note);
+        actual_note -= 12;
+      }
+      amiga_period = note_periods[actual_note];
+
       if (channel > 3) {
         errx(1, "channel out of range");
       }
