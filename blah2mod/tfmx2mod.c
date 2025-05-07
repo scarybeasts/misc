@@ -192,8 +192,8 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
           214,202,191,180,170,160,151,143,135,127,120,113,
       };
 
-      actual_note = (note & 0x3F);
-      actual_note += track_transpose;
+      actual_note = (note + track_transpose);
+      actual_note &= 0x3F;
       macro = p_data[1];
       channel = (p_data[2] & 0x0F);
       finetune = p_data[3];
@@ -214,8 +214,12 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
         break;
       }
 
-      if (actual_note >= 48) {
+      if (actual_note >= 60) {
         errx(1, "note out of range");
+      } else if (actual_note >= 48) {
+        /* Notes 48 - 59 are the same as notes 36 - 47. */
+        (void) printf("encountered note %d\n", actual_note);
+        actual_note -= 12;
       }
       amiga_period = note_periods[actual_note];
 
@@ -293,13 +297,13 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
           case 0x08:
             /* Add note. */
             if (p_macro[1] != 0) {
-              /*errx(1, "macro add note has a note");*/
+              (void) printf("warning: ignoring transpose in macro add note\n");
             }
             if (p_macro[2] != 0) {
               errx(1, "macro add note has unknown");
             }
             if (p_macro[3] != 0) {
-              errx(1, "macro add note has finetune");
+              (void) printf("warning: ignoring finetune in macro add note\n");
             }
             break;
           case 0x09:
