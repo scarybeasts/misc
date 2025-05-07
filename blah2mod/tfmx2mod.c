@@ -431,6 +431,7 @@ main(int argc, const char* argv[]) {
   uint32_t tfmx_trackstep_start;
   uint16_t tfmx_subsong_start[16];
   uint16_t tfmx_subsong_end[16];
+  uint16_t tfmx_subsong_tempo[16];
   struct tfmx_state tfmx_state;
   uint32_t tfmx_num_tracksteps;
   uint32_t next_mod_row_start;
@@ -505,6 +506,7 @@ main(int argc, const char* argv[]) {
 
     tfmx_subsong_start[i] = start;
     tfmx_subsong_end[i] = end;
+    tfmx_subsong_tempo[i] = get_u16be(p_mdat + 0x180 + (i * 2));
   }
   if (subsong >= num_subsongs) {
     errx(1, "subsong out of range");
@@ -563,6 +565,19 @@ main(int argc, const char* argv[]) {
     }
 
     tfmx_num_tracksteps++;
+  }
+
+  /* Put in a MOD tempo command to match the subsong tempo.
+   * Search all 4 channels for an unused command slot.
+   */
+  for (i = 0; i < 4; ++i) {
+    uint8_t* p_mod = (mod_state.mod_rows + (i * 4));
+    if (!(p_mod[2] & 0x0F)) {
+      /* No command here -- use this slot. */
+      p_mod[2] |= 0xF;
+      p_mod[3] = (tfmx_subsong_tempo[subsong] + 1);
+      break;
+    }
   }
 
   fd = open("out.mod", O_WRONLY | O_CREAT | O_TRUNC, 0600);
