@@ -22,6 +22,10 @@ struct tfmx_macro {
   uint32_t repeat_start;
   uint16_t repeat_len;
   uint8_t transpose;
+  uint8_t volume;
+  uint8_t env_delta;
+  uint8_t env_ticks;
+  uint8_t env_target;
 };
 
 struct tfmx_state {
@@ -164,10 +168,11 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
   int end_of_data;
   int is_loop_active;
   uint32_t loop_counter;
+  struct tfmx_track_state* p_track = &p_tfmx_state->tracks[track];
   uint8_t* p_mdat = p_tfmx_state->p_mdat;
   uint8_t* p_mdat_end = p_tfmx_state->p_mdat_end;
-  uint8_t* p_data = p_tfmx_state->tracks[track].p_data;
-  uint8_t track_transpose = p_tfmx_state->tracks[track].transpose;
+  uint8_t* p_data = p_track->p_data;
+  uint8_t track_transpose = p_track->transpose;
 
   p_mod_state->mod_row = p_mod_state->mod_row_base;
   end_of_data = 0;
@@ -177,6 +182,7 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
   while (1) {
     uint8_t note;
     uint8_t wait_ticks;
+    uint32_t i;
 
     if ((p_data + 4) > p_mdat_end) {
       errx(1, "pattern data ran out of bounds");
@@ -188,13 +194,13 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
     if (note < 0xF0) {
       /* Note. */
       uint8_t actual_note;
-      uint8_t* p_mod;
       uint8_t macro;
-      uint8_t channel;
       uint8_t mod_sample;
+      uint8_t channel;
       uint8_t finetune;
       uint16_t amiga_period;
       struct tfmx_macro* p_macro;
+      uint8_t* p_mod;
 
       static const uint16_t note_periods[] = {
           /* C-0 to B-0. */
@@ -316,12 +322,20 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
             break;
           case 0x0D:
             /* Add volume. */
+            p_macro->volume = p_macro_data[3];
             break;
           case 0x0E:
             /* Set volume. */
             break;
           case 0x0F:
             /* Envelope. */
+            if (p_macro->env_ticks != 0) {
+              (void) printf("warning: multiple envelopes macro %d\n", macro);
+            } else {
+              p_macro->env_delta = p_macro_data[1];
+              p_macro->env_ticks = p_macro_data[2];
+              p_macro->env_target = p_macro_data[3];
+            }
             break;
           case 0x11:
             /* Add begin. */
@@ -382,6 +396,7 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
 
       p_mod = (p_mod_state->mod_rows + (p_mod_state->mod_row * (4 * 4)));
       p_mod += (channel * 4);
+
       p_mod[0] = ((mod_sample & 0xF0) | (amiga_period >> 8));
       p_mod[1] = ((uint8_t) amiga_period);
       p_mod[2] = ((mod_sample & 0x0F) << 4);
@@ -412,7 +427,7 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
         }
         loop_counter--;
         pattern_dest = get_u16be(p_data + 2);
-        p_data = p_tfmx_state->tracks[track].p_data;
+        p_data = p_track->p_data;
         /* This may go out of bounds. It'll be checked at the next pattern
          * fetch iteration.
          */
@@ -615,6 +630,30 @@ main(int argc, const char* argv[]) {
     }
 
     tfmx_num_tracksteps++;
+  }
+
+  /* Fill in volume, vibrato etc. commands. */
+  for (i = 0; i < 4; ++i) {
+    uint32_t row;
+    uint16_t mod_command = 0;
+    for (row = 0; row < mod_state.mod_num_rows; ++row) {
+      uint8_t sample;
+      struct tfmx_macro* p_macro;
+      uint8_t* p_mod = (mod_state.mod_rows + (row * (4 * 4)));
+      p_mod += (i * 4);
+      sample = ((p_mod[0] & 0xF0) | (p_mod[2] >> 4));
+      if (sample != 0) {
+        uint8_t macro = mod_state.mod_sample_to_tfmx_macro[sample];
+        struct tfmx_macro* p_macro = &tfmx_state.macros[macro];
+        if (p_macro->env_ticks == 1) {
+          mod_command = (0xA00 + (p_macro->env_delta & 0x0F));
+        } else {
+          mod_command = 0;
+        }
+      }
+      p_mod[2] |= (mod_command >> 8);
+      p_mod[3] = (mod_command & 0xFF);
+    }
   }
 
   /* Put in a MOD tempo command to match the subsong tempo.
