@@ -16,9 +16,11 @@ struct tfmx_track_state {
 };
 
 struct tfmx_macro {
-  uint32_t start_offset;
-  uint32_t first_begin;
-  uint16_t first_len;
+  uint32_t meta_offset;
+  uint32_t data_offset;
+  uint16_t data_len;
+  uint32_t repeat_start;
+  uint16_t repeat_len;
   uint8_t transpose;
 };
 
@@ -59,6 +61,14 @@ static uint32_t
 get_u16be(uint8_t* p) {
   uint32_t ret = p[1];
   ret |= (p[0] << 8);
+  return ret;
+}
+
+static uint32_t
+get_u24be(uint8_t* p) {
+  uint32_t ret = p[2];
+  ret |= (p[1] << 8);
+  ret |= (p[0] << 16);
   return ret;
 }
 
@@ -242,11 +252,11 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
         }
 
         macro_index = get_u32be(p_macro_index);
-        p_macro->start_offset = macro_index;
+        p_macro->meta_offset = macro_index;
+        /* The value used in MOD files for no repeat. */
+        p_macro->repeat_len = 1;
         p_macro_data = (p_mdat + macro_index);
         
-        had_macro_begin = 0;
-        had_macro_len = 0;
         is_macro_stopped = 0;
 
         while (1) {
@@ -263,21 +273,16 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
             break;
           case 0x02:
             /* Set sample begin (offset into sample file). */
-            arg = p_macro_data[3];
-            arg |= (p_macro_data[2] << 8);
-            arg |= (p_macro_data[1] << 16);
-            if (!had_macro_begin) {
-              p_macro->first_begin = arg;
-              had_macro_begin = 1;
+            arg = get_u24be(p_macro_data + 1);
+            if (p_macro->data_offset == 0) {
+              p_macro->data_offset = arg;
             }
             break;
           case 0x03:
             /* Set sample length (in words). */
-            arg = p_macro_data[3];
-            arg |= (p_macro_data[2] << 8);
-            if (!had_macro_len) {
-              p_macro->first_len = arg;
-              had_macro_len = 1;
+            arg = get_u16be(p_macro_data + 2);
+            if (p_macro->data_len == 0) {
+              p_macro->data_len = arg;
             }
             break;
           case 0x04:
@@ -326,6 +331,17 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
             break;
           case 0x18:
             /* Sample loop. */
+            arg = get_u16be(p_macro_data + 2);
+            if (arg & 1) {
+              errx(1, "odd macro sample loop value");
+            }
+            if (arg > (p_macro->data_len * 2)) {
+              errx(1, "macro sample loop too large");
+            }
+            /* Arg is in bytes, convert to words. */
+            arg /= 2;
+            p_macro->repeat_start = arg;
+            p_macro->repeat_len = (p_macro->data_len - arg);
             break;
           case 0x19:
             /* One shot sample. */
@@ -626,17 +642,18 @@ main(int argc, const char* argv[]) {
   /* MOD samples. */
   for (i = 1; i <= mod_state.mod_num_samples; ++i) {
     uint8_t tfmx_macro = mod_state.mod_sample_to_tfmx_macro[i];
+    struct tfmx_macro* p_macro = &tfmx_state.macros[tfmx_macro];
 
     (void) printf("    MOD sample %d is TFMX macro %d @0x%x\n",
                   i,
                   tfmx_macro,
-                  tfmx_state.macros[tfmx_macro].start_offset);
+                  p_macro->meta_offset);
 
     (void) memset(string, '\0', sizeof(string));
     (void) snprintf(string, sizeof(string), "%s:%d", p_smpl_file, tfmx_macro);
     (void) write(fd, string, 22);
     /* Length in words, big endian. */
-    put_u16be(buf, tfmx_state.macros[tfmx_macro].first_len);
+    put_u16be(buf, p_macro->data_len);
     (void) write(fd, buf, 2);
     /* Finetune. */
     buf[0] = 0;
@@ -644,10 +661,10 @@ main(int argc, const char* argv[]) {
     /* Volume. TODO. */
     buf[0] = 64;
     (void) write(fd, buf, 1);
-    /* Repeat start and length, both in words, big endian. TODO. */
-    put_u16be(buf, 0);
+    /* Repeat start and length, both in words, big endian. */
+    put_u16be(buf, p_macro->repeat_start);
     (void) write(fd, buf, 2);
-    put_u16be(buf, 1);
+    put_u16be(buf, p_macro->repeat_len);
     (void) write(fd, buf, 2);
   }
   (void) memset(string, '\0', sizeof(string));
@@ -684,8 +701,8 @@ main(int argc, const char* argv[]) {
     uint8_t tfmx_macro = mod_state.mod_sample_to_tfmx_macro[i];
     (void) write(
         fd,
-        (tfmx_state.p_smpl + tfmx_state.macros[tfmx_macro].first_begin),
-        (tfmx_state.macros[tfmx_macro].first_len * 2));
+        (tfmx_state.p_smpl + tfmx_state.macros[tfmx_macro].data_offset),
+        (tfmx_state.macros[tfmx_macro].data_len * 2));
   }
 
   (void) close(fd);
