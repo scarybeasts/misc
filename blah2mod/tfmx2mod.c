@@ -152,6 +152,8 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
                 struct mod_state* p_mod_state,
                 uint32_t track) {
   int end_of_data;
+  int is_loop_active;
+  uint32_t loop_counter;
   uint8_t* p_mdat = p_tfmx_state->p_mdat;
   uint8_t* p_mdat_end = p_tfmx_state->p_mdat_end;
   uint8_t* p_data = p_tfmx_state->tracks[track].p_data;
@@ -159,6 +161,8 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
 
   p_mod_state->mod_row = p_mod_state->mod_row_base;
   end_of_data = 0;
+  is_loop_active = 0;
+  loop_counter = 0;
 
   while (1) {
     uint8_t note;
@@ -374,8 +378,33 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
         end_of_data = note;
         break;
       case 0xF1:
-        /* Loop within this piece of pattern data. */
-        (void) printf("warning: ignoring pattern loop command\n");
+      {
+        uint16_t pattern_dest;
+        if (is_loop_active && (loop_counter == 0)) {
+          /* Loop finished -- continue to the next pattern data after the
+           * loop command.
+           */
+          is_loop_active = 0;
+          break;
+        }
+        if (!is_loop_active) {
+          is_loop_active = 1;
+          loop_counter = p_data[1];
+          if (loop_counter == 0) {
+            errx(1, "infinite pattern loop");
+          }
+        }
+        loop_counter--;
+        pattern_dest = get_u16be(p_data + 2);
+        p_data = p_tfmx_state->tracks[track].p_data;
+        /* This may go out of bounds. It'll be checked at the next pattern
+         * fetch iteration.
+         */
+        p_data += (pattern_dest * 4);
+        /* The loop continuation will add 4 bytes. */
+        p_data -= 4;
+        break;
+      }
       case 0xF3:
         /* Wait ticks. */
         wait_ticks = (p_data[1] + 1);
