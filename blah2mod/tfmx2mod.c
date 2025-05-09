@@ -191,7 +191,7 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
     wait_ticks = 0;
     note = p_data[0];
 
-    if (note < 0xF0) {
+    if (note < 0xC0) {
       /* Note. */
       uint8_t actual_note;
       uint8_t macro;
@@ -217,20 +217,13 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
       channel = (p_data[2] & 0x0F);
       finetune = p_data[3];
 
-      switch (note & 0xC0) {
-      case 0x00:
-        break;
-      case 0x40:
+      if (note & 0x40) {
         errx(1, "note high bits 0x40");
-        break;
-      case 0x80:
+      }
+      if (note & 0x80) {
         /* Finetune is actually a wait command. */
         wait_ticks = (finetune + 1);
         finetune = 0;
-        break;
-      case 0xC0:
-        errx(1, "note high bits 0xC0");
-        break;
       }
 
       mod_sample = p_mod_state->tfmx_macro_to_mod_sample[macro];
@@ -297,6 +290,10 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
           case 0x05:
             /* Loop. */
             (void) printf("warning: ignoring macro loop\n");
+            break;
+          case 0x06:
+            /* Jump to macro. */
+            break;
           case 0x07:
             /* Stop. */
             is_macro_stopped = 1;
@@ -305,7 +302,7 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
             /* Add note. */
             p_macro->transpose = p_macro_data[1];
             if (p_macro_data[2] != 0) {
-              errx(1, "macro add note has unknown");
+              (void) printf("warning: ignoring unknown in macro add note\n");
             }
             if (p_macro_data[3] != 0) {
               (void) printf("warning: ignoring finetune in macro add note\n");
@@ -340,6 +337,9 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
           case 0x11:
             /* Add begin. */
             break;
+          case 0x12:
+            /* Add length. */
+            break;
           case 0x14:
             /* Wait for key up. */
             break;
@@ -362,6 +362,9 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
             break;
           case 0x1A:
              /* Wait for DMA. */
+             break;
+          case 0x1D:
+             /* Jump if volume greater than. */
              break;
           default:
             errx(1, "unknown macro %d command 0x%x", macro, p_macro_data[0]);
@@ -401,8 +404,10 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
       p_mod[1] = ((uint8_t) amiga_period);
       p_mod[2] = ((mod_sample & 0x0F) << 4);
       p_mod[3] = 0;
+    } else if (note < 0xF0) {
+      (void) printf("warning: ignoring pattern portamento command\n");
     } else {
-      /* Command. */
+      /* >= 0xF0: command. */
       switch (note) {
       case 0xF0:
         /* End this piece pattern data, and next trackstep? */
@@ -446,6 +451,10 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
         break;
       case 0xF5:
         /* Key up. */
+        break;
+      case 0xF6:
+        /* Vibrato. */
+        (void) printf("warning: ignoring pattern vibrato command\n");
         break;
       case 0xF7:
         (void) printf("warning: ignoring pattern envelope command\n");
