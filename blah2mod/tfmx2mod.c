@@ -443,7 +443,7 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
         errx(1, "channel out of range");
       }
       if (finetune != 0) {
-        errx(1, "finetune not zero");
+        (void) printf("warning: note finetune not zero\n");
       }
 
       p_mod = (p_mod_state->mod_rows + (p_mod_state->mod_row * (4 * 4)));
