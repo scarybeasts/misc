@@ -426,11 +426,16 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
         if (!is_loop_active) {
           is_loop_active = 1;
           loop_counter = p_data[1];
-          if (loop_counter == 0) {
-            errx(1, "infinite pattern loop");
-          }
+          /* Loop counter of 0 means "infinite loop". It'll integer underflow
+           * below and carry on below 0.
+           */
         }
         loop_counter--;
+        if (loop_counter == (uint32_t) -8) {
+          /* Hack: end infinite loop after 8 loops. */
+          end_of_data = note;
+          break;
+        }
         pattern_dest = get_u16be(p_data + 2);
         p_data = p_track->p_data;
         /* This may go out of bounds. It'll be checked at the next pattern
@@ -473,9 +478,6 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
     if (p_mod_state->mod_row >= k_mod_max_rows) {
       errx(1, "MOD row out of bounds");
     }
-    if (p_mod_state->mod_row > p_mod_state->mod_num_rows) {
-      p_mod_state->mod_num_rows = p_mod_state->mod_row;
-    }
 
     if (end_of_data) {
       return end_of_data;
@@ -508,7 +510,6 @@ main(int argc, const char* argv[]) {
   uint16_t tfmx_subsong_tempo[16];
   struct tfmx_state tfmx_state;
   uint32_t tfmx_num_tracksteps;
-  uint32_t next_mod_row_start;
 
   struct mod_state mod_state;
   uint32_t mod_num_patterns;
@@ -598,10 +599,9 @@ main(int argc, const char* argv[]) {
                 (tfmx_trackstep_start + (start * 16)),
                 end);
 
-  next_mod_row_start = 0;
   while (tfmx_read_trackstep(&tfmx_state)) {
-    mod_state.mod_row_base = next_mod_row_start;
-    next_mod_row_start = 0;
+    int had_F0 = 0;
+    mod_state.mod_row_base = mod_state.mod_num_rows;
 
     for (i = 0; i < 8; ++i) {
       int read_track_ret;
@@ -626,15 +626,14 @@ main(int argc, const char* argv[]) {
        * e.g. Apidya/mdat.ingame_1:7
        */
       if (read_track_ret == 0xF0) {
-        if ((next_mod_row_start != 0) &&
-            (mod_state.mod_num_rows != next_mod_row_start)) {
-          errx(1, "row number mismatch for 0xF0 pattern command");
+        if (!had_F0) {
+          had_F0 = 1;
+          mod_state.mod_num_rows = mod_state.mod_row;
         }
-        next_mod_row_start = mod_state.mod_num_rows;
       }
     }
 
-    if (next_mod_row_start == 0) {
+    if (!had_F0) {
       errx(1, "no 0xF0 pattern command");
     }
 
