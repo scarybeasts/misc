@@ -653,7 +653,7 @@ main(int argc, const char* argv[]) {
       if (sample != 0) {
         uint8_t macro = mod_state.mod_sample_to_tfmx_macro[sample];
         struct tfmx_macro* p_macro = &tfmx_state.macros[macro];
-        if (p_macro->env_ticks == 1) {
+        if ((p_macro->env_ticks == 1) && (p_macro->env_target < 32)) {
           mod_command = (0xA00 + (p_macro->env_delta & 0x0F));
         } else {
           mod_command = 0;
