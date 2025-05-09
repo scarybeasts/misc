@@ -230,11 +230,11 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
       p_macro = &p_tfmx_state->macros[macro];
       if (mod_sample == 0) {
         uint8_t* p_macro_data;
-        uint8_t* p_macro_index;
-        uint32_t macro_index;
         int had_macro_begin;
         int had_macro_len;
         int is_macro_stopped;
+        int32_t load_macro;
+        uint32_t load_macro_start;
 
         /* Increment first because samples start at 1. */
         p_mod_state->mod_num_samples++;
@@ -245,21 +245,44 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
         p_mod_state->tfmx_macro_to_mod_sample[macro] = mod_sample;
         p_mod_state->mod_sample_to_tfmx_macro[mod_sample] = macro;
 
-        p_macro_index = (p_tfmx_state->p_macro_indexes + (macro * 4));
-        if ((p_macro_index + 4) > p_mdat_end) {
-          errx(1, "macro index out of bounds");
-        }
-
-        macro_index = get_u32be(p_macro_index);
-        p_macro->meta_offset = macro_index;
         /* The value used in MOD files for no repeat. */
         p_macro->repeat_len = 1;
-        p_macro_data = (p_mdat + macro_index);
         
         is_macro_stopped = 0;
 
+        load_macro = macro;
+        load_macro_start = 0;
+
         while (1) {
           uint32_t arg;
+
+          if (load_macro >= 0) {
+            uint32_t macro_index;
+            uint8_t* p_macro_index =
+                (p_tfmx_state->p_macro_indexes + (load_macro * 4));
+            if ((p_macro_index + 4) > p_mdat_end) {
+              errx(1, "macro index out of bounds");
+            }
+
+            macro_index = get_u32be(p_macro_index);
+            if (p_macro->meta_offset == 0) {
+              p_macro->meta_offset = macro_index;
+            } else {
+              (void) printf("marco %d jumping to macro %d@0x%x, start %d\n",
+                            macro,
+                            load_macro,
+                            macro_index,
+                            load_macro_start);
+            }
+            p_macro_data = (p_mdat + macro_index);
+            if (load_macro_start > 0) {
+              p_macro_data += (load_macro_start * 4);
+            }
+
+            load_macro = -1;
+            load_macro_start = 0;
+          }
+
           if ((p_macro_data + 4) > p_mdat_end) {
             errx(1, "macro ran out of bounds");
           }
@@ -293,6 +316,8 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
             break;
           case 0x06:
             /* Jump to macro. */
+            load_macro = p_macro_data[1];
+            load_macro_start = get_u16be(p_macro_data + 2);
             break;
           case 0x07:
             /* Stop. */
@@ -350,12 +375,18 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
               errx(1, "odd macro sample loop value");
             }
             if (arg > (p_macro->data_len * 2)) {
-              errx(1, "macro sample loop too large");
+              /* This happens in real songs, if the macro increases the
+               * length of the sample (especially in a loop), which is not
+               * yet handled.
+               * e.g. X-Out/mdat.ingame_2:0.
+               */
+              (void) printf("warning: macro sample loop too large\n");
+            } else {
+              /* Arg is in bytes, convert to words. */
+              arg /= 2;
+              p_macro->repeat_start = arg;
+              p_macro->repeat_len = (p_macro->data_len - arg);
             }
-            /* Arg is in bytes, convert to words. */
-            arg /= 2;
-            p_macro->repeat_start = arg;
-            p_macro->repeat_len = (p_macro->data_len - arg);
             break;
           case 0x19:
             /* One shot sample. */
