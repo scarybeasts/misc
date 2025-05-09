@@ -96,6 +96,7 @@ tfmx_read_macro(struct tfmx_state* p_tfmx_state, uint8_t macro) {
   uint8_t* p_macro_data;
   int had_macro_begin;
   int had_macro_len;
+  int had_macro_loop_declaration;
   int is_macro_stopped;
   int32_t load_macro;
   uint32_t load_macro_start;
@@ -107,6 +108,7 @@ tfmx_read_macro(struct tfmx_state* p_tfmx_state, uint8_t macro) {
   /* The value used in MOD files for no repeat. */
   p_macro->repeat_len = 1;
 
+  had_macro_loop_declaration = 0;
   is_macro_stopped = 0;
 
   load_macro = macro;
@@ -229,6 +231,7 @@ tfmx_read_macro(struct tfmx_state* p_tfmx_state, uint8_t macro) {
       break;
     case 0x18:
       /* Sample loop. */
+      had_macro_loop_declaration = 1;
       arg = get_u16be(p_macro_data + 2);
       if (arg & 1) {
         errx(1, "odd macro sample loop value");
@@ -249,6 +252,7 @@ tfmx_read_macro(struct tfmx_state* p_tfmx_state, uint8_t macro) {
       break;
     case 0x19:
       /* One shot sample. */
+      had_macro_loop_declaration = 1;
       break;
     case 0x1A:
       /* Wait for DMA. */
@@ -266,6 +270,11 @@ tfmx_read_macro(struct tfmx_state* p_tfmx_state, uint8_t macro) {
     }
 
     p_macro_data += 4;
+  }
+
+  if (!had_macro_loop_declaration) {
+    p_macro->repeat_start = 0;
+    p_macro->repeat_len = p_macro->data_len;
   }
 }
 
