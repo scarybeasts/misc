@@ -45,12 +45,12 @@ struct tfmx_state {
 };
 
 enum {
-  k_mod_max_rows = (64 * 64),
+  k_mod_max_patterns = 128,
 };
 
 struct mod_state {
   /* 64 patterns worth. */
-  uint8_t mod_rows[k_mod_max_rows * (4 * 4)];
+  uint8_t mod_rows[k_mod_max_patterns * 64 * (4 * 4)];
   uint32_t mod_num_rows;
   uint32_t mod_row_base;
   uint32_t mod_row;
@@ -506,7 +506,7 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
 
     p_mod_state->mod_row += wait_ticks;
 
-    if (p_mod_state->mod_row >= k_mod_max_rows) {
+    if (p_mod_state->mod_row >= (k_mod_max_patterns * 64)) {
       errx(1, "MOD row out of bounds");
     }
 
