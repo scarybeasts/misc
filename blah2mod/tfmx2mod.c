@@ -260,6 +260,9 @@ tfmx_read_macro(struct tfmx_state* p_tfmx_state, uint8_t macro) {
     case 0x1D:
       /* Jump if volume greater than. */
       break;
+    case 0x1F:
+      /* Set previous note. */
+      break;
     default:
       errx(1, "unknown macro %d command 0x%x", macro, p_macro_data[0]);
       break;
