@@ -91,6 +91,184 @@ put_u16be(uint8_t* p_buf, uint16_t val) {
   p_buf[1] = (val & 0xFF);
 }
 
+void
+tfmx_read_macro(struct tfmx_state* p_tfmx_state, uint8_t macro) {
+  uint8_t* p_macro_data;
+  int had_macro_begin;
+  int had_macro_len;
+  int is_macro_stopped;
+  int32_t load_macro;
+  uint32_t load_macro_start;
+
+  struct tfmx_macro* p_macro = &p_tfmx_state->macros[macro];
+  uint8_t* p_mdat = p_tfmx_state->p_mdat;
+  uint8_t* p_mdat_end = p_tfmx_state->p_mdat_end;
+
+  /* The value used in MOD files for no repeat. */
+  p_macro->repeat_len = 1;
+
+  is_macro_stopped = 0;
+
+  load_macro = macro;
+  load_macro_start = 0;
+
+  while (1) {
+    uint32_t arg;
+
+    if (load_macro >= 0) {
+      uint32_t macro_index;
+      uint8_t* p_macro_index =
+          (p_tfmx_state->p_macro_indexes + (load_macro * 4));
+      if ((p_macro_index + 4) > p_mdat_end) {
+        errx(1, "macro index out of bounds");
+      }
+
+      macro_index = get_u32be(p_macro_index);
+      if (p_macro->meta_offset == 0) {
+        p_macro->meta_offset = macro_index;
+      } else {
+        (void) printf("marco %d jumping to macro %d@0x%x, start %d\n",
+                      macro,
+                      load_macro,
+                      macro_index,
+                      load_macro_start);
+      }
+      p_macro_data = (p_mdat + macro_index);
+      if (load_macro_start > 0) {
+        p_macro_data += (load_macro_start * 4);
+      }
+
+      load_macro = -1;
+      load_macro_start = 0;
+    }
+
+    if ((p_macro_data + 4) > p_mdat_end) {
+      errx(1, "macro ran out of bounds");
+    }
+    switch (p_macro_data[0]) {
+    case 0x00:
+      /* DMA off + reset. */
+      break;
+    case 0x01:
+      /* DMA on. */
+      break;
+    case 0x02:
+      /* Set sample begin (offset into sample file). */
+      arg = get_u24be(p_macro_data + 1);
+      if (p_macro->data_offset == 0) {
+        p_macro->data_offset = arg;
+      }
+      break;
+    case 0x03:
+      /* Set sample length (in words). */
+      arg = get_u16be(p_macro_data + 2);
+      if (p_macro->data_len == 0) {
+        p_macro->data_len = arg;
+      }
+      break;
+    case 0x04:
+      /* Wait. */
+      break;
+    case 0x05:
+      /* Loop. */
+      (void) printf("warning: ignoring macro loop\n");
+      break;
+    case 0x06:
+      /* Jump to macro. */
+      load_macro = p_macro_data[1];
+      load_macro_start = get_u16be(p_macro_data + 2);
+      break;
+    case 0x07:
+      /* Stop. */
+      is_macro_stopped = 1;
+      break;
+    case 0x08:
+      /* Add note. */
+      p_macro->transpose = p_macro_data[1];
+      if (p_macro_data[2] != 0) {
+        (void) printf("warning: ignoring unknown in macro add note\n");
+      }
+      if (p_macro_data[3] != 0) {
+        (void) printf("warning: ignoring finetune in macro add note\n");
+      }
+      break;
+    case 0x09:
+      /* Set note. */
+      break;
+    case 0x0B:
+      /* Portamento. */
+      break;
+    case 0x0C:
+      /* Vibrato. */
+      break;
+    case 0x0D:
+      /* Add volume. */
+      p_macro->volume = p_macro_data[3];
+      break;
+    case 0x0E:
+      /* Set volume. */
+      break;
+    case 0x0F:
+      /* Envelope. */
+      if (p_macro->env_ticks != 0) {
+        (void) printf("warning: multiple envelopes macro %d\n", macro);
+      } else {
+        p_macro->env_delta = p_macro_data[1];
+        p_macro->env_ticks = p_macro_data[2];
+        p_macro->env_target = p_macro_data[3];
+      }
+      break;
+    case 0x11:
+      /* Add begin. */
+      break;
+    case 0x12:
+      /* Add length. */
+      break;
+    case 0x14:
+      /* Wait for key up. */
+      break;
+    case 0x18:
+      /* Sample loop. */
+      arg = get_u16be(p_macro_data + 2);
+      if (arg & 1) {
+        errx(1, "odd macro sample loop value");
+      }
+      if (arg > (p_macro->data_len * 2)) {
+        /* This happens in real songs, if the macro increases the
+         * length of the sample (especially in a loop), which is not
+         * yet handled.
+         * e.g. X-Out/mdat.ingame_2:0.
+         */
+        (void) printf("warning: macro sample loop too large\n");
+      } else {
+        /* Arg is in bytes, convert to words. */
+        arg /= 2;
+        p_macro->repeat_start = arg;
+        p_macro->repeat_len = (p_macro->data_len - arg);
+      }
+      break;
+    case 0x19:
+      /* One shot sample. */
+      break;
+    case 0x1A:
+      /* Wait for DMA. */
+      break;
+    case 0x1D:
+      /* Jump if volume greater than. */
+      break;
+    default:
+      errx(1, "unknown macro %d command 0x%x", macro, p_macro_data[0]);
+      break;
+    }
+
+    if (is_macro_stopped) {
+      break;
+    }
+
+    p_macro_data += 4;
+  }
+}
+
 int
 tfmx_read_trackstep(struct tfmx_state* p_tfmx_state) {
   uint8_t* p_mdat;
@@ -199,8 +377,8 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
       uint8_t channel;
       uint8_t finetune;
       uint16_t amiga_period;
-      struct tfmx_macro* p_macro;
       uint8_t* p_mod;
+      struct tfmx_macro* p_macro;
 
       static const uint16_t note_periods[] = {
           /* C-0 to B-0. */
@@ -227,14 +405,8 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
       }
 
       mod_sample = p_mod_state->tfmx_macro_to_mod_sample[macro];
-      p_macro = &p_tfmx_state->macros[macro];
       if (mod_sample == 0) {
-        uint8_t* p_macro_data;
-        int had_macro_begin;
-        int had_macro_len;
-        int is_macro_stopped;
-        int32_t load_macro;
-        uint32_t load_macro_start;
+        tfmx_read_macro(p_tfmx_state, macro);
 
         /* Increment first because samples start at 1. */
         p_mod_state->mod_num_samples++;
@@ -244,172 +416,9 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
         mod_sample = p_mod_state->mod_num_samples;
         p_mod_state->tfmx_macro_to_mod_sample[macro] = mod_sample;
         p_mod_state->mod_sample_to_tfmx_macro[mod_sample] = macro;
-
-        /* The value used in MOD files for no repeat. */
-        p_macro->repeat_len = 1;
-        
-        is_macro_stopped = 0;
-
-        load_macro = macro;
-        load_macro_start = 0;
-
-        while (1) {
-          uint32_t arg;
-
-          if (load_macro >= 0) {
-            uint32_t macro_index;
-            uint8_t* p_macro_index =
-                (p_tfmx_state->p_macro_indexes + (load_macro * 4));
-            if ((p_macro_index + 4) > p_mdat_end) {
-              errx(1, "macro index out of bounds");
-            }
-
-            macro_index = get_u32be(p_macro_index);
-            if (p_macro->meta_offset == 0) {
-              p_macro->meta_offset = macro_index;
-            } else {
-              (void) printf("marco %d jumping to macro %d@0x%x, start %d\n",
-                            macro,
-                            load_macro,
-                            macro_index,
-                            load_macro_start);
-            }
-            p_macro_data = (p_mdat + macro_index);
-            if (load_macro_start > 0) {
-              p_macro_data += (load_macro_start * 4);
-            }
-
-            load_macro = -1;
-            load_macro_start = 0;
-          }
-
-          if ((p_macro_data + 4) > p_mdat_end) {
-            errx(1, "macro ran out of bounds");
-          }
-          switch (p_macro_data[0]) {
-          case 0x00:
-            /* DMA off + reset. */
-            break;
-          case 0x01:
-            /* DMA on. */
-            break;
-          case 0x02:
-            /* Set sample begin (offset into sample file). */
-            arg = get_u24be(p_macro_data + 1);
-            if (p_macro->data_offset == 0) {
-              p_macro->data_offset = arg;
-            }
-            break;
-          case 0x03:
-            /* Set sample length (in words). */
-            arg = get_u16be(p_macro_data + 2);
-            if (p_macro->data_len == 0) {
-              p_macro->data_len = arg;
-            }
-            break;
-          case 0x04:
-            /* Wait. */
-            break;
-          case 0x05:
-            /* Loop. */
-            (void) printf("warning: ignoring macro loop\n");
-            break;
-          case 0x06:
-            /* Jump to macro. */
-            load_macro = p_macro_data[1];
-            load_macro_start = get_u16be(p_macro_data + 2);
-            break;
-          case 0x07:
-            /* Stop. */
-            is_macro_stopped = 1;
-            break;
-          case 0x08:
-            /* Add note. */
-            p_macro->transpose = p_macro_data[1];
-            if (p_macro_data[2] != 0) {
-              (void) printf("warning: ignoring unknown in macro add note\n");
-            }
-            if (p_macro_data[3] != 0) {
-              (void) printf("warning: ignoring finetune in macro add note\n");
-            }
-            break;
-          case 0x09:
-            /* Set note. */
-            break;
-          case 0x0B:
-            /* Portamento. */
-            break;
-          case 0x0C:
-            /* Vibrato. */
-            break;
-          case 0x0D:
-            /* Add volume. */
-            p_macro->volume = p_macro_data[3];
-            break;
-          case 0x0E:
-            /* Set volume. */
-            break;
-          case 0x0F:
-            /* Envelope. */
-            if (p_macro->env_ticks != 0) {
-              (void) printf("warning: multiple envelopes macro %d\n", macro);
-            } else {
-              p_macro->env_delta = p_macro_data[1];
-              p_macro->env_ticks = p_macro_data[2];
-              p_macro->env_target = p_macro_data[3];
-            }
-            break;
-          case 0x11:
-            /* Add begin. */
-            break;
-          case 0x12:
-            /* Add length. */
-            break;
-          case 0x14:
-            /* Wait for key up. */
-            break;
-          case 0x18:
-            /* Sample loop. */
-            arg = get_u16be(p_macro_data + 2);
-            if (arg & 1) {
-              errx(1, "odd macro sample loop value");
-            }
-            if (arg > (p_macro->data_len * 2)) {
-              /* This happens in real songs, if the macro increases the
-               * length of the sample (especially in a loop), which is not
-               * yet handled.
-               * e.g. X-Out/mdat.ingame_2:0.
-               */
-              (void) printf("warning: macro sample loop too large\n");
-            } else {
-              /* Arg is in bytes, convert to words. */
-              arg /= 2;
-              p_macro->repeat_start = arg;
-              p_macro->repeat_len = (p_macro->data_len - arg);
-            }
-            break;
-          case 0x19:
-            /* One shot sample. */
-            break;
-          case 0x1A:
-             /* Wait for DMA. */
-             break;
-          case 0x1D:
-             /* Jump if volume greater than. */
-             break;
-          default:
-            errx(1, "unknown macro %d command 0x%x", macro, p_macro_data[0]);
-            break;
-          }
-
-          if (is_macro_stopped) {
-            break;
-          }
-
-          p_macro_data += 4;
-        }
       }
 
+      p_macro = &p_tfmx_state->macros[macro];
       actual_note = (note + track_transpose + p_macro->transpose);
       actual_note &= 0x3F;
       if (actual_note >= 60) {
