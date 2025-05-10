@@ -21,11 +21,11 @@ struct tfmx_macro {
   uint16_t data_len;
   uint32_t repeat_start;
   uint16_t repeat_len;
-  uint8_t transpose;
   uint8_t volume;
   uint8_t env_delta;
   uint8_t env_ticks;
   uint8_t env_target;
+  int32_t add_note;
   int32_t set_note;
 };
 
@@ -106,6 +106,7 @@ tfmx_read_macro(struct tfmx_state* p_tfmx_state, uint8_t macro) {
 
   /* The value used in MOD files for no repeat. */
   p_macro->repeat_len = 1;
+  p_macro->add_note = -1;
   p_macro->set_note = -1;
 
   had_macro_loop_declaration = 0;
@@ -192,7 +193,10 @@ tfmx_read_macro(struct tfmx_state* p_tfmx_state, uint8_t macro) {
       break;
     case 0x08:
       /* Add note. */
-      p_macro->transpose = p_macro_data[1];
+      if (p_macro->add_note != -1) {
+        errx(1, "macro has second add note");
+      }
+      p_macro->add_note = p_macro_data[1];
       if (p_macro_data[2] != 0) {
         (void) printf("warning: ignoring unknown in macro add note\n");
       }
@@ -445,7 +449,11 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
       }
 
       p_macro = &p_tfmx_state->macros[macro];
-      actual_note = (note + track_transpose + p_macro->transpose);
+      if ((p_macro->set_note != -1) && (p_macro->add_note == -1)) {
+        actual_note = p_macro->set_note;
+      } else {
+        actual_note = (note + track_transpose + p_macro->add_note);
+      }
       actual_note &= 0x3F;
       if (actual_note >= 60) {
         errx(1, "note out of range");
