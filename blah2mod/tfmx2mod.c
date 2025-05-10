@@ -26,6 +26,7 @@ struct tfmx_macro {
   uint8_t env_delta;
   uint8_t env_ticks;
   uint8_t env_target;
+  int32_t set_note;
 };
 
 struct tfmx_state {
@@ -94,8 +95,6 @@ put_u16be(uint8_t* p_buf, uint16_t val) {
 void
 tfmx_read_macro(struct tfmx_state* p_tfmx_state, uint8_t macro) {
   uint8_t* p_macro_data;
-  int had_macro_begin;
-  int had_macro_len;
   int had_macro_loop_declaration;
   int is_macro_stopped;
   int32_t load_macro;
@@ -107,6 +106,7 @@ tfmx_read_macro(struct tfmx_state* p_tfmx_state, uint8_t macro) {
 
   /* The value used in MOD files for no repeat. */
   p_macro->repeat_len = 1;
+  p_macro->set_note = -1;
 
   had_macro_loop_declaration = 0;
   is_macro_stopped = 0;
@@ -156,6 +156,12 @@ tfmx_read_macro(struct tfmx_state* p_tfmx_state, uint8_t macro) {
       break;
     case 0x02:
       /* Set sample begin (offset into sample file). */
+      if (p_macro->set_note != -1) {
+        (void) printf("warning: set note in macro %d, clearing sample\n",
+                      macro);
+        p_macro->data_offset = 0;
+        p_macro->data_len = 0;
+      }
       arg = get_u24be(p_macro_data + 1);
       if (p_macro->data_offset == 0) {
         p_macro->data_offset = arg;
@@ -196,6 +202,14 @@ tfmx_read_macro(struct tfmx_state* p_tfmx_state, uint8_t macro) {
       break;
     case 0x09:
       /* Set note. */
+      /* Often used to play a quick sound (such as a bass drum) followed by
+       * the actual note (such as a bass note).
+       * e.g. Apidya/mdat.ingame_1:7.
+       */
+      if (p_macro->set_note != -1) {
+        errx(1, "macro with second set note\n");
+      }
+      p_macro->set_note = p_macro_data[1];
       break;
     case 0x0B:
       /* Portamento. */
