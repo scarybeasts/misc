@@ -642,10 +642,10 @@ main(int argc, const char* argv[]) {
   for (i = 0; i < 16; ++i) {
     start = get_u16be(p_mdat + 0x100 + (i * 2));
     end = get_u16be(p_mdat + 0x140 + (i * 2));
-    if ((start != 0) || (end != 0)) {
-      if (start > end) {
-        errx(1, "subsong start after end");
-      }
+    /* Can't bail on "start > end" because Adventures_Quik_and_Silva/mdat.ingame
+     * hits it.
+     */
+    if ((start != 0) || (end != 0) && (end >= start)) {
       num_subsongs = (i + 1);
     }
 
