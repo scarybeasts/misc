@@ -410,7 +410,10 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
       uint8_t* p_mod;
       struct tfmx_macro* p_macro;
 
-      static const uint16_t note_periods[] = {
+      /* From tfmxplay-1.1.7.
+       * Seems to match actual periods seen with uade --scope.
+       */
+      static const uint16_t note_periods_tfmx[] = {
           /* C-0 to B-0. */
           1710,1614,1524,1438,1357,1281,1209,1141,1077,1017,960,908,
           /* C-1 to B-1. */
@@ -419,6 +422,16 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
           428,404,381,360,340,320,303,286,270,254,240,227,
           /* C-3 to B-3. */
           214,202,191,180,170,160,151,143,135,127,120,113,
+      };
+      static const uint16_t note_periods_mod[] = {
+          /* C-0 to B-0. Not defined in MOD so copied across from TFMX. */
+          1710,1614,1524,1438,1357,1281,1209,1141,1077,1017,960,908,
+          /* C-1 to B-1. */
+          856,808,762,720,678,640,604,570,538,508,480,453,
+          /* C-2 to B-2. */
+          428,404,381,360,339,320,302,285,269,254,240,226,
+          /* C-3 to B-3. */
+          214,202,190,180,170,160,151,143,135,127,120,113,
       };
 
       macro = p_data[1];
@@ -462,7 +475,7 @@ tfmx_read_track(struct tfmx_state* p_tfmx_state,
         (void) printf("encountered note %d\n", actual_note);
         actual_note -= 12;
       }
-      amiga_period = note_periods[actual_note];
+      amiga_period = note_periods_mod[actual_note];
 
       if (channel > 3) {
         errx(1, "channel out of range");
