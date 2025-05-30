@@ -872,7 +872,7 @@ CLEAR P%, &8000
 COPYBLOCK zero_page_play_start, zero_page_play_end, zero_page_play_copy
 
 SAVE "PLAY", binary_start, binary_end
-PUTBASIC "../beeb/play_robo.bas", "LOADER"
+PUTBASIC "../../beeb/play_robo.bas", "LOADER"
 PUTFILE "tables.out", "ADVTAB", 0
 PUTFILE "conv.out", "SONG", 0
 PUTFILE "sample.sdrum", "SDRUM", 0
