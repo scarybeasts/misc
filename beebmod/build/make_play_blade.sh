@@ -1,0 +1,28 @@
+#!/bin/sh
+./build_binaries.sh
+rm -rf tmp
+mkdir tmp
+cd tmp
+../bin/make_channel_maps -channels 1 > sntab1d.dat
+../bin/modxtract -sample 1 -sample 2 -sample 3 \
+                 -pattern 0 -pattern 1 -pattern 2 -pattern 3 \
+                 -pattern 4 -pattern 5 -pattern 6 -pattern 7 \
+                 -pattern 8 -pattern 9 -pattern 10 -pattern 11 \
+                 -pattern 12 -pattern 13 -pattern 14 -pattern 15 \
+                 -pattern 16 -pattern 17 \
+                 ../../mods/blade_of_destiny.mod
+../bin/modpatconv -o conv.out -t tables.out \
+                  mod.pattern.0 mod.pattern.1 mod.pattern.2 mod.pattern.3 \
+                  mod.pattern.4 mod.pattern.5 mod.pattern.6 mod.pattern.7 \
+                  mod.pattern.8 mod.pattern.9 mod.pattern.10 mod.pattern.11 \
+                  mod.pattern.12 mod.pattern.13 mod.pattern.14 mod.pattern.15 \
+                  mod.pattern.16 mod.pattern.17
+../bin/sample_adjust -i mod.sample.1 -o sample.choir \
+                     -sn sntab1d.dat -snchannel 1 -pad \
+                     -gain 1.5 -static_offset 96
+../bin/sample_adjust -i mod.sample.2 -o sample.guitar \
+                     -sn sntab1d.dat -snchannel 2 -pad \
+                     -static_offset 96
+../bin/sample_adjust -i mod.sample.3 -o sample.flute \
+                     -sn sntab1d.dat -snchannel 3 -pad -pre_trunc 2 \
+                     -static_offset 80
