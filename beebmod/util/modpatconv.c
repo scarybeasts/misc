@@ -99,14 +99,14 @@ iterate_pattern(uint8_t* p_pattern, void* p) {
 
 int
 main(int argc, const char** argv) {
-  uint8_t patterns[1024 * 16];
+  uint8_t patterns[1024 * 32];
   uint8_t advance_tables[256 * 36];
   uint32_t line;
   uint32_t i;
   uint32_t note;
   uint8_t* p_buf;
 
-  const char* p_infiles[16];
+  const char* p_infiles[32];
 
   const char* p_outfile = NULL;
   const char* p_tablesfile = NULL;
@@ -134,7 +134,7 @@ main(int argc, const char** argv) {
       p_tablesfile = p_next_arg;
       ++i;
     } else {
-      if (num_infiles == 16) {
+      if (num_infiles == 32) {
         errx(1, "too many infiles");
       }
       p_infiles[num_infiles] = p_arg;
