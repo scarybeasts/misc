@@ -33,6 +33,7 @@ main(int argc, const char** argv) {
   int sn_channel = 0;
   int do_pad = 0;
   uint8_t pad_byte = 0x80;
+  uint32_t pre_trunc = 0;
 
   for (i = 1; i < argc; ++i) {
     const char* p_arg = argv[i];
@@ -62,6 +63,9 @@ main(int argc, const char** argv) {
       } else if (!strcmp(p_arg, "-snchannel")) {
         sn_channel = atoi(p_next_arg);
         ++i;
+      } else if (!strcmp(p_arg, "-pre_trunc")) {
+        pre_trunc = atoi(p_next_arg);
+        ++i;
       }
     }
     if (!strcmp(p_arg, "-pad")) {
@@ -83,8 +87,11 @@ main(int argc, const char** argv) {
 
   (void) fstat(fd, &statbuf);
   length = statbuf.st_size;
+  length -= pre_trunc;
+
   p_sample = malloc(length);
   p_volumes = malloc(length * sizeof(double));
+  (void) lseek(fd, pre_trunc, SEEK_SET);
   (void) read(fd, p_sample, length);
   (void) close(fd);
 
