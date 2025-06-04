@@ -18,5 +18,6 @@ cd tmp
                      -sn sntab1d.dat -snchannel 2 -pad -dyn_offset 112
 ../bin/sample_adjust -i mod.sample.4 -o sample.hdrum \
                      -sn sntab1d.dat -snchannel 3 -pad -static_offset 128
-~/beebasm/beebasm -i ../../beeb/p15k_3sep.asm -S SONG_DETAILS_FILE="../../beeb/play_robo.inc" \
+~/beebasm/beebasm -i ../../beeb/p15k_3sep.asm \
+                  -S SONG_DETAILS_FILE="../../beeb/play_robo.inc" \
                   -do ../play_robo.ssd
