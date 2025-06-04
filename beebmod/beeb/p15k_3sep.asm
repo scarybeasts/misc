@@ -1,15 +1,21 @@
+addr_input_song_start = &70
+addr_input_song_end = &71
+addr_input_advance_tables = &72
+addr_input_period_1 = &73
+addr_input_period_2 = &74
+addr_input_period_3 = &75
+
 addr_silence = &900
-addr_song_metadata = &A10
 addr_sample_starts = &A20
 addr_sample_ends = &A30
-addr_advance_tables = &5600
-addr_song = &3100
 addr_scope_chan1 = &E00
 addr_scope_chan2 = &F00
 addr_scope_chan3 = &1000
 addr_scope_y_table = &1100
 addr_scope_glyph_table = &1200
 
+\\ Player variables from &00 - &1F.
+\\ Avoid colliding with input parameter space at &70.
 ORG &00
 GUARD &1F
 
@@ -198,6 +204,47 @@ GUARD &2FFF
   SEI
 
 {
+  \\ Read and fully use any input parameters from the zero page.
+  \\ They will be trashed below in the relocation loop.
+
+{
+  \\ Input parameter: channel periods.
+  LDA addr_input_period_1
+  AND #&0F
+  ORA #&80
+  STA self_modify_channel1_period + 1
+  LDA addr_input_period_2
+  AND #&0F
+  ORA #&A0
+  STA self_modify_channel2_period + 1
+  LDA addr_input_period_3
+  AND #&0F
+  ORA #&C0
+  STA self_modify_channel3_period + 1
+}
+
+{
+  \\ Input parameter: advance tables base.
+  LDA addr_input_advance_tables
+  STA self_modify_init_advance_tables + 1
+  SEC
+  SBC #1
+  STA self_modify_advance_table_channel1 + 1
+  STA self_modify_advance_table_channel2 + 1
+  STA self_modify_advance_table_channel3 + 1
+}
+
+{
+  \\ Input parameter: song start and end.
+  LDA #0
+  STA var_song_lo
+  LDA addr_input_song_start
+  STA var_song_hi
+  STA self_modify_song_restart + 1
+  LDA addr_input_song_end
+  STA self_modify_song_end_check + 1
+}
+
   \\ Relocate the player code into the zero and stack pages.
   LDA #LO(zero_page_play_copy)
   STA load + 1
@@ -331,7 +378,8 @@ GUARD &2FFF
   STA channel1_advance + 1
   STA channel2_advance + 1
   STA channel3_advance + 1
-  LDA #HI(addr_advance_tables)
+  .self_modify_init_advance_tables
+  LDA #0
   STA channel1_advance + 2
   STA channel2_advance + 2
   STA channel3_advance + 2
@@ -358,26 +406,6 @@ GUARD &2FFF
   STA var_timer_hi
   LDA #1
   STA var_timer_lo
-
-  \\ Initialize the song pointer.
-  LDA #LO(addr_song)
-  STA var_song_lo
-  LDA #HI(addr_song)
-  STA var_song_hi
-
-  \\ Setup channel periods.
-  LDA addr_song_metadata + 1
-  AND #&0F
-  ORA #&80
-  STA channel1_period + 1
-  LDA addr_song_metadata + 2
-  AND #&0F
-  ORA #&A0
-  STA channel2_period + 1
-  LDA addr_song_metadata + 3
-  AND #&0F
-  ORA #&C0
-  STA channel3_period + 1
 
   JSR setup_hardware
 
@@ -418,18 +446,18 @@ GUARD &2FFF
   STA &FE40
 
   \\ Channels 1, 2, 3 to period 1, 2, 3.
-  .channel1_period
-  LDA #&81
+  .self_modify_channel1_period
+  LDA #0
   JSR sound_write
   LDA #0
   JSR sound_write
-  .channel2_period
-  LDA #&A2
+  .self_modify_channel2_period
+  LDA #0
   JSR sound_write
   LDA #0
   JSR sound_write
-  .channel3_period
-  LDA #&C3
+  .self_modify_channel3_period
+  LDA #0
   JSR sound_write
   LDA #0
   JSR sound_write
@@ -539,7 +567,8 @@ GUARD (P% + &FF)
   AND #&1F
   \\ Carry should already be cleared on entry.
   CLC
-  ADC #HI(addr_advance_tables) - 1
+  .self_modify_advance_table_channel1
+  ADC #0
   STA channel1_advance + 2
   \\ 111 cycles (17 remain)
   JSR jsr_wait_12_cycles
@@ -599,7 +628,8 @@ GUARD (P% + &FF)
   AND #&1F
   \\ Carry should already be cleared on entry.
   CLC
-  ADC #HI(addr_advance_tables) - 1
+  .self_modify_advance_table_channel2
+  ADC #0
   STA channel2_advance + 2
   \\ 111 cycles (17 remain)
   JSR jsr_wait_12_cycles
@@ -664,7 +694,8 @@ GUARD (P% + &FF)
   AND #&1F
   \\ Carry should already be cleared on entry.
   CLC
-  ADC #HI(addr_advance_tables) - 1
+  .self_modify_advance_table_channel3
+  ADC #0
   STA channel3_advance + 2
   \\ 111 cycles (17 remain)
   JSR jsr_wait_12_cycles
@@ -704,15 +735,19 @@ GUARD (P% + &FF)
   BCC no_song_lo_hit
   LDY var_song_hi
   INY
-  CPY addr_song_metadata
+  .self_modify_song_end_check
+  CPY #0
   BNE no_song_hi_hit
-  LDA #HI(addr_song)
+  .self_modify_song_restart
+  LDA #0
   STA var_song_hi
-  \\ 125 cycles (3 remain)
+  \\ 123 cycles (5 remain)
+  NOP
   JMP main_loop
   .no_song_lo_hit
-  \\ 110 cycles (18 remain)
+  \\ 108 cycles (20 remain)
   JSR jsr_wait_12_cycles
+  NOP
   LDA &00
   JMP main_loop
   .no_song_hi_hit
