@@ -26,3 +26,6 @@ cd tmp
 ../bin/sample_adjust -i mod.sample.3 -o sample.flute \
                      -sn sntab1d.dat -snchannel 3 -pad -pre_trunc 2 \
                      -static_offset 80
+~/beebasm/beebasm -i ../../beeb/p15k_3sep.asm \
+                  -S SONG_DETAILS_FILE="../../beeb/play_blade.inc" \
+                  -do ../play_blade.ssd
