@@ -1,9 +1,11 @@
 addr_input_song_start = &70
 addr_input_song_end = &71
-addr_input_advance_tables = &72
-addr_input_period_1 = &73
-addr_input_period_2 = &74
-addr_input_period_3 = &75
+addr_input_advance_tables_src = &72
+addr_input_advance_tables_dst = &73
+addr_input_advance_tables_len = &74
+addr_input_period_1 = &75
+addr_input_period_2 = &76
+addr_input_period_3 = &77
 
 addr_silence = &900
 addr_sample_starts = &A20
@@ -225,13 +227,50 @@ GUARD &2FFF
 
 {
   \\ Input parameter: advance tables base.
-  LDA addr_input_advance_tables
+  LDA addr_input_advance_tables_dst
   STA self_modify_init_advance_tables + 1
+  STA self_modify_store_advance_table_dst + 2
   SEC
   SBC #1
   STA self_modify_advance_table_channel1 + 1
   STA self_modify_advance_table_channel2 + 1
   STA self_modify_advance_table_channel3 + 1
+  LDA addr_input_advance_tables_src
+  STA self_modify_load_advance_table_src + 2
+
+  \\ Unpack advance tables.
+  \\ They come in packed, which helps fit everything in memory. We might
+  \\ unpack into the DFS workspace now that everything is loaded.
+  .loop_table
+  LDX #64
+  .loop_note
+  .self_modify_load_advance_table_src
+  LDA &FF00
+  STA var_temp_x
+  INC self_modify_load_advance_table_src + 1
+  BNE no_advance_table_src_wrap
+  INC self_modify_load_advance_table_src + 2
+  .no_advance_table_src_wrap
+  LDY #4
+  .loop_unpack
+  LDA var_temp_x
+  AND #3
+  .self_modify_store_advance_table_dst
+  STA &FF00
+  INC self_modify_store_advance_table_dst + 1
+  BNE no_advance_table_dst_wrap
+  INC self_modify_store_advance_table_dst + 2
+  .no_advance_table_dst_wrap
+  LDA var_temp_x
+  LSR A
+  LSR A
+  STA var_temp_x
+  DEY
+  BNE loop_unpack
+  DEX
+  BNE loop_note
+  DEC addr_input_advance_tables_len
+  BNE loop_table
 }
 
 {

@@ -100,7 +100,7 @@ iterate_pattern(uint8_t* p_pattern, void* p) {
 int
 main(int argc, const char** argv) {
   uint8_t patterns[1024 * 32];
-  uint8_t advance_tables[256 * 36];
+  uint8_t advance_tables[(256 / 4) * 36];
   uint32_t line;
   uint32_t i;
   uint32_t note;
@@ -191,6 +191,7 @@ main(int argc, const char** argv) {
     uint32_t current_steps_int;
     double amiga_period;
     double amiga_freq;
+    uint8_t packed_accum;
     /* 15kHz. */
     double beeb_freq = (1000000 / 64.0);
 
@@ -205,13 +206,21 @@ main(int argc, const char** argv) {
     current_steps_float = 0.0;
     current_steps_int = 0;
 
+    packed_accum = 0;
     for (j = 0; j < 256; ++j) {
       uint32_t current_steps_rounded;
+      uint8_t value;
       current_steps_float += step_size;
       current_steps_rounded = round(current_steps_float);
-      *p_buf = (current_steps_rounded - current_steps_int);
+      value = (current_steps_rounded - current_steps_int);
       current_steps_int = current_steps_rounded;
-      p_buf++;
+      packed_accum >>= 2;
+      packed_accum |= (value << 6);
+      if ((j & 3) == 3) {
+        *p_buf = packed_accum;
+        p_buf++;
+        packed_accum = 0;
+      }
     }
   }
   if (p_tablesfile != NULL) {
@@ -219,7 +228,7 @@ main(int argc, const char** argv) {
     if (tables_fd == -1) {
       errx(1, "cannot open output tables file");
     }
-    (void) write(tables_fd, advance_tables, (256 * num_notes_used));
+    (void) write(tables_fd, advance_tables, ((256 / 4) * num_notes_used));
     (void) close(tables_fd);
   }
 
