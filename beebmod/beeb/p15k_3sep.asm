@@ -7,6 +7,8 @@ addr_input_period_1 = &75
 addr_input_period_2 = &76
 addr_input_period_3 = &77
 
+addr_sample_starts = &120
+addr_sample_ends = &130
 addr_scope_chan1 = &200
 addr_scope_chan2 = &300
 addr_scope_chan3 = &400
@@ -14,8 +16,6 @@ addr_scope_y_table = &500
 addr_scope_glyph_table = &600
 \\ Spills 16 bytes past 1 page.
 addr_silence = &700
-addr_sample_starts = &A20
-addr_sample_ends = &A30
 
 \\ Player variables from &00 - &1F.
 \\ Avoid colliding with input parameter space at &70.
@@ -199,8 +199,8 @@ GUARD &FF
 
 zero_page_play_length = (zero_page_play_end - zero_page_play_start)
 
-ORG &1200
-GUARD &1900
+ORG &1900
+GUARD &2000
 
 \\ The entry point.
 .binary_start
