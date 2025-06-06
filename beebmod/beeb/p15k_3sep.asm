@@ -37,12 +37,12 @@ GUARD &1F
 .var_scope_value SKIP 1
 .var_temp_x SKIP 1
 
-ORG &30
+ORG &20
 GUARD &FF
 
 .zero_page_play_start
 
-\\ The zero-page play loop at &30.
+\\ The zero-page play loop at &20.
   .main_loop
   \\ 0 cycles
   .channel1_load
@@ -94,6 +94,9 @@ GUARD &FF
   \\ All jump targets: 86 cycles (42 remain)
 
   .do_channel1_check_wrap
+  \\ 86 cycles (42 remain)
+  LDA #LO(do_channel2_check_wrap)
+  STA main_loop_jump + 1
   LDA channel1_load + 2
   .channel1_compare_max
   CMP #&FF
@@ -105,8 +108,18 @@ GUARD &FF
   LDA #&FF
   STA channel1_compare_max + 1
   .channel1_post_check_wrap
-  \\ 103 cycles (25 remain)
-  .channel2_check_wrap
+  \\ 108 cycles (20 remain)
+  JSR jsr_wait_14_cycles
+  LDA &00
+  JMP main_loop
+  .no_channel1_wrap
+  NOP:NOP:NOP
+  JMP channel1_post_check_wrap
+
+  .do_channel2_check_wrap
+  \\ 86 cycles (42 remain)
+  LDA #LO(do_channel3_check_wrap)
+  STA main_loop_jump + 1
   LDA channel2_load + 2
   .channel2_compare_max
   CMP #&FF
@@ -118,18 +131,19 @@ GUARD &FF
   LDA #&FF
   STA channel2_compare_max + 1
   .channel2_post_check_wrap
-  \\ 120 cycles (8 remain)
-  LDA #LO(do_channel3_check_wrap)
-  STA main_loop_jump + 1
+  \\ 108 cycles (20 remain)
+  JSR jsr_wait_14_cycles
+  LDA &00
   JMP main_loop
-  .no_channel1_wrap
-  NOP:NOP:NOP
-  JMP channel1_post_check_wrap
   .no_channel2_wrap
   NOP:NOP:NOP
   JMP channel2_post_check_wrap
 
   .do_channel3_check_wrap
+  \\ 86 cycles (42 remain)
+  .load_next_do_after_channel3_check
+  LDA #LO(jmp_do_vsync_check)
+  STA main_loop_jump + 1
   LDA channel3_load + 2
   .channel3_compare_max
   CMP #&FF
@@ -141,10 +155,7 @@ GUARD &FF
   LDA #&FF
   STA channel3_compare_max + 1
   .channel3_post_check_wrap
-  \\ 103 cycles (25 remain)
-  .load_next_do_after_channel3_check
-  LDA #LO(jmp_do_vsync_check)
-  STA main_loop_jump + 1
+  \\ 108 cycles (20 remain)
   JSR jsr_wait_14_cycles
   LDA &00
   JMP main_loop
