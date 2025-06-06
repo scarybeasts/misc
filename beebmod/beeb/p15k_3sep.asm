@@ -6,6 +6,7 @@ addr_input_advance_tables_len = &74
 addr_input_period_1 = &75
 addr_input_period_2 = &76
 addr_input_period_3 = &77
+addr_input_song_speed = &78
 
 addr_sample_starts = &120
 addr_sample_ends = &130
@@ -22,8 +23,7 @@ addr_silence = &700
 ORG &00
 GUARD &1F
 
-.var_timer_lo SKIP 1
-.var_timer_hi SKIP 1
+.var_song_tick_counter SKIP 1
 .var_song_lo SKIP 1
 .var_song_hi SKIP 1
 .var_next_byte SKIP 1
@@ -36,11 +36,6 @@ GUARD &1F
 .var_scope_chan3_ptr_hi SKIP 1
 .var_scope_value SKIP 1
 .var_temp_x SKIP 1
-
-\\ Calibrated for default BPM, song speed 7.
-\\ 64us per loop, 50Hz, 10 loops per decrement.
-\\ (1000000.0 / 64 / 50 / 10) * 7
-timer_reload = 219
 
 ORG &30
 GUARD &FF
@@ -148,10 +143,9 @@ GUARD &FF
   .channel3_post_check_wrap
   \\ 103 cycles (25 remain)
   .load_next_do_after_channel3_check
-  LDA #LO(jmp_do_timing_decrement)
+  LDA #LO(jmp_do_vsync_check)
   STA main_loop_jump + 1
-  JSR jsr_wait_12_cycles
-  NOP
+  JSR jsr_wait_14_cycles
   LDA &00
   JMP main_loop
   .no_channel3_wrap
@@ -172,8 +166,10 @@ GUARD &FF
   JMP do_scope_chan3_render
   .jmp_do_scope_inc
   JMP do_scope_inc
-  .jmp_do_timing_decrement
-  JMP do_timing_decrement
+  .jmp_do_vsync_check
+  JMP do_vsync_check
+  .jmp_do_song_tick
+  JMP do_song_tick
   .jmp_do_load_channel1
   JMP do_load_channel1
   .jmp_do_exec_channel1_note
@@ -283,6 +279,12 @@ GUARD &2000
   STA self_modify_song_restart + 1
   LDA addr_input_song_end
   STA self_modify_song_end_check + 1
+}
+
+{
+  \\ Input parameter: song speed.
+  LDA addr_input_song_speed
+  STA self_modify_song_ticks_reload + 1
 }
 
   \\ Relocate the player code into the zero and stack pages.
@@ -441,11 +443,9 @@ GUARD &2000
   LDA #&09
   STA var_scope_chan3_ptr_lo
 
-  \\ Set timer to fire right away in order to load the first song line.
-  LDA #0
-  STA var_timer_hi
+  \\ Set song tick counter to fire on first vsync.
   LDA #1
-  STA var_timer_lo
+  STA var_song_tick_counter
 
   JSR setup_hardware
 
@@ -527,6 +527,10 @@ GUARD &2000
   .jsr_wait_12_cycles
   RTS
 
+  .jsr_wait_14_cycles
+  NOP
+  RTS
+
   .play_entry
   \\ At write gate +3us. Write targets are +10us and then every +16us after.
   \\ The play loop writes the bus at +8us. It took 3us to jump here. There's
@@ -542,33 +546,46 @@ CLEAR P%, &8000
 ALIGN &100
 GUARD (P% + &FF)
 
-  .do_timing_decrement
+  .do_vsync_check
   \\ 89 cycles (39 remain)
   LDA #LO(jmp_do_scope_chan1_clear_load)
   STA main_loop_jump + 1
-  DEC var_timer_lo
-  BNE no_timer_lo_zero
-  DEC var_timer_hi
-  BPL no_timer_hi_hit
-  \\ 108 cycles (20 remain)
+  \\ 94 cycles (34 remain)
+  LDA #2
+  BIT &FE4D
+  BEQ no_vsync_hit
+  STA &FE4D
+  LDA #LO(jmp_do_song_tick)
+  STA load_next_do_after_channel3_check + 1
+  \\ 115 cycles (13 remain)
+  NOP:NOP:NOP:NOP:NOP
+  JMP main_loop
+  .no_vsync_hit
+  \\ 105 cycles (23 remain)
+  JSR jsr_wait_14_cycles
+  NOP:NOP:NOP
+  JMP main_loop
+
+  .do_song_tick
+  \\ 89 cycles (39 remain)
+  LDA #LO(jmp_do_scope_chan1_clear_load)
+  STA main_loop_jump + 1
+  \\ 94 cycles (34 remain)
+  DEC var_song_tick_counter
+  BNE no_song_tick_hit
   LDA #LO(jmp_do_load_channel1)
   STA load_next_do_after_channel3_check + 1
-  LDA #LO(timer_reload)
-  STA var_timer_lo
-  LDA #HI(timer_reload)
-  STA var_timer_hi
-  \\ 123 cycles (5 remain)
-  NOP
+  .self_modify_song_ticks_reload
+  LDA #0
+  STA var_song_tick_counter
+  \\ 111 cycles (17 remain)
+  JSR jsr_wait_14_cycles
   JMP main_loop
-  .no_timer_lo_zero
-  \\ 102 cycles (26 remain)
-  JSR jsr_wait_12_cycles
-  NOP:NOP:NOP:NOP
-  LDA &00
-  JMP main_loop
-  .no_timer_hi_hit
-  \\ 109 cycles (19 remain)
-  JSR jsr_wait_12_cycles
+  .no_song_tick_hit
+  LDA #LO(jmp_do_vsync_check)
+  STA load_next_do_after_channel3_check + 1
+  \\ 107 cycles (21 remain)
+  JSR jsr_wait_14_cycles
   NOP:NOP
   JMP main_loop
 
@@ -582,8 +599,7 @@ GUARD (P% + &FF)
   \\ 103 cycles (25 remain)
   LDA #LO(jmp_do_load_channel2)
   STA load_next_do_after_channel3_check + 1
-  JSR jsr_wait_12_cycles
-  NOP
+  JSR jsr_wait_14_cycles
   LDA &00
   JMP main_loop
   .has_channel1_note
@@ -611,8 +627,7 @@ GUARD (P% + &FF)
   ADC #0
   STA channel1_advance + 2
   \\ 111 cycles (17 remain)
-  JSR jsr_wait_12_cycles
-  NOP
+  JSR jsr_wait_14_cycles
   JMP main_loop
 
   .do_exec_channel1_instrument
@@ -643,8 +658,7 @@ GUARD (P% + &FF)
   \\ 103 cycles (25 remain)
   LDA #LO(jmp_do_load_channel3)
   STA load_next_do_after_channel3_check + 1
-  JSR jsr_wait_12_cycles
-  NOP
+  JSR jsr_wait_14_cycles
   LDA &00
   JMP main_loop
   .has_channel2_note
@@ -672,8 +686,7 @@ GUARD (P% + &FF)
   ADC #0
   STA channel2_advance + 2
   \\ 111 cycles (17 remain)
-  JSR jsr_wait_12_cycles
-  NOP
+  JSR jsr_wait_14_cycles
   JMP main_loop
 
   .do_exec_channel2_instrument
@@ -709,8 +722,7 @@ GUARD (P% + &FF)
   \\ 103 cycles (25 remain)
   LDA #LO(jmp_do_increment_song_pointer)
   STA load_next_do_after_channel3_check + 1
-  JSR jsr_wait_12_cycles
-  NOP
+  JSR jsr_wait_14_cycles
   LDA &00
   JMP main_loop
   .has_channel3_note
@@ -738,8 +750,7 @@ GUARD (P% + &FF)
   ADC #0
   STA channel3_advance + 2
   \\ 111 cycles (17 remain)
-  JSR jsr_wait_12_cycles
-  NOP
+  JSR jsr_wait_14_cycles
   JMP main_loop
 
   .do_exec_channel3_instrument
@@ -764,7 +775,7 @@ GUARD (P% + &FF)
   \\ 89 cycles (39 remain)
   LDA #LO(jmp_do_scope_chan1_clear_load)
   STA main_loop_jump + 1
-  LDA #LO(jmp_do_timing_decrement)
+  LDA #LO(jmp_do_vsync_check)
   STA load_next_do_after_channel3_check + 1
   \\ 99 cycles (29 remain)
   LDA var_song_lo
@@ -786,8 +797,7 @@ GUARD (P% + &FF)
   JMP main_loop
   .no_song_lo_hit
   \\ 108 cycles (20 remain)
-  JSR jsr_wait_12_cycles
-  NOP
+  JSR jsr_wait_14_cycles
   LDA &00
   JMP main_loop
   .no_song_hi_hit
