@@ -121,10 +121,7 @@ GUARD &FF
   JMP jmp_main_loop_6
   .no_channel3_wrap
   \\ 104 cycles (24 remain)
-  JSR jsr_wait_14_cycles
-  NOP:NOP
-  LDA &00
-  JMP main_loop
+  JMP jmp_main_loop_24
   .no_channel3_sample_loop
   \\ 110 cycles (18 remain)
   LDA #HI(addr_silence)
@@ -513,17 +510,38 @@ GUARD &2000
   STA &FE40
   RTS
 
+  .jmp_main_loop_24
+  NOP
+  NOP
+  .jmp_main_loop_20
+  NOP
+  NOP
+  NOP
+  NOP
+  .jmp_main_loop_12
+  NOP
+  NOP
   .jmp_main_loop_8
   NOP
   .jmp_main_loop_6
+  JMP main_loop
+
+  .jmp_main_loop_23
+  NOP
+  .jmp_main_loop_21
+  NOP
+  NOP
+  .jmp_main_loop_17
+  NOP
+  NOP
+  .jmp_main_loop_13
+  NOP
+  .jmp_main_loop_11
+  NOP
   LDA &00
   JMP main_loop
 
   .jsr_wait_12_cycles
-  RTS
-
-  .jsr_wait_14_cycles
-  NOP
   RTS
 
   .play_entry
@@ -561,9 +579,7 @@ GUARD (P% + &FF)
   JMP main_loop
   .no_channel_wrap
   \\ 107 cycles (21 remain)
-  JSR jsr_wait_14_cycles
-  NOP:NOP
-  JMP main_loop
+  JMP jmp_main_loop_21
   .no_channel1_sample_loop
   \\ 113 cycles (15 remain)
   LDA #HI(addr_silence)
@@ -612,13 +628,10 @@ GUARD (P% + &FF)
   LDA #LO(jmp_do_song_tick)
   STA load_next_do_after_channel3_check + 1
   \\ 115 cycles (13 remain)
-  NOP:NOP:NOP:NOP:NOP
-  JMP main_loop
+  JMP jmp_main_loop_13
   .no_vsync_hit
   \\ 105 cycles (23 remain)
-  JSR jsr_wait_14_cycles
-  NOP:NOP:NOP
-  JMP main_loop
+  JMP jmp_main_loop_23
 
   .do_song_tick
   \\ 89 cycles (39 remain)
@@ -633,15 +646,12 @@ GUARD (P% + &FF)
   LDA #0
   STA var_song_tick_counter
   \\ 111 cycles (17 remain)
-  JSR jsr_wait_14_cycles
-  JMP main_loop
+  JMP jmp_main_loop_17
   .no_song_tick_hit
   LDA #LO(jmp_do_vsync_check)
   STA load_next_do_after_channel3_check + 1
   \\ 107 cycles (21 remain)
-  JSR jsr_wait_14_cycles
-  NOP:NOP
-  JMP main_loop
+  JMP jmp_main_loop_21
 
   .do_load_channel1
   \\ 89 cycles (39 remain)
@@ -653,9 +663,7 @@ GUARD (P% + &FF)
   \\ 103 cycles (25 remain)
   LDA #LO(jmp_do_load_channel2)
   STA load_next_do_after_channel3_check + 1
-  JSR jsr_wait_14_cycles
-  LDA &00
-  JMP main_loop
+  JMP jmp_main_loop_20
   .has_channel1_note
   \\ 104 cycles (24 remain)
   STA var_next_byte
@@ -681,8 +689,7 @@ GUARD (P% + &FF)
   ADC #0
   STA channel1_advance + 2
   \\ 111 cycles (17 remain)
-  JSR jsr_wait_14_cycles
-  JMP main_loop
+  JMP jmp_main_loop_17
 
   .do_exec_channel1_instrument
   \\ 89 cycles (39 remain)
@@ -698,8 +705,7 @@ GUARD (P% + &FF)
   LDA #0
   STA channel1_load + 1
   \\ 117 cycles (11 remain)
-  NOP:NOP:NOP:NOP
-  JMP main_loop
+  JMP jmp_main_loop_11
 
 \\ The jumps in this block are cycle counted and must not cross pages.
 CLEAR P%, &8000
@@ -716,9 +722,7 @@ GUARD (P% + &FF)
   \\ 103 cycles (25 remain)
   LDA #LO(jmp_do_load_channel3)
   STA load_next_do_after_channel3_check + 1
-  JSR jsr_wait_14_cycles
-  LDA &00
-  JMP main_loop
+  JMP jmp_main_loop_20
   .has_channel2_note
   \\ 104 cycles (24 remain)
   STA var_next_byte
@@ -744,8 +748,7 @@ GUARD (P% + &FF)
   ADC #0
   STA channel2_advance + 2
   \\ 111 cycles (17 remain)
-  JSR jsr_wait_14_cycles
-  JMP main_loop
+  JMP jmp_main_loop_17
 
   .do_exec_channel2_instrument
   \\ 89 cycles (39 remain)
@@ -761,8 +764,7 @@ GUARD (P% + &FF)
   LDA #0
   STA channel2_load + 1
   \\ 117 cycles (11 remain)
-  NOP:NOP:NOP:NOP
-  JMP main_loop
+  JMP jmp_main_loop_11
 
   .do_load_channel3
   \\ 89 cycles (39 remain)
@@ -774,9 +776,7 @@ GUARD (P% + &FF)
   \\ 103 cycles (25 remain)
   LDA #LO(jmp_do_increment_song_pointer)
   STA load_next_do_after_channel3_check + 1
-  JSR jsr_wait_14_cycles
-  LDA &00
-  JMP main_loop
+  JMP jmp_main_loop_20
   .has_channel3_note
   \\ 104 cycles (24 remain)
   STA var_next_byte
@@ -802,8 +802,7 @@ GUARD (P% + &FF)
   ADC #0
   STA channel3_advance + 2
   \\ 111 cycles (17 remain)
-  JSR jsr_wait_14_cycles
-  JMP main_loop
+  JMP jmp_main_loop_17
 
   .do_exec_channel3_instrument
   \\ 89 cycles (39 remain)
@@ -819,8 +818,7 @@ GUARD (P% + &FF)
   LDA #0
   STA channel3_load + 1
   \\ 117 cycles (11 remain)
-  NOP:NOP:NOP:NOP
-  JMP main_loop
+  JMP jmp_main_loop_11
 
   .do_increment_song_pointer
   \\ 89 cycles (39 remain)
@@ -848,9 +846,7 @@ GUARD (P% + &FF)
   JMP main_loop
   .no_song_lo_hit
   \\ 108 cycles (20 remain)
-  JSR jsr_wait_14_cycles
-  LDA &00
-  JMP main_loop
+  JMP jmp_main_loop_20
   .no_song_hi_hit
   \\ 121 cycles (7 remain)
   \\ Force STY abs, 4 cycles, for the zero page write.
@@ -984,9 +980,7 @@ GUARD (P% + &FF)
   INC var_scope_chan2_ptr_lo
   INC var_scope_chan3_ptr_lo
   \\ 116 cycles (12 remain)
-  NOP:NOP:NOP
-  LDA &00
-  JMP main_loop
+  JMP jmp_main_loop_12
   .scope_wrap
   LDA #&29
   STA var_scope_chan1_ptr_lo
@@ -995,8 +989,7 @@ GUARD (P% + &FF)
   LDA #&09
   STA var_scope_chan3_ptr_lo
   \\ 117 cycles (11 remain)
-  NOP:NOP:NOP:NOP
-  JMP main_loop
+  JMP jmp_main_loop_11
 
 CLEAR P%, &8000
 
