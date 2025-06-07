@@ -33,7 +33,7 @@ main(int argc, const char** argv) {
   uint32_t static_offset = 0;
   double gain = 1.0;
   int sn_channel = 0;
-  int do_pad = 0;
+  uint32_t post_end_pad = 0;
   uint8_t pad_byte = 0x80;
   uint32_t pre_begin_trunc = 0;
   uint32_t pre_begin_pad = 0;
@@ -72,10 +72,10 @@ main(int argc, const char** argv) {
       } else if (!strcmp(p_arg, "-pre_begin_pad")) {
         pre_begin_pad = atoi(p_next_arg);
         ++i;
+      } else if (!strcmp(p_arg, "-post_end_pad")) {
+        post_end_pad = atoi(p_next_arg);
+        ++i;
       }
-    }
-    if (!strcmp(p_arg, "-pad")) {
-      do_pad = 1;
     }
   }
 
@@ -244,18 +244,18 @@ main(int argc, const char** argv) {
     errx(1, "failed to open output file");
   }
   (void) write(fd, p_sample, length);
-  if (do_pad) {
+  if (post_end_pad > 0) {
     /* Pad the sample.
      * First we pad to 256 bytes.
-     * Then we add 16 bytes of padding to handle read overruns due to the
+     * Then we add bytes of padding to handle read overruns due to the
      * player doing out-of-band sample wrap.
      */
-    uint32_t pad_length = (256 - (length % 256));
-    pad_length &= 255;
-    for (i = 0; i < pad_length; ++i) {
+    uint32_t page_pad_length = (256 - (length % 256));
+    page_pad_length &= 255;
+    for (i = 0; i < page_pad_length; ++i) {
       (void) write(fd, &pad_byte, 1);
     }
-    for (i = 0; i < 16; ++i) {
+    for (i = 0; i < post_end_pad; ++i) {
       (void) write(fd, &pad_byte, 1);
     }
   }

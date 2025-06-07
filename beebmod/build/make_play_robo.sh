@@ -11,13 +11,17 @@ cd tmp
                   mod.pattern.0 mod.pattern.1 mod.pattern.2 mod.pattern.3 \
                   mod.pattern.4
 ../bin/sample_adjust -i mod.sample.1 -o sample.sdrum \
-                     -sn sntab1d.dat -snchannel 1 -pad -dyn_offset 112
+                     -sn sntab1d.dat -snchannel 1 -dyn_offset 112 \
+                     -post_end_pad 24
 ../bin/sample_adjust -i mod.sample.2 -o sample.bdrum \
-                     -sn sntab1d.dat -snchannel 1 -pad
+                     -sn sntab1d.dat -snchannel 1 \
+                     -post_end_pad 24
 ../bin/sample_adjust -i mod.sample.3 -o sample.bass \
-                     -sn sntab1d.dat -snchannel 2 -pad -dyn_offset 112
+                     -sn sntab1d.dat -snchannel 2 -dyn_offset 112 \
+                     -post_end_pad 24
 ../bin/sample_adjust -i mod.sample.4 -o sample.hdrum \
-                     -sn sntab1d.dat -snchannel 3 -pad -static_offset 128
+                     -sn sntab1d.dat -snchannel 3 -static_offset 128 \
+                     -post_end_pad 24
 ~/beebasm/beebasm -i ../../beeb/p15k_3sep.asm \
                   -S SONG_DETAILS_FILE="../../beeb/play_robo.inc" \
                   -do ../play_robo.ssd
