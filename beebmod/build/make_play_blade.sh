@@ -20,11 +20,11 @@ cd tmp
 ../bin/sample_adjust -i mod.sample.1 -o sample.choir \
                      -sn sntab1d.dat -snchannel 1 -pad \
                      -gain 1.5 -static_offset 96
-../bin/sample_adjust -i mod.sample.2 -o sample.guitar \
+../bin/sample_adjust -i mod.sample.2 -o sample.guitar -pre_begin_pad 6 \
                      -sn sntab1d.dat -snchannel 2 -pad \
                      -static_offset 96
-../bin/sample_adjust -i mod.sample.3 -o sample.flute \
-                     -sn sntab1d.dat -snchannel 3 -pad -pre_trunc 2 \
+../bin/sample_adjust -i mod.sample.3 -o sample.flute -pre_begin_trunc 2 \
+                     -sn sntab1d.dat -snchannel 3 -pad \
                      -static_offset 80
 ~/beebasm/beebasm -i ../../beeb/p15k_3sep.asm \
                   -S SONG_DETAILS_FILE="../../beeb/play_blade.inc" \

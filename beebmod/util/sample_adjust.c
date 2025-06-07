@@ -12,9 +12,11 @@ int
 main(int argc, const char** argv) {
   int fd;
   struct stat statbuf;
+  uint32_t in_length;
   uint32_t length;
   uint32_t i;
   int8_t* p_sample;
+  uint8_t* p_buf;
   double* p_volumes;
   uint32_t volume_total;
   uint32_t num_volumes;
@@ -33,7 +35,8 @@ main(int argc, const char** argv) {
   int sn_channel = 0;
   int do_pad = 0;
   uint8_t pad_byte = 0x80;
-  uint32_t pre_trunc = 0;
+  uint32_t pre_begin_trunc = 0;
+  uint32_t pre_begin_pad = 0;
 
   for (i = 1; i < argc; ++i) {
     const char* p_arg = argv[i];
@@ -63,8 +66,11 @@ main(int argc, const char** argv) {
       } else if (!strcmp(p_arg, "-snchannel")) {
         sn_channel = atoi(p_next_arg);
         ++i;
-      } else if (!strcmp(p_arg, "-pre_trunc")) {
-        pre_trunc = atoi(p_next_arg);
+      } else if (!strcmp(p_arg, "-pre_begin_trunc")) {
+        pre_begin_trunc = atoi(p_next_arg);
+        ++i;
+      } else if (!strcmp(p_arg, "-pre_begin_pad")) {
+        pre_begin_pad = atoi(p_next_arg);
         ++i;
       }
     }
@@ -86,13 +92,19 @@ main(int argc, const char** argv) {
   }
 
   (void) fstat(fd, &statbuf);
-  length = statbuf.st_size;
-  length -= pre_trunc;
+  in_length = statbuf.st_size;
+  length = in_length;
+  length -= pre_begin_trunc;
+  length += pre_begin_pad;
 
   p_sample = malloc(length);
   p_volumes = malloc(length * sizeof(double));
-  (void) lseek(fd, pre_trunc, SEEK_SET);
-  (void) read(fd, p_sample, length);
+
+  p_buf = p_sample;
+  (void) memset(p_buf, '\0', pre_begin_pad);
+  p_buf += pre_begin_pad;
+  (void) lseek(fd, pre_begin_trunc, SEEK_SET);
+  (void) read(fd, p_buf, (in_length - pre_begin_trunc));
   (void) close(fd);
 
   /* Calculate a rolling average volume. */
