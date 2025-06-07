@@ -37,6 +37,7 @@ main(int argc, const char** argv) {
   uint8_t pad_byte = 0x80;
   uint32_t pre_begin_trunc = 0;
   uint32_t pre_begin_pad = 0;
+  int32_t loop_start = -1;
 
   for (i = 1; i < argc; ++i) {
     const char* p_arg = argv[i];
@@ -74,6 +75,9 @@ main(int argc, const char** argv) {
         ++i;
       } else if (!strcmp(p_arg, "-post_end_pad")) {
         post_end_pad = atoi(p_next_arg);
+        ++i;
+      } else if (!strcmp(p_arg, "-loop_start")) {
+        loop_start = atoi(p_next_arg);
         ++i;
       }
     }
@@ -256,6 +260,10 @@ main(int argc, const char** argv) {
       (void) write(fd, &pad_byte, 1);
     }
     for (i = 0; i < post_end_pad; ++i) {
+      if (loop_start >= 0) {
+        pad_byte = p_sample[loop_start];
+        loop_start++;
+      }
       (void) write(fd, &pad_byte, 1);
     }
   }
