@@ -180,379 +180,7 @@ zero_page_play_length = (zero_page_play_end - zero_page_play_start)
 ORG &1900
 GUARD &2000
 
-\\ The entry point.
 .binary_start
-  SEI
-
-{
-  \\ Read and fully use any input parameters from the zero page.
-  \\ They will be trashed below in the relocation loop.
-
-{
-  \\ Input parameter: channel periods.
-  LDA addr_input_period_1
-  AND #&0F
-  ORA #&80
-  STA self_modify_channel1_period + 1
-  LDA addr_input_period_2
-  AND #&0F
-  ORA #&A0
-  STA self_modify_channel2_period + 1
-  LDA addr_input_period_3
-  AND #&0F
-  ORA #&C0
-  STA self_modify_channel3_period + 1
-}
-
-{
-  \\ Input parameter: advance tables base.
-  LDA addr_input_advance_tables_dst
-  STA self_modify_init_advance_tables + 1
-  STA self_modify_store_advance_table_dst + 2
-  SEC
-  SBC #1
-  STA self_modify_advance_table_channel1 + 1
-  STA self_modify_advance_table_channel2 + 1
-  STA self_modify_advance_table_channel3 + 1
-  LDA addr_input_advance_tables_src
-  STA self_modify_load_advance_table_src + 2
-
-  \\ Unpack advance tables.
-  \\ They come in packed, which helps fit everything in memory. We might
-  \\ unpack into the DFS workspace now that everything is loaded.
-  .loop_table
-  LDX #64
-  .loop_note
-  .self_modify_load_advance_table_src
-  LDA &FF00
-  STA var_temp_x
-  INC self_modify_load_advance_table_src + 1
-  BNE no_advance_table_src_wrap
-  INC self_modify_load_advance_table_src + 2
-  .no_advance_table_src_wrap
-  LDY #4
-  .loop_unpack
-  LDA var_temp_x
-  AND #3
-  .self_modify_store_advance_table_dst
-  STA &FF00
-  INC self_modify_store_advance_table_dst + 1
-  BNE no_advance_table_dst_wrap
-  INC self_modify_store_advance_table_dst + 2
-  .no_advance_table_dst_wrap
-  LDA var_temp_x
-  LSR A
-  LSR A
-  STA var_temp_x
-  DEY
-  BNE loop_unpack
-  DEX
-  BNE loop_note
-  DEC addr_input_advance_tables_len
-  BNE loop_table
-}
-
-{
-  \\ Input parameter: song start and end.
-  LDA #0
-  STA var_song_lo
-  LDA addr_input_song_start
-  STA var_song_hi
-  STA self_modify_song_restart + 1
-  LDA addr_input_song_end
-  STA self_modify_song_end_check + 1
-}
-
-{
-  \\ Input parameter: song speed.
-  LDA addr_input_song_speed
-  STA self_modify_song_ticks_reload + 1
-}
-
-  \\ Relocate the player code into the zero and stack pages.
-  LDA #LO(zero_page_play_copy)
-  STA load + 1
-  LDA #HI(zero_page_play_copy)
-  STA load + 2
-  LDA #LO(zero_page_play_start)
-  STA store + 1
-  LDA #HI(zero_page_play_start)
-  STA store + 2
-  LDY #LO(zero_page_play_length)
-  LDX #HI(zero_page_play_length)
-  .loop
-  .load
-  LDA &FFFF
-  .store
-  STA &FFFF
-  INC load + 1
-  BNE no_load_wrap
-  INC load + 2
-  .no_load_wrap
-  INC store + 1
-  BNE no_store_wrap
-  INC store + 2
-  .no_store_wrap
-  DEY
-  BNE loop
-  DEX
-  BPL loop
-}
-
-{
-  \\ Create the silence page.
-  LDA #&FF
-  LDX #0
-  .loop
-  STA addr_silence,X
-  INX
-  BNE loop
-  \\ Extend by some bytes to cater for the out-of-band wrapping.
-  LDX #0
-  LDY #24
-  .loop2
-  STA addr_silence + &100,X
-  INX
-  DEY
-  BNE loop2
-}
-
-{
-  \\ Set up the silent sample metadata.
-  LDA #HI(addr_silence)
-  STA addr_sample_starts + &F
-  STA addr_sample_wraps + &F
-  LDA #0
-  STA addr_sample_wraps_fine + &F
-  LDA #HI(addr_silence) + 1
-  STA addr_sample_ends + &F
-}
-
-{
-  \\ Initialize the oscilloscope state.
-  LDA #0
-  LDX #0
-  .loop
-  STA addr_scope_chan1,X
-  STA addr_scope_chan2,X
-  STA addr_scope_chan3,X
-  INX
-  BNE loop
-}
-
-{
-  \\ Calculate the lookup tables for scope rendering.
-  LDX #0
-  .loop
-  TXA
-  AND #&0F
-  TAY
-  LDA scope_y_table,Y
-  STA addr_scope_y_table,X
-  LDA scope_glyph_table,Y
-  STA addr_scope_glyph_table,X
-  INX
-  BNE loop
-  \\ &FF is special and used for the silence page -- make it central.
-  LDX #&FF
-  LDY #8
-  LDA scope_y_table,Y
-  STA addr_scope_y_table,X
-  LDA scope_glyph_table,Y
-  STA addr_scope_glyph_table,X
-}
-
-  \\ Set up the MODE 7 line preambles (color, gfx) for scope rendering.
-  \\ Red graphics.
-  LDA #&91
-  STA &7C28 + (0 * 40)
-  STA &7C28 + (1 * 40)
-  STA &7C28 + (2 * 40)
-  STA &7C28 + (3 * 40)
-  STA &7C28 + (4 * 40)
-  \\ Yellow graphics.
-  LDA #&93
-  STA &7D18 + (0 * 40)
-  STA &7D18 + (1 * 40)
-  STA &7D18 + (2 * 40)
-  STA &7D18 + (3 * 40)
-  STA &7D18 + (4 * 40)
-  \\ Magenta graphics.
-  LDA #&95
-  STA &7E08 + (0 * 40)
-  STA &7E08 + (1 * 40)
-  STA &7E08 + (2 * 40)
-  STA &7E08 + (3 * 40)
-  STA &7E08 + (4 * 40)
-
-  \\ Point the channel addresses at the silence page.
-  LDA #0
-  STA channel1_load + 1
-  STA channel2_load + 1
-  STA channel3_load + 1
-  LDA #HI(addr_silence)
-  STA channel1_load + 2
-  STA channel2_load + 2
-  STA channel3_load + 2
-
-  \\ Set initial instruments to the silent sample.
-  LDA #&0F
-  STA var_channel1_instrument
-  STA var_channel2_instrument
-  STA var_channel3_instrument
-
-  \\ Point the tables advances at the first advance table.
-  LDA #0
-  STA channel1_advance + 1
-  STA channel2_advance + 1
-  STA channel3_advance + 1
-  .self_modify_init_advance_tables
-  LDA #0
-  STA channel1_advance + 2
-  STA channel2_advance + 2
-  STA channel3_advance + 2
-
-  \\ Setup MODE7 scope pointers.
-  \\ Row 1
-  LDA #&7C
-  STA var_scope_chan1_ptr_hi
-  LDA #&29
-  STA var_scope_chan1_ptr_lo
-  \\ Row 7.
-  LDA #&7D
-  STA var_scope_chan2_ptr_hi
-  LDA #&19
-  STA var_scope_chan2_ptr_lo
-  \\ Row 13.
-  LDA #&7E
-  STA var_scope_chan3_ptr_hi
-  LDA #&09
-  STA var_scope_chan3_ptr_lo
-
-  \\ Set song tick counter to fire on first vsync.
-  LDA #1
-  STA var_song_tick_counter
-
-  JSR setup_hardware
-
-  \\ Consistent register state.
-  \\ X is used as the index to the advances tables.
-  LDX #&FF
-  TXS
-  LDX #0
-  LDY #0
-
-  \\ Silence on noise.
-  LDA #&FF
-  STA &FE4F 
-  \\ Open the sound write gate and leave open.
-  LDA &00
-  LDA #&00
-  \\ 5 cycles, shorter 2 cycle 1MHz write.
-  STA &FE40
-  \\ Aligned to even cycle.
-  \\ 1us for SN write gate to low, then 9us before it's the time to change
-  \\ the bus value.
-  \\ For a total requirement of 10us, and 16us multiples thereafter.
-
-  LDA &00
-  JMP play_entry
-
-  .scope_y_table
-  EQUB 0, 0, 0, 0, 40, 40, 40, 80, 80, 80, 120, 120, 120, 160, 160, 160
-  .scope_glyph_table
-  EQUB &23, &23, &2C, &70, &23, &2C, &70, &23, &2C, &70, &23, &2C, &70, &23, &2C, &70
-
-  .setup_hardware
-  \\ System VIA port A to output.
-  LDA #&FF
-  STA &FE43
-  \\ Keyboard to auto-scan mode.
-  LDA #&0B
-  STA &FE40
-
-  \\ Channels 1, 2, 3 to period 1, 2, 3.
-  .self_modify_channel1_period
-  LDA #0
-  JSR sound_write
-  LDA #0
-  JSR sound_write
-  .self_modify_channel2_period
-  LDA #0
-  JSR sound_write
-  LDA #0
-  JSR sound_write
-  .self_modify_channel3_period
-  LDA #0
-  JSR sound_write
-  LDA #0
-  JSR sound_write
-
-  \\ Tone 1, 2, 3 to midpoint volume and noise channel to silent.
-  LDA #&93
-  JSR sound_write
-  LDA #&B3
-  JSR sound_write
-  LDA #&D3
-  JSR sound_write
-  LDA #&FF
-  JSR sound_write
-
-  RTS
-
-  .sound_write
-  STA &FE4F
-  LDA #&00
-  STA &FE40
-  \\ Sound write held low for 8us, which is plenty.
-  NOP:NOP:NOP:NOP
-  LDA #&08
-  STA &FE40
-  RTS
-
-  .jmp_main_loop_24
-  NOP
-  NOP
-  .jmp_main_loop_20
-  NOP
-  NOP
-  NOP
-  NOP
-  .jmp_main_loop_12
-  NOP
-  NOP
-  .jmp_main_loop_8
-  NOP
-  .jmp_main_loop_6
-  JMP main_loop
-
-  .jmp_main_loop_23
-  NOP
-  .jmp_main_loop_21
-  NOP
-  NOP
-  .jmp_main_loop_17
-  NOP
-  NOP
-  .jmp_main_loop_13
-  NOP
-  .jmp_main_loop_11
-  NOP
-  LDA &00
-  JMP main_loop
-
-  .jsr_wait_12_cycles
-  RTS
-
-  .play_entry
-  \\ At write gate +3us. Write targets are +10us and then every +16us after.
-  \\ The play loop writes the bus at +8us. It took 3us to jump here. There's
-  \\ another 3us to jump out of here.
-  \\ Need to wait 26 - 8 - 3 - 3 = 12us of NOPs, or 24 cycles.
-  JSR jsr_wait_12_cycles
-  JSR jsr_wait_12_cycles
-  LDA &00
-  JMP main_loop
 
 \\ The jumps in this block are cycle counted and must not cross pages.
 CLEAR P%, &8000
@@ -993,6 +621,380 @@ GUARD (P% + &FF)
 
 CLEAR P%, &8000
 
+  .jmp_main_loop_24
+  NOP
+  NOP
+  .jmp_main_loop_20
+  NOP
+  NOP
+  NOP
+  NOP
+  .jmp_main_loop_12
+  NOP
+  NOP
+  .jmp_main_loop_8
+  NOP
+  .jmp_main_loop_6
+  JMP main_loop
+
+  .jmp_main_loop_23
+  NOP
+  .jmp_main_loop_21
+  NOP
+  NOP
+  .jmp_main_loop_17
+  NOP
+  NOP
+  .jmp_main_loop_13
+  NOP
+  .jmp_main_loop_11
+  NOP
+  LDA &00
+  JMP main_loop
+
+  .scope_y_table
+  EQUB 0, 0, 0, 0, 40, 40, 40, 80, 80, 80, 120, 120, 120, 160, 160, 160
+  .scope_glyph_table
+  EQUB &23, &23, &2C, &70, &23, &2C, &70, &23, &2C, &70, &23, &2C, &70, &23, &2C, &70
+
+\\ The entry point.
+.binary_exec
+  SEI
+
+{
+  \\ Read and fully use any input parameters from the zero page.
+  \\ They will be trashed below in the relocation loop.
+
+{
+  \\ Input parameter: channel periods.
+  LDA addr_input_period_1
+  AND #&0F
+  ORA #&80
+  STA self_modify_channel1_period + 1
+  LDA addr_input_period_2
+  AND #&0F
+  ORA #&A0
+  STA self_modify_channel2_period + 1
+  LDA addr_input_period_3
+  AND #&0F
+  ORA #&C0
+  STA self_modify_channel3_period + 1
+}
+
+{
+  \\ Input parameter: advance tables base.
+  LDA addr_input_advance_tables_dst
+  STA self_modify_init_advance_tables + 1
+  STA self_modify_store_advance_table_dst + 2
+  SEC
+  SBC #1
+  STA self_modify_advance_table_channel1 + 1
+  STA self_modify_advance_table_channel2 + 1
+  STA self_modify_advance_table_channel3 + 1
+  LDA addr_input_advance_tables_src
+  STA self_modify_load_advance_table_src + 2
+
+  \\ Unpack advance tables.
+  \\ They come in packed, which helps fit everything in memory. We might
+  \\ unpack into the DFS workspace now that everything is loaded.
+  .loop_table
+  LDX #64
+  .loop_note
+  .self_modify_load_advance_table_src
+  LDA &FF00
+  STA var_temp_x
+  INC self_modify_load_advance_table_src + 1
+  BNE no_advance_table_src_wrap
+  INC self_modify_load_advance_table_src + 2
+  .no_advance_table_src_wrap
+  LDY #4
+  .loop_unpack
+  LDA var_temp_x
+  AND #3
+  .self_modify_store_advance_table_dst
+  STA &FF00
+  INC self_modify_store_advance_table_dst + 1
+  BNE no_advance_table_dst_wrap
+  INC self_modify_store_advance_table_dst + 2
+  .no_advance_table_dst_wrap
+  LDA var_temp_x
+  LSR A
+  LSR A
+  STA var_temp_x
+  DEY
+  BNE loop_unpack
+  DEX
+  BNE loop_note
+  DEC addr_input_advance_tables_len
+  BNE loop_table
+}
+
+{
+  \\ Input parameter: song start and end.
+  LDA #0
+  STA var_song_lo
+  LDA addr_input_song_start
+  STA var_song_hi
+  STA self_modify_song_restart + 1
+  LDA addr_input_song_end
+  STA self_modify_song_end_check + 1
+}
+
+{
+  \\ Input parameter: song speed.
+  LDA addr_input_song_speed
+  STA self_modify_song_ticks_reload + 1
+}
+
+  \\ Relocate the player code into the zero and stack pages.
+  LDA #LO(zero_page_play_copy)
+  STA load + 1
+  LDA #HI(zero_page_play_copy)
+  STA load + 2
+  LDA #LO(zero_page_play_start)
+  STA store + 1
+  LDA #HI(zero_page_play_start)
+  STA store + 2
+  LDY #LO(zero_page_play_length)
+  LDX #HI(zero_page_play_length)
+  .loop
+  .load
+  LDA &FFFF
+  .store
+  STA &FFFF
+  INC load + 1
+  BNE no_load_wrap
+  INC load + 2
+  .no_load_wrap
+  INC store + 1
+  BNE no_store_wrap
+  INC store + 2
+  .no_store_wrap
+  DEY
+  BNE loop
+  DEX
+  BPL loop
+}
+
+{
+  \\ Create the silence page.
+  LDA #&FF
+  LDX #0
+  .loop
+  STA addr_silence,X
+  INX
+  BNE loop
+  \\ Extend by some bytes to cater for the out-of-band wrapping.
+  LDX #0
+  LDY #24
+  .loop2
+  STA addr_silence + &100,X
+  INX
+  DEY
+  BNE loop2
+}
+
+{
+  \\ Set up the silent sample metadata.
+  LDA #HI(addr_silence)
+  STA addr_sample_starts + &F
+  STA addr_sample_wraps + &F
+  LDA #0
+  STA addr_sample_wraps_fine + &F
+  LDA #HI(addr_silence) + 1
+  STA addr_sample_ends + &F
+}
+
+{
+  \\ Initialize the oscilloscope state.
+  LDA #0
+  LDX #0
+  .loop
+  STA addr_scope_chan1,X
+  STA addr_scope_chan2,X
+  STA addr_scope_chan3,X
+  INX
+  BNE loop
+}
+
+{
+  \\ Calculate the lookup tables for scope rendering.
+  LDX #0
+  .loop
+  TXA
+  AND #&0F
+  TAY
+  LDA scope_y_table,Y
+  STA addr_scope_y_table,X
+  LDA scope_glyph_table,Y
+  STA addr_scope_glyph_table,X
+  INX
+  BNE loop
+  \\ &FF is special and used for the silence page -- make it central.
+  LDX #&FF
+  LDY #8
+  LDA scope_y_table,Y
+  STA addr_scope_y_table,X
+  LDA scope_glyph_table,Y
+  STA addr_scope_glyph_table,X
+}
+
+  \\ Set up the MODE 7 line preambles (color, gfx) for scope rendering.
+  \\ Red graphics.
+  LDA #&91
+  STA &7C28 + (0 * 40)
+  STA &7C28 + (1 * 40)
+  STA &7C28 + (2 * 40)
+  STA &7C28 + (3 * 40)
+  STA &7C28 + (4 * 40)
+  \\ Yellow graphics.
+  LDA #&93
+  STA &7D18 + (0 * 40)
+  STA &7D18 + (1 * 40)
+  STA &7D18 + (2 * 40)
+  STA &7D18 + (3 * 40)
+  STA &7D18 + (4 * 40)
+  \\ Magenta graphics.
+  LDA #&95
+  STA &7E08 + (0 * 40)
+  STA &7E08 + (1 * 40)
+  STA &7E08 + (2 * 40)
+  STA &7E08 + (3 * 40)
+  STA &7E08 + (4 * 40)
+
+  \\ Point the channel addresses at the silence page.
+  LDA #0
+  STA channel1_load + 1
+  STA channel2_load + 1
+  STA channel3_load + 1
+  LDA #HI(addr_silence)
+  STA channel1_load + 2
+  STA channel2_load + 2
+  STA channel3_load + 2
+
+  \\ Set initial instruments to the silent sample.
+  LDA #&0F
+  STA var_channel1_instrument
+  STA var_channel2_instrument
+  STA var_channel3_instrument
+
+  \\ Point the tables advances at the first advance table.
+  LDA #0
+  STA channel1_advance + 1
+  STA channel2_advance + 1
+  STA channel3_advance + 1
+  .self_modify_init_advance_tables
+  LDA #0
+  STA channel1_advance + 2
+  STA channel2_advance + 2
+  STA channel3_advance + 2
+
+  \\ Setup MODE7 scope pointers.
+  \\ Row 1
+  LDA #&7C
+  STA var_scope_chan1_ptr_hi
+  LDA #&29
+  STA var_scope_chan1_ptr_lo
+  \\ Row 7.
+  LDA #&7D
+  STA var_scope_chan2_ptr_hi
+  LDA #&19
+  STA var_scope_chan2_ptr_lo
+  \\ Row 13.
+  LDA #&7E
+  STA var_scope_chan3_ptr_hi
+  LDA #&09
+  STA var_scope_chan3_ptr_lo
+
+  \\ Set song tick counter to fire on first vsync.
+  LDA #1
+  STA var_song_tick_counter
+
+  JSR setup_hardware
+
+  \\ Consistent register state.
+  \\ X is used as the index to the advances tables.
+  LDX #&FF
+  TXS
+  LDX #0
+  LDY #0
+
+  \\ Silence on noise.
+  LDA #&FF
+  STA &FE4F
+  \\ Open the sound write gate and leave open.
+  LDA &00
+  LDA #&00
+  \\ 5 cycles, shorter 2 cycle 1MHz write.
+  STA &FE40
+  \\ Aligned to even cycle.
+  \\ 1us for SN write gate to low, then 9us before it's the time to change
+  \\ the bus value.
+  \\ For a total requirement of 10us, and 16us multiples thereafter.
+
+  LDA &00
+  JMP play_entry
+
+  .play_entry
+  \\ At write gate +3us. Write targets are +10us and then every +16us after.
+  \\ The play loop writes the bus at +8us. It took 3us to jump here. There's
+  \\ another 3us to jump out of here.
+  \\ Need to wait 26 - 8 - 3 - 3 = 12us of NOPs, or 24 cycles.
+  JSR jsr_wait_12_cycles
+  JSR jsr_wait_12_cycles
+  LDA &00
+  JMP main_loop
+
+  .setup_hardware
+  \\ System VIA port A to output.
+  LDA #&FF
+  STA &FE43
+  \\ Keyboard to auto-scan mode.
+  LDA #&0B
+  STA &FE40
+
+  \\ Channels 1, 2, 3 to period 1, 2, 3.
+  .self_modify_channel1_period
+  LDA #0
+  JSR sound_write
+  LDA #0
+  JSR sound_write
+  .self_modify_channel2_period
+  LDA #0
+  JSR sound_write
+  LDA #0
+  JSR sound_write
+  .self_modify_channel3_period
+  LDA #0
+  JSR sound_write
+  LDA #0
+  JSR sound_write
+
+  \\ Tone 1, 2, 3 to midpoint volume and noise channel to silent.
+  LDA #&93
+  JSR sound_write
+  LDA #&B3
+  JSR sound_write
+  LDA #&D3
+  JSR sound_write
+  LDA #&FF
+  JSR sound_write
+
+  RTS
+
+  .sound_write
+  STA &FE4F
+  LDA #&00
+  STA &FE40
+  \\ Sound write held low for 8us, which is plenty.
+  NOP:NOP:NOP:NOP
+  LDA #&08
+  STA &FE40
+  RTS
+
+  .jsr_wait_12_cycles
+  RTS
+
 .zero_page_play_copy
   SKIP zero_page_play_length
 
@@ -1000,7 +1002,7 @@ CLEAR P%, &8000
 
 COPYBLOCK zero_page_play_start, zero_page_play_end, zero_page_play_copy
 
-SAVE "PLAY", binary_start, binary_end
+SAVE "PLAY", binary_start, binary_end, binary_exec
 PUTFILE "tables.out", "ADVTAB", 0
 PUTFILE "conv.out", "SONG", 0
 INCLUDE SONG_DETAILS_FILE
