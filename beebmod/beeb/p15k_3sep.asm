@@ -10,12 +10,14 @@ addr_input_song_speed = &78
 
 addr_sample_starts = &120
 addr_sample_ends = &130
+addr_sample_wraps = &140
+addr_sample_wraps_fine = &150
 addr_scope_chan1 = &200
 addr_scope_chan2 = &300
 addr_scope_chan3 = &400
 addr_scope_y_table = &500
 addr_scope_glyph_table = &600
-\\ Spills 16 bytes past 1 page.
+\\ Spills 24 bytes past 1 page.
 addr_silence = &700
 
 \\ Player variables from &00 - &1F.
@@ -36,13 +38,16 @@ GUARD &1F
 .var_scope_chan3_ptr_hi SKIP 1
 .var_scope_value SKIP 1
 .var_temp_x SKIP 1
+.var_channel1_instrument SKIP 1
+.var_channel2_instrument SKIP 1
+.var_channel3_instrument SKIP 1
 
-ORG &20
+ORG &40
 GUARD &FF
 
 .zero_page_play_start
 
-\\ The zero-page play loop at &20.
+\\ The zero-page play loop at &40.
   .main_loop
   \\ 0 cycles
   .channel1_load
@@ -93,75 +98,40 @@ GUARD &FF
 
   \\ All jump targets: 86 cycles (42 remain)
 
-  .do_channel1_check_wrap
-  \\ 86 cycles (42 remain)
-  LDA #LO(do_channel2_check_wrap)
-  STA main_loop_jump + 1
-  LDA channel1_load + 2
-  .channel1_compare_max
-  CMP #&FF
-  BNE no_channel1_wrap
-  .channel1_sample_reload
-  LDA #&FF
-  STA channel1_load + 2
-  .channel1_sample_reload_max
-  LDA #&FF
-  STA channel1_compare_max + 1
-  .channel1_post_check_wrap
-  \\ 108 cycles (20 remain)
-  JSR jsr_wait_14_cycles
-  LDA &00
-  JMP main_loop
-  .no_channel1_wrap
-  NOP:NOP:NOP
-  JMP channel1_post_check_wrap
-
-  .do_channel2_check_wrap
-  \\ 86 cycles (42 remain)
-  LDA #LO(do_channel3_check_wrap)
-  STA main_loop_jump + 1
-  LDA channel2_load + 2
-  .channel2_compare_max
-  CMP #&FF
-  BNE no_channel2_wrap
-  .channel2_sample_reload
-  LDA #&FF
-  STA channel2_load + 2
-  .channel2_sample_reload_max
-  LDA #&FF
-  STA channel2_compare_max + 1
-  .channel2_post_check_wrap
-  \\ 108 cycles (20 remain)
-  JSR jsr_wait_14_cycles
-  LDA &00
-  JMP main_loop
-  .no_channel2_wrap
-  NOP:NOP:NOP
-  JMP channel2_post_check_wrap
-
+  \\ The channel 3 wrap check is currently hosted in the zero page.
+  \\ This is because it hosts a self-modified jump.
   .do_channel3_check_wrap
   \\ 86 cycles (42 remain)
   .load_next_do_after_channel3_check
   LDA #LO(jmp_do_vsync_check)
   STA main_loop_jump + 1
+  LDY var_channel3_instrument
   LDA channel3_load + 2
-  .channel3_compare_max
-  CMP #&FF
+  CMP addr_sample_ends,Y
   BNE no_channel3_wrap
-  .channel3_sample_reload
-  LDA #&FF
+  LDA addr_sample_wraps,Y
+  BEQ no_channel3_sample_loop
   STA channel3_load + 2
-  .channel3_sample_reload_max
-  LDA #&FF
-  STA channel3_compare_max + 1
-  .channel3_post_check_wrap
-  \\ 108 cycles (20 remain)
+  LDA channel3_load + 1
+  \\ The CMP above will have set the carry flag.
+  CLC
+  ADC addr_sample_wraps_fine,Y
+  STA channel3_load + 1
+  \\ 122 cycles (6 remain)
+  JMP jmp_main_loop_6
+  .no_channel3_wrap
+  \\ 104 cycles (24 remain)
   JSR jsr_wait_14_cycles
+  NOP:NOP
   LDA &00
   JMP main_loop
-  .no_channel3_wrap
-  NOP:NOP:NOP
-  JMP channel3_post_check_wrap
+  .no_channel3_sample_loop
+  \\ 110 cycles (18 remain)
+  LDA #HI(addr_silence)
+  STA channel3_load + 2
+  LDA #&F
+  STA var_channel3_instrument
+  JMP jmp_main_loop_8
 
   .jmp_do_scope_chan1_clear_load
   JMP do_scope_chan1_clear_load
@@ -177,6 +147,10 @@ GUARD &FF
   JMP do_scope_chan3_render
   .jmp_do_scope_inc
   JMP do_scope_inc
+  .jmp_do_channel1_check_wrap
+  JMP do_channel1_check_wrap
+  .jmp_do_channel2_check_wrap
+  JMP do_channel2_check_wrap
   .jmp_do_vsync_check
   JMP do_vsync_check
   .jmp_do_song_tick
@@ -338,12 +312,23 @@ GUARD &2000
   BNE loop
   \\ Extend by some bytes to cater for the out-of-band wrapping.
   LDX #0
-  LDY #16
+  LDY #24
   .loop2
   STA addr_silence + &100,X
   INX
   DEY
   BNE loop2
+}
+
+{
+  \\ Set up the silent sample metadata.
+  LDA #HI(addr_silence)
+  STA addr_sample_starts + &F
+  STA addr_sample_wraps + &F
+  LDA #0
+  STA addr_sample_wraps_fine + &F
+  LDA #HI(addr_silence) + 1
+  STA addr_sample_ends + &F
 }
 
 {
@@ -413,18 +398,11 @@ GUARD &2000
   STA channel2_load + 2
   STA channel3_load + 2
 
-  \\ Set up the sample end and reload points.
-  LDA #HI(addr_silence) + 1
-  STA channel1_compare_max + 1
-  STA channel2_compare_max + 1
-  STA channel3_compare_max + 1
-  STA channel1_sample_reload_max + 1
-  STA channel2_sample_reload_max + 1
-  STA channel3_sample_reload_max + 1
-  LDA #HI(addr_silence)
-  STA channel1_sample_reload + 1
-  STA channel2_sample_reload + 1
-  STA channel3_sample_reload + 1
+  \\ Set initial instruments to the silent sample.
+  LDA #&0F
+  STA var_channel1_instrument
+  STA var_channel2_instrument
+  STA var_channel3_instrument
 
   \\ Point the tables advances at the first advance table.
   LDA #0
@@ -535,6 +513,12 @@ GUARD &2000
   STA &FE40
   RTS
 
+  .jmp_main_loop_8
+  NOP
+  .jmp_main_loop_6
+  LDA &00
+  JMP main_loop
+
   .jsr_wait_12_cycles
   RTS
 
@@ -556,6 +540,65 @@ GUARD &2000
 CLEAR P%, &8000
 ALIGN &100
 GUARD (P% + &FF)
+
+  .do_channel1_check_wrap
+  \\ 89 cycles (39 remain)
+  LDA #LO(jmp_do_channel2_check_wrap)
+  STA main_loop_jump + 1
+  LDY var_channel1_instrument
+  LDA channel1_load + 2
+  CMP addr_sample_ends,Y
+  BNE no_channel_wrap
+  LDA addr_sample_wraps,Y
+  BEQ no_channel1_sample_loop
+  STA channel1_load + 2
+  LDA channel1_load + 1
+  \\ The CMP above will have set the carry flag.
+  CLC
+  ADC addr_sample_wraps_fine,Y
+  STA channel1_load + 1
+  \\ 125 cycles (3 remain)
+  JMP main_loop
+  .no_channel_wrap
+  \\ 107 cycles (21 remain)
+  JSR jsr_wait_14_cycles
+  NOP:NOP
+  JMP main_loop
+  .no_channel1_sample_loop
+  \\ 113 cycles (15 remain)
+  LDA #HI(addr_silence)
+  STA channel1_load + 2
+  LDA #&F
+  STA var_channel1_instrument
+  NOP
+  JMP main_loop
+
+  .do_channel2_check_wrap
+  \\ 89 cycles (39 remain)
+  LDA #LO(do_channel3_check_wrap)
+  STA main_loop_jump + 1
+  LDY var_channel2_instrument
+  LDA channel2_load + 2
+  CMP addr_sample_ends,Y
+  BNE no_channel_wrap
+  LDA addr_sample_wraps,Y
+  BEQ no_channel2_sample_loop
+  STA channel2_load + 2
+  LDA channel2_load + 1
+  \\ The CMP above will have set the carry flag.
+  CLC
+  ADC addr_sample_wraps_fine,Y
+  STA channel2_load + 1
+  \\ 125 cycles (3 remain)
+  JMP main_loop
+  .no_channel2_sample_loop
+  \\ 113 cycles (15 remain)
+  LDA #HI(addr_silence)
+  STA channel2_load + 2
+  LDA #&F
+  STA var_channel2_instrument
+  NOP
+  JMP main_loop
 
   .do_vsync_check
   \\ 89 cycles (39 remain)
@@ -649,15 +692,19 @@ GUARD (P% + &FF)
   STA load_next_do_after_channel3_check + 1
   \\ 99 cycles (29 remain)
   LDY var_next_instrument
+  STY var_channel1_instrument
   LDA addr_sample_starts,Y
   STA channel1_load + 2
   LDA #0
   STA channel1_load + 1
-  LDA addr_sample_ends,Y
-  STA channel1_compare_max + 1
-  \\ 121 cycles (7 remain)
-  NOP:NOP
+  \\ 117 cycles (11 remain)
+  NOP:NOP:NOP:NOP
   JMP main_loop
+
+\\ The jumps in this block are cycle counted and must not cross pages.
+CLEAR P%, &8000
+ALIGN &100
+GUARD (P% + &FF)
 
   .do_load_channel2
   \\ 89 cycles (39 remain)
@@ -708,20 +755,14 @@ GUARD (P% + &FF)
   STA load_next_do_after_channel3_check + 1
   \\ 99 cycles (29 remain)
   LDY var_next_instrument
+  STY var_channel2_instrument
   LDA addr_sample_starts,Y
   STA channel2_load + 2
   LDA #0
   STA channel2_load + 1
-  LDA addr_sample_ends,Y
-  STA channel2_compare_max + 1
-  \\ 121 cycles (7 remain)
-  NOP:NOP
+  \\ 117 cycles (11 remain)
+  NOP:NOP:NOP:NOP
   JMP main_loop
-
-\\ The jumps in this block are cycle counted and must not cross pages.
-CLEAR P%, &8000
-ALIGN &100
-GUARD (P% + &FF)
 
   .do_load_channel3
   \\ 89 cycles (39 remain)
@@ -772,14 +813,13 @@ GUARD (P% + &FF)
   STA load_next_do_after_channel3_check + 1
   \\ 99 cycles (29 remain)
   LDY var_next_instrument
+  STY var_channel3_instrument
   LDA addr_sample_starts,Y
   STA channel3_load + 2
   LDA #0
   STA channel3_load + 1
-  LDA addr_sample_ends,Y
-  STA channel3_compare_max + 1
-  \\ 121 cycles (7 remain)
-  NOP:NOP
+  \\ 117 cycles (11 remain)
+  NOP:NOP:NOP:NOP
   JMP main_loop
 
   .do_increment_song_pointer
@@ -834,6 +874,11 @@ GUARD (P% + &FF)
   STA var_scope_value
   \\ 125 cycles (3 remain)
   JMP main_loop
+
+\\ The jumps in this block are cycle counted and must not cross pages.
+CLEAR P%, &8000
+ALIGN &100
+GUARD (P% + &FF)
 
   .do_scope_chan1_render
   \\ 89 cycles (39 remain)
@@ -891,11 +936,6 @@ GUARD (P% + &FF)
   NOP
   JMP main_loop
 
-\\ The jumps in this block are cycle counted and must not cross pages.
-CLEAR P%, &8000
-ALIGN &100
-GUARD (P% + &FF)
-
   .do_scope_chan3_clear_load
   \\ 89 cycles (39 remain)
   LDA #LO(jmp_do_scope_chan3_render)
@@ -935,7 +975,7 @@ GUARD (P% + &FF)
 
   .do_scope_inc
   \\ 89 cycles (39 remain)
-  LDA #LO(do_channel1_check_wrap)
+  LDA #LO(jmp_do_channel1_check_wrap)
   STA main_loop_jump + 1
   LDY var_scope_chan1_ptr_lo
   CPY #&4F
