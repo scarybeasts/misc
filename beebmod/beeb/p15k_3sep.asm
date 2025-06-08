@@ -59,6 +59,9 @@ GUARD &FF
   STY &FE4F
   \\ 16 cycles (next slot 16+32 == 48 cycles)
   STA channel1_load + 1
+  \\ TODO: can save a cycle here by using a branch / INC. This comes at the
+  \\ cost of leaving the carry flag potentially clear, potentially set as we
+  \\ exit each channel block.
   LDA channel1_load + 2
   ADC #0
   STA channel1_load + 2
@@ -100,6 +103,8 @@ GUARD &FF
 
   \\ The channel 3 wrap check is currently hosted in the zero page.
   \\ This is because it hosts a self-modified jump.
+  \\ TODO: some of these per-instrument lookups could be a lot faster if we
+  \\ wanted to self-modify the values when the note is played.
   .do_channel3_check_wrap
   \\ 86 cycles (42 remain)
   .load_next_do_after_channel3_check
@@ -183,6 +188,8 @@ GUARD &2000
 .binary_start
 
 \\ The jumps in this block are cycle counted and must not cross pages.
+\\ TODO: not all of these blocks contain jumps, so we can save space by not
+\\ enforcing alignment for those.
 CLEAR P%, &8000
 ALIGN &100
 GUARD (P% + &FF)
@@ -295,6 +302,7 @@ GUARD (P% + &FF)
   .has_channel1_note
   \\ 104 cycles (24 remain)
   STA var_next_byte
+  \\ TODO: could use a lookup table for this.
   LSR A:LSR A:LSR A:LSR A:LSR A
   STA var_next_instrument
   LDA #LO(jmp_do_exec_channel1_note)
