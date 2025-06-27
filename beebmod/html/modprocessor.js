@@ -703,6 +703,8 @@ console.log("unique values: " + unique_values);
     } else if (name == "PLAY_CHANNEL") {
       const channel = data_array[1];
       const is_play = data_array[2];
+      // Stop any in-progress note.
+      this.handlePlaySample(channel, 0, 0);
       this.is_channel_playing[channel] = is_play;
     } else if (name == "SN_PERIOD") {
       const channel = data_array[1];
