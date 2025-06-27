@@ -83,6 +83,7 @@ main(int argc, const char* argv[]) {
   uint64_t num_chunks;
   uint8_t* p_chunks[8];
   uint64_t chunk_lengths[8];
+  uint64_t chunk_offsets[8];
   uint8_t* p_sample_chunk;
   uint32_t num_samples;
   struct mod_sample* p_samples;
@@ -193,9 +194,10 @@ main(int argc, const char* argv[]) {
     if (chunk_len > remain) {
       errx(1, "chunk too big for file");
     }
-    (void) printf("chunk @0x%x, length %d\n", (p_buf - p_rjp), chunk_len);
+    (void) printf("chunk @0x%x, length %d\n", (int) (p_buf - p_rjp), chunk_len);
     p_chunks[num_chunks] = p_buf;
     chunk_lengths[num_chunks] = chunk_len;
+    chunk_offsets[num_chunks] = (p_buf - p_rjp);
     num_chunks++;
     p_buf += chunk_len;
     remain -= chunk_len;
@@ -383,7 +385,10 @@ main(int argc, const char* argv[]) {
       }
       pattern_data_index =
           get_u32be(p_pattern_indexes_chunk + (pattern_id * 4));
-      (void) printf(", 0x%x -> 0x%x", pattern_id, pattern_data_index);
+      (void) printf(", 0x%x -> 0x%x @0x%x",
+                    pattern_id,
+                    pattern_data_index,
+                    (int) (chunk_offsets[6] + pattern_data_index));
       if (pattern_data_index >= pattern_data_size) {
         errx(1, "pattern data index out of range");
       }
@@ -669,7 +674,7 @@ main(int argc, const char* argv[]) {
     (void) printf("    MOD sample %d is RJP sample %d @0x%x\n",
                   i,
                   rjp_sample,
-                  (0xc + (rjp_sample * 32)));
+                  (int) (chunk_offsets[0] + (rjp_sample * 32)));
 
     (void) memset(string, '\0', sizeof(string));
     (void) snprintf(string, sizeof(string), "%s:%d", p_smp_file, rjp_sample);
