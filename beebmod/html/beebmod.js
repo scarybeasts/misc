@@ -83,7 +83,15 @@ async function beebmod_setup_audio() {
   const filter_node = audio_context.createBiquadFilter();
   filter_node.type = "lowpass";
   filter_node.frequency.value = 48000;
-  filter_node.Q.value = 5;
+  // Bit of a mystery as to what to set the Q value to.
+  // Setting to -3 avoids a gain around the cutoff frequency, at the cost of
+  // more dropoff at the cutoff frequency.
+  // See:
+  // https://rtoy.github.io/webaudio-hacks/more/biquad/biquad-lowpass-q.html
+  // The results look similar to Biquad Calculator v3 with Q = 1/sqrt(2)
+  // See:
+  // https://www.earlevel.com/main/2021/09/02/biquad-calculator-v3/
+  filter_node.Q.value = -3;
   audio_node.connect(filter_node);
   filter_node.connect(audio_context.destination);
 
@@ -293,7 +301,7 @@ function beebmod_checkbox_filter(event) {
   const checked = event.target.checked;
   let frequency;
   if (checked) {
-    frequency = 7000;
+    frequency = 7200;
   } else {
     frequency = 48000;
   }
