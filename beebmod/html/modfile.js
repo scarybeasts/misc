@@ -165,6 +165,21 @@ MODFile.prototype.parse = function() {
     samples_offset += sample_length;
   }
 
+  // See if there's a speed command in the first row of the MOD.
+  // We can use this to start playback of the MOD in the middle,
+  // and get a reasonable speed.
+  const first_pattern_index = this.getPatternIndex(1);
+  const first_pattern = this.getPattern(first_pattern_index);
+  const first_row = first_pattern.rows[0];
+  this.first_row_speed = -1;
+  for (let i = 0; i < 4; ++i) {
+    const note = first_row.channels[i];
+    if ((note.command & 0xF00) == 0xF00) {
+      this.first_row_speed = (note.command & 0x0FF);
+      break;
+    }
+  }
+
   return 1;
 }
 
@@ -190,4 +205,8 @@ MODFile.prototype.getPattern = function(index) {
 
 MODFile.prototype.getSample = function(index) {
   return this.samples[index];
+}
+
+MODFile.prototype.getFirstRowSpeed = function() {
+  return this.first_row_speed;
 }

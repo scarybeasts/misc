@@ -651,8 +651,9 @@ console.log("unique values: " + unique_values);
       this.positions[index] = pattern_index;
     } else if (name == "PLAY") {
       const position = data_array[1];
+      const speed = data_array[2];
       this.handleStop();
-      this.handlePlay(position);
+      this.handlePlay(position, speed);
     } else if (name == "STOP") {
       this.handleStop();
     } else if (name == "AMIGA") {
@@ -748,16 +749,16 @@ console.log("unique values: " + unique_values);
     }
   }
 
-  handlePlay(position) {
+  handlePlay(position, speed) {
     this.setMODPosition(position);
 
     // Song ticks are 50Hz.
     // The song speed (SPD) is defined as how many 50Hz ticks pass between
-    // pattern rows. By default, SPD is 6.
+    // pattern rows.
     // A great summary of row timing may be found here:
     // https://modarchive.org/forums/index.php?topic=2709.0
     // This must be called before loadMODRow() in case that changes speed.
-    this.setMODSpeed(6);
+    this.setMODSpeed(speed);
 
     this.loadMODRowAndAdvance();
 
