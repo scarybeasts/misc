@@ -270,10 +270,12 @@ function beebmod_button_play() {
     // Default MOD speed is 6.
     speed = 6;
   }
+  window.beebmod_audio_context.resume();
   window.beebmod_port.postMessage(["PLAY", start_position, speed]);
 }
 
 function beebmod_button_stop() {
+  window.beebmod_audio_context.suspend();
   window.beebmod_port.postMessage(["STOP"]);
 }
 
@@ -403,6 +405,8 @@ function beebmod_play_sample(event) {
   case "BracketRight": note = 32; break;
   case "Space": do_silence = 1; break;
   }
+
+  window.beebmod_audio_context.resume();
 
   if (note != 0) {
     note--;
