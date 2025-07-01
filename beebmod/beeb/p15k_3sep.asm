@@ -12,6 +12,7 @@ addr_sample_starts = &120
 addr_sample_ends = &130
 addr_sample_wraps = &140
 addr_sample_wraps_fine = &150
+addr_sample_starts_fine = &160
 addr_scope_chan1 = &200
 addr_scope_chan2 = &300
 addr_scope_chan3 = &400
@@ -338,10 +339,10 @@ GUARD (P% + &FF)
   STY var_channel1_instrument
   LDA addr_sample_starts,Y
   STA channel1_load + 2
-  LDA #0
+  LDA addr_sample_starts_fine,Y
   STA channel1_load + 1
-  \\ 117 cycles (11 remain)
-  JMP jmp_main_loop_11
+  \\ 115 cycles (9 remain)
+  JMP jmp_main_loop_9
 
 \\ The jumps in this block are cycle counted and must not cross pages.
 CLEAR P%, &8000
@@ -657,6 +658,7 @@ CLEAR P%, &8000
   NOP
   .jmp_main_loop_11
   NOP
+  .jmp_main_loop_9
   LDA &00
   JMP main_loop
 
