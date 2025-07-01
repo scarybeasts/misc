@@ -16,7 +16,7 @@ main(int argc, const char** argv) {
   uint32_t length;
   uint32_t i;
   int8_t* p_sample;
-  uint8_t* p_buf;
+  int8_t* p_buf;
   double* p_volumes;
   uint32_t volume_total;
   uint32_t num_volumes;
