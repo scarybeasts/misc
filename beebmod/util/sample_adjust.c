@@ -30,7 +30,7 @@ main(int argc, const char** argv) {
   double dyn_offset_rate = 0.5;
   uint32_t dyn_offset_max = 0;
   double dyn_factor = 1.0;
-  uint32_t static_offset = 0;
+  int32_t static_offset = 0;
   double gain = 1.0;
   int sn_channel = 0;
   uint32_t post_end_pad = 0;
