@@ -119,8 +119,7 @@ GUARD &FF
   BEQ no_channel3_sample_loop
   STA channel3_load + 2
   LDA channel3_load + 1
-  \\ The CMP above will have set the carry flag.
-  CLC
+  \\ Warning: carry set. Must be catered for in lookup table.
   ADC addr_sample_wraps_fine,Y
   STA channel3_load + 1
   \\ 122 cycles (6 remain)
@@ -134,7 +133,8 @@ GUARD &FF
   STA channel3_load + 2
   LDA #&F
   STA var_channel3_instrument
-  JMP jmp_main_loop_8
+  CLC
+  JMP jmp_main_loop_6
 
   .jmp_do_scope_chan1_clear_load
   JMP do_scope_chan1_clear_load
@@ -207,8 +207,7 @@ GUARD (P% + &FF)
   BEQ no_channel1_sample_loop
   STA channel1_load + 2
   LDA channel1_load + 1
-  \\ The CMP above will have set the carry flag.
-  CLC
+  \\ Warning: carry set. Must be catered for in lookup table.
   ADC addr_sample_wraps_fine,Y
   STA channel1_load + 1
   \\ 125 cycles (3 remain)
@@ -222,7 +221,7 @@ GUARD (P% + &FF)
   STA channel1_load + 2
   LDA #&F
   STA var_channel1_instrument
-  NOP
+  CLC
   JMP main_loop
 
   .do_channel2_check_wrap
@@ -237,8 +236,7 @@ GUARD (P% + &FF)
   BEQ no_channel2_sample_loop
   STA channel2_load + 2
   LDA channel2_load + 1
-  \\ The CMP above will have set the carry flag.
-  CLC
+  \\ Warning: carry set. Must be catered for in lookup table.
   ADC addr_sample_wraps_fine,Y
   STA channel2_load + 1
   \\ 125 cycles (3 remain)
@@ -249,7 +247,7 @@ GUARD (P% + &FF)
   STA channel2_load + 2
   LDA #&F
   STA var_channel2_instrument
-  NOP
+  CLC
   JMP main_loop
 
   .do_vsync_check
@@ -482,13 +480,12 @@ GUARD (P% + &FF)
   NOP
   JMP main_loop
   .no_song_lo_hit
-  \\ 108 cycles (20 remain)
-  JMP jmp_main_loop_20
+  \\ 110 cycles (18 remain)
+  JMP jmp_main_loop_18
   .no_song_hi_hit
-  \\ 121 cycles (7 remain)
-  \\ Force STY abs, 4 cycles, for the zero page write.
-  EQUB &8C, var_song_hi, &00
-  JMP main_loop
+  \\ 119 cycles (9 remain)
+  STY var_song_hi
+  JMP jmp_main_loop_6
 
   .do_scope_chan1_clear_load
   \\ 89 cycles (39 remain)
@@ -635,13 +632,13 @@ CLEAR P%, &8000
   NOP
   .jmp_main_loop_20
   NOP
+  .jmp_main_loop_18
   NOP
   NOP
   NOP
   .jmp_main_loop_12
   NOP
   NOP
-  .jmp_main_loop_8
   NOP
   .jmp_main_loop_6
   JMP main_loop
