@@ -59,7 +59,15 @@ main(int argc, const char** argv) {
         dyn_factor = atof(p_next_arg);
         ++i;
       } else if (!strcmp(p_arg, "-static_offset")) {
+        int32_t new_pad_byte = pad_byte;
         static_offset = atoi(p_next_arg);
+        new_pad_byte -= static_offset;
+        if (new_pad_byte > 255) {
+          new_pad_byte = 255;
+        } else if (new_pad_byte < 0) {
+          new_pad_byte = 0;
+        }
+        pad_byte = new_pad_byte;
         ++i;
       } else if (!strcmp(p_arg, "-gain")) {
         gain = atof(p_next_arg);
