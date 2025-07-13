@@ -265,7 +265,7 @@ function beebmod_button_play() {
   const mod_file = window.beebmod_mod_file;
   // We may not be starting a MOD at the beginning. So, use any MOD
   // speed specified on the very first row.
-  const speed = mod_file.getFirstRowSpeed();
+  let speed = mod_file.getFirstRowSpeed();
   if (speed == -1) {
     // Default MOD speed is 6.
     speed = 6;
