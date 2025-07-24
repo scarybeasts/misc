@@ -13,8 +13,9 @@
 #include <sys/stat.h>
 
 enum {
-  k_merge = 1,
-  k_move = 2,
+  k_chan_merge = 1,
+  k_chan_move = 2,
+  k_instr_set = 3,
 };
 
 int
@@ -52,14 +53,20 @@ main(int argc, const char** argv) {
       max_args = 2;
       arg2 = atoi(argv[arg + 2]);
     }
-    if ((max_args >= 2) && !strcmp(p_command, "-merge")) {
-      commands[num_commands] = k_merge;
+    if ((max_args >= 2) && !strcmp(p_command, "-chan_merge")) {
+      commands[num_commands] = k_chan_merge;
       arg1s[num_commands] = arg1;
       arg2s[num_commands] = arg2;
       num_commands++;
       arg += 2;
-    } else if ((max_args >= 2) && !strcmp(p_command, "-move")) {
-      commands[num_commands] = k_move;
+    } else if ((max_args >= 2) && !strcmp(p_command, "-chan_move")) {
+      commands[num_commands] = k_chan_move;
+      arg1s[num_commands] = arg1;
+      arg2s[num_commands] = arg2;
+      num_commands++;
+      arg += 2;
+    } else if ((max_args >= 2) && !strcmp(p_command, "-instr_set")) {
+      commands[num_commands] = k_instr_set;
       arg1s[num_commands] = arg1;
       arg2s[num_commands] = arg2;
       num_commands++;
@@ -102,30 +109,54 @@ main(int argc, const char** argv) {
     p_data = (p_buf + 1084);
     p_data += (pattern * 64 * 4 * 4);
     for (row = 0; row < 64; ++row) {
-      for (command = 0; command < num_commands; ++command) {
-        int32_t from_note;
-        int32_t to_note;
-        uint8_t* p_from = (p_data + (arg1s[command] * 4));
-        uint8_t* p_to = (p_data + (arg2s[command] * 4));
-        from_note = (((p_from[0] & 0x0F) << 8) | p_from[1]);
-        to_note = (((p_to[0] & 0x0F) << 8) | p_to[1]);
-        switch (commands[command]) {
-        case k_merge:
-          if ((from_note != 0) && (to_note == 0)) {
-            (void) memcpy(p_to, p_from, 4);
+      uint32_t channel;
+      for (channel = 0; channel < 4; ++channel) {
+        for (command = 0; command < num_commands; ++command) {
+          switch (commands[command]) {
+          case k_chan_merge:
+          {
+            uint8_t* p_from = (p_data + (arg1s[command] * 4));
+            uint8_t* p_to = (p_data + (arg2s[command] * 4));
+            int32_t from_note = (((p_from[0] & 0x0F) << 8) | p_from[1]);
+            int32_t to_note = (((p_to[0] & 0x0F) << 8) | p_to[1]);
+            if (channel != 0) {
+              break;
+            }
+            if ((from_note != 0) && (to_note == 0)) {
+              (void) memcpy(p_to, p_from, 4);
+            }
+            break;
           }
-          break;
-        case k_move:
-          (void) memcpy(p_to, p_from, 4);
-          (void) memset(p_from, '\0', 4);
-          break;
-        default:
-          break;
-        }
-      }
+          case k_chan_move:
+          {
+            uint8_t* p_from = (p_data + (arg1s[command] * 4));
+            uint8_t* p_to = (p_data + (arg2s[command] * 4));
+            if (channel != 0) {
+              break;
+            }
+            (void) memcpy(p_to, p_from, 4);
+            (void) memset(p_from, '\0', 4);
+            break;
+          }
+          case k_instr_set:
+          {
+            uint8_t* p_note = (p_data + (channel * 4));
+            uint8_t instr = ((p_note[0] & 0xF0) | (p_note[2] >> 4));
+            if (instr == arg1s[command]) {
+              instr = arg2s[command];
+              p_note[0] = ((p_note[0] & 0x0F) | (instr & 0xF0));
+              p_note[2] = ((p_note[2] & 0x0F) | (instr << 4));
+            }
+            break;
+          }
+          default:
+            break;
+          }
+        } /* Command iteration. */
+      } /* Channel iteration. */
       p_data += 16;
-    }
-  }
+    } /* Row iteration. */
+  } /* Pattern iteration. */
 
   fd = open(p_mod_filename, O_WRONLY | O_CREAT | O_TRUNC, 0600);
   if (fd == -1) {
