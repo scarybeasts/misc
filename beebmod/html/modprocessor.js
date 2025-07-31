@@ -173,6 +173,7 @@ class MODProcessor extends AudioWorkletProcessor {
     // Calculated tables.
     this.beeb_period_advances_7k = new Uint16Array(1024);
     this.beeb_period_advances_10k = new Uint16Array(1024);
+    this.beeb_period_advances_12k = new Uint16Array(1024);
     this.beeb_period_advances_15k = new Uint16Array(1024);
     this.beeb_sn_vol_to_output = new Float64Array(16);
     this.beeb_u8_to_sn_vol = new Uint8Array(256);
@@ -302,6 +303,7 @@ console.log("unique values: " + unique_values);
     // Build the mapping of MOD periods to beeb advance increments.
     this.setupBeebAdvances(this.beeb_period_advances_7k, 256);
     this.setupBeebAdvances(this.beeb_period_advances_10k, 192);
+    this.setupBeebAdvances(this.beeb_period_advances_12k, 160);
     this.setupBeebAdvances(this.beeb_period_advances_15k, 128);
 
     this.resetBeeb();
@@ -477,6 +479,135 @@ console.log("unique values: " + unique_values);
     this.s8_outputs[channel] = s8_output;
   }
 
+  processBeebSeparate() {
+    const beeb_sn_write_slot = this.beeb_sn_write_slot;
+
+    if (beeb_sn_write_slot >= 4) {
+      return;
+    }
+
+    this.advanceBeeb(beeb_sn_write_slot);
+    let u8_sample_value = (this.s8_outputs[beeb_sn_write_slot] + 128);
+    u8_sample_value += this.beeb_offset;
+    if (u8_sample_value > 255) {
+      u8_sample_value = 255;
+    } else if (u8_sample_value < 0) {
+      u8_sample_value = 0;
+    }
+
+    const sn_vol = this.beeb_u8_to_sn_vol[u8_sample_value];
+    this.beeb_sn_vols[beeb_sn_write_slot] = sn_vol;
+  }
+
+  processBeebMerged() {
+    const beeb_sn_write_slot = this.beeb_sn_write_slot;
+
+    if (beeb_sn_write_slot == 0) {
+      this.advanceBeeb(0);
+      this.advanceBeeb(1);
+      this.advanceBeeb(2);
+      this.advanceBeeb(3);
+      // Range is 0 - 252, midpoint of 128.
+      let samples_total = ((this.s8_outputs[0] + 128) >> 2);
+      samples_total += ((this.s8_outputs[1] + 128) >> 2);
+      samples_total += ((this.s8_outputs[2] + 128) >> 2);
+      samples_total += ((this.s8_outputs[3] + 128) >> 2);
+      // Center midpoint to 0.
+      // Range is -128 to 124.
+      samples_total -= 128;
+      // Apply gain.
+      // 2x is about right but can be too much for some songs.
+      samples_total *= this.beeb_merged_gain;
+      samples_total = Math.round(samples_total);
+      samples_total += this.beeb_offset;
+      // Clip.
+      if (samples_total < -128) {
+        samples_total = -128;
+      } else if (samples_total > 127) {
+        samples_total = 127;
+      }
+      // Convert back to u8.
+      samples_total += 128;
+
+      this.beeb_samples_total = samples_total;
+    }
+
+    const samples_total = this.beeb_samples_total;
+    if (this.beeb_channels == 2) {
+      /* Output via 2 merged channels. */
+      if (beeb_sn_write_slot == 0) {
+        const sn_vol1 = this.beeb_u8_to_sn_vol_pair1[samples_total];
+        this.beeb_sn_vols[0] = sn_vol1;
+        // Silence the unused channels in this mode in case coming from a
+        // different mode.
+        this.beeb_sn_vols[2] = 0xF;
+        this.beeb_sn_vols[3] = 0xF;
+      } else if (beeb_sn_write_slot == 1) {
+        const sn_vol2 = this.beeb_u8_to_sn_vol_pair2[samples_total];
+        this.beeb_sn_vols[1] = sn_vol2;
+      }
+    } else {
+      /* Output via 3 merged channels. */
+      if (beeb_sn_write_slot == 0) {
+        const sn_vol1 = this.beeb_u8_to_sn_vol_trio1[samples_total];
+        this.beeb_sn_vols[0] = sn_vol1;
+        // Silence the unused channels in this mode in case coming from a
+        // different mode.
+        this.beeb_sn_vols[3] = 0xF;
+      } else if (beeb_sn_write_slot == 1) {
+        const sn_vol2 = this.beeb_u8_to_sn_vol_trio2[samples_total];
+        this.beeb_sn_vols[1] = sn_vol2;
+      } else if (beeb_sn_write_slot == 2) {
+        const sn_vol3 = this.beeb_u8_to_sn_vol_trio3[samples_total];
+        this.beeb_sn_vols[2] = sn_vol3;
+      }
+    }
+  }
+
+  processBeeb_1_1_2() {
+    const beeb_sn_write_slot = this.beeb_sn_write_slot;
+
+    if (beeb_sn_write_slot >= 4) {
+      return;
+    }
+
+    this.advanceBeeb(beeb_sn_write_slot);
+    let u8_sample_value = (this.s8_outputs[beeb_sn_write_slot] + 128);
+
+    if (beeb_sn_write_slot < 2) {
+      u8_sample_value += this.beeb_offset;
+      if (u8_sample_value > 255) {
+        u8_sample_value = 255;
+      } else if (u8_sample_value < 0) {
+        u8_sample_value = 0;
+      }
+      const sn_vol = this.beeb_u8_to_sn_vol[u8_sample_value];
+      this.beeb_sn_vols[beeb_sn_write_slot] = sn_vol;
+    } else if (beeb_sn_write_slot == 2) {
+      this.beeb_samples_total = u8_sample_value;
+    } else {
+      let samples_total = (u8_sample_value >> 1);
+      samples_total += (this.beeb_samples_total >> 1);
+      // Center to zero before applying gain.
+      samples_total -= 128;
+      samples_total *= this.beeb_merged_gain;
+      samples_total = Math.round(samples_total);
+      samples_total += this.beeb_offset;
+      // Back to u8.
+      samples_total += 128;
+      if (samples_total > 255) {
+        samples_total = 255;
+      } else if (samples_total < 0) {
+        samples_total = 0;
+      }
+      const sn_vol = this.beeb_u8_to_sn_vol[samples_total];
+      this.beeb_sn_vols[2] = sn_vol;
+      // Silence the unused channels in this mode in case coming from a
+      // different mode.
+      this.beeb_sn_vols[3] = 0xF;
+    }
+  }
+
   processBeeb() {
     this.beeb_sn_cycles_counter--;
     if (this.beeb_sn_cycles_counter == 0) {
@@ -484,93 +615,23 @@ console.log("unique values: " + unique_values);
       // which is 16us / 62.5kHz.
       this.beeb_sn_cycles_counter = 4;
 
-      let beeb_sn_write_slot = this.beeb_sn_write_slot;
-      if (this.beeb_channels > 1) {
-        /* Some form of merged channels output scheme. */
-        if (beeb_sn_write_slot == 0) {
-          this.advanceBeeb(0);
-          this.advanceBeeb(1);
-          this.advanceBeeb(2);
-          this.advanceBeeb(3);
-          // Range is 0 - 252, midpoint of 128.
-          let samples_total = ((this.s8_outputs[0] + 128) >> 2);
-          samples_total += ((this.s8_outputs[1] + 128) >> 2);
-          samples_total += ((this.s8_outputs[2] + 128) >> 2);
-          samples_total += ((this.s8_outputs[3] + 128) >> 2);
-          // Center midpoint to 0.
-          // Range is -128 to 124.
-          samples_total -= 128;
-          // Apply gain.
-          // 2x is about right but can be too much for some songs.
-          samples_total *= this.beeb_merged_gain;
-          samples_total = Math.round(samples_total);
-          samples_total += this.beeb_offset;
-          // Clip.
-          if (samples_total < -128) {
-            samples_total = -128;
-          } else if (samples_total > 127) {
-            samples_total = 127;
-          }
-          // Convert back to u8.
-          samples_total += 128;
-
-          this.beeb_samples_total = samples_total;
-        }
-
-        const samples_total = this.beeb_samples_total;
-        if (this.beeb_channels == 2) {
-          /* Output via 2 merged channels. */
-          if (beeb_sn_write_slot == 0) {
-            const sn_vol1 = this.beeb_u8_to_sn_vol_pair1[samples_total];
-            this.beeb_sn_vols[0] = sn_vol1;
-            // Silence the unused channels in this mode in case coming from a
-            // different mode.
-            this.beeb_sn_vols[2] = 0xF;
-            this.beeb_sn_vols[3] = 0xF;
-          } else if (beeb_sn_write_slot == 1) {
-            const sn_vol2 = this.beeb_u8_to_sn_vol_pair2[samples_total];
-            this.beeb_sn_vols[1] = sn_vol2;
-          }
-        } else {
-          /* Output via 3 merged channels. */
-          if (beeb_sn_write_slot == 0) {
-            const sn_vol1 = this.beeb_u8_to_sn_vol_trio1[samples_total];
-            this.beeb_sn_vols[0] = sn_vol1;
-            // Silence the unused channels in this mode in case coming from a
-            // different mode.
-            this.beeb_sn_vols[3] = 0xF;
-          } else if (beeb_sn_write_slot == 1) {
-            const sn_vol2 = this.beeb_u8_to_sn_vol_trio2[samples_total];
-            this.beeb_sn_vols[1] = sn_vol2;
-          } else if (beeb_sn_write_slot == 2) {
-            const sn_vol3 = this.beeb_u8_to_sn_vol_trio3[samples_total];
-            this.beeb_sn_vols[2] = sn_vol3;
-          }
-        }
-      } else {
+      if (this.beeb_channels == 1) {
         /* One SN channel per MOD output channel scheme. */
-        if (beeb_sn_write_slot < 4) {
-          this.advanceBeeb(beeb_sn_write_slot);
-          let u8_sample_value = (this.s8_outputs[beeb_sn_write_slot] + 128);
-          u8_sample_value += this.beeb_offset;
-          if (u8_sample_value > 255) {
-            u8_sample_value = 255;
-          } else if (u8_sample_value < 0) {
-            u8_sample_value = 0;
-          }
-          const sn_vol = this.beeb_u8_to_sn_vol[u8_sample_value];
-          this.beeb_sn_vols[beeb_sn_write_slot] = sn_vol;
-        }
+        this.processBeebSeparate();
+      } else if (this.beeb_channels == 0) {
+        this.processBeeb_1_1_2();
+      } else {
+        this.processBeebMerged();
       }
 
-      beeb_sn_write_slot++;
       // 7kHz: 8 write slots.
       // 10kHz: 6 write slots.
+      // 12kHz: 5 write slots.
       // 15kHz: 4 write slots.
-      if (beeb_sn_write_slot >= this.beeb_num_sn_write_slots) {
-        beeb_sn_write_slot = 0;
+      this.beeb_sn_write_slot++;
+      if (this.beeb_sn_write_slot >= this.beeb_num_sn_write_slots) {
+        this.beeb_sn_write_slot = 0;
       }
-      this.beeb_sn_write_slot = beeb_sn_write_slot;
     }
 
     let value = 0;
@@ -663,6 +724,12 @@ console.log("unique values: " + unique_values);
       this.beeb_channels = 1;
       this.beeb_period_advances = this.beeb_period_advances_15k;
       this.beeb_num_sn_write_slots = 4;
+      this.beeb_output_divider = 3.0;
+    } else if (name == "BEEB_12K_1_1_2") {
+      this.is_amiga = false;
+      this.beeb_channels = 0;
+      this.beeb_period_advances = this.beeb_period_advances_12k;
+      this.beeb_num_sn_write_slots = 5;
       this.beeb_output_divider = 3.0;
     } else if (name == "BEEB_MERGED2_7K") {
       this.is_amiga = false;

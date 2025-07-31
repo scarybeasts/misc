@@ -23,6 +23,10 @@ function beebmod_setup_listeners() {
       document.getElementById("radio_beeb_separate_15k");
   radio_beeb_separate_15k.addEventListener("change",
                                           beebmod_radio_beeb_separate_15k);
+  const radio_beeb_12k_1_1_2 =
+      document.getElementById("radio_beeb_12k_1_1_2");
+  radio_beeb_12k_1_1_2.addEventListener("change",
+                                        beebmod_radio_beeb_12k_1_1_2);
   const radio_beeb_merged2_7k =
       document.getElementById("radio_beeb_merged2_7k");
   radio_beeb_merged2_7k.addEventListener("change",
@@ -285,6 +289,10 @@ function beebmod_radio_amiga() {
 
 function beebmod_radio_beeb_separate_15k() {
   window.beebmod_port.postMessage(["BEEB_SEPARATE_15K"]);
+}
+
+function beebmod_radio_beeb_12k_1_1_2() {
+  window.beebmod_port.postMessage(["BEEB_12K_1_1_2"]);
 }
 
 function beebmod_radio_beeb_merged2_7k() {
