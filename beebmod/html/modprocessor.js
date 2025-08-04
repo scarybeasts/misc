@@ -799,6 +799,27 @@ console.log("unique values: " + unique_values);
       this.do_volumes = do_volumes;
     } else {
       console.log("unknown command: " + name);
+      console.log("samples: ",
+                  this.mod_sample[0],
+                  this.mod_sample[1],
+                  this.mod_sample[2],
+                  this.mod_sample[3]);
+      console.log("periods: ",
+                  this.mod_period[0],
+                  this.mod_period[1],
+                  this.mod_period[2],
+                  this.mod_period[3]);
+      console.log(
+          "beeb advances: ",
+          this.beeb_channel_advances_hi[0], this.beeb_channel_advances_lo[0],
+          this.beeb_channel_advances_hi[1], this.beeb_channel_advances_lo[1],
+          this.beeb_channel_advances_hi[2], this.beeb_channel_advances_lo[2],
+          this.beeb_channel_advances_hi[3], this.beeb_channel_advances_lo[3]);
+      console.log("SN vols: ",
+                  this.beeb_sn_vols[0],
+                  this.beeb_sn_vols[1],
+                  this.beeb_sn_vols[2],
+                  this.beeb_sn_vols[3]);
     }
   }
 
