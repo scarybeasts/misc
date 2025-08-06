@@ -6,18 +6,6 @@
 #include <string.h>
 #include <unistd.h>
 
-static void
-callback_do_convert(uint32_t note1,
-                    uint32_t note2,
-                    uint32_t note3,
-                    uint32_t note4,
-                    uint32_t instr1,
-                    uint32_t instr2,
-                    uint32_t instr3,
-                    uint32_t instr4) {
-  uint8_t val;
-}
-
 int
 main(int argc, const char** argv) {
   uint8_t period_to_note[1024];
