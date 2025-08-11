@@ -636,7 +636,171 @@ CLEAR P%, &8000
 .binary_exec
   SEI
 
+  JSR init_scope
+  JSR init_player
+  JSR init_hardware
+
+  \\ Consistent register state.
+  \\ X is used as the index to the advances tables.
+  LDX #&FF
+  TXS
+  LDX #0
+  LDY #0
+
+  \\ Silence on noise.
+  LDA #&FF
+  STA &FE4F
+  \\ Open the sound write gate and leave open.
+  LDA &00
+  LDA #&00
+  \\ 5 cycles, shorter 2 cycle 1MHz write.
+  STA &FE40
+  \\ Aligned to even cycle.
+  \\ 1us for SN write gate to low, then 9us before it's the time to change
+  \\ the bus value.
+  \\ For a total requirement of 10us, and 16us multiples thereafter.
+
+  LDA &00
+  JMP play_entry
+
+  .play_entry
+  \\ At write gate +3us. Write targets are +10us and then every +16us after.
+  \\ The play loop writes the bus at +8us. It took 3us to jump here. There's
+  \\ another 3us to jump out of here.
+  \\ Need to wait 26 - 8 - 3 - 3 = 12us of NOPs, or 24 cycles.
+  JSR jsr_wait_12_cycles
+  JSR jsr_wait_12_cycles
+  LDA &00
+  JMP main_loop
+
+  .init_hardware
+  \\ System VIA port A to output.
+  LDA #&FF
+  STA &FE43
+  \\ Keyboard to auto-scan mode.
+  LDA #&0B
+  STA &FE40
+
+  \\ Channels 1, 2, 3 to period 1, 2, 3.
+  .self_modify_channel1_period
+  LDA #0
+  JSR sound_write
+  LDA #0
+  JSR sound_write
+  .self_modify_channel2_period
+  LDA #0
+  JSR sound_write
+  LDA #0
+  JSR sound_write
+  .self_modify_channel3_period
+  LDA #0
+  JSR sound_write
+  LDA #0
+  JSR sound_write
+
+  \\ Tone 1, 2, 3 to midpoint volume and noise channel to silent.
+  LDA #&93
+  JSR sound_write
+  LDA #&B3
+  JSR sound_write
+  LDA #&D3
+  JSR sound_write
+  LDA #&FF
+  JSR sound_write
+
+  RTS
+
+  .sound_write
+  STA &FE4F
+  LDA #&00
+  STA &FE40
+  \\ Sound write held low for 8us, which is plenty.
+  NOP:NOP:NOP:NOP
+  LDA #&08
+  STA &FE40
+  RTS
+
+  .jsr_wait_12_cycles
+  RTS
+
+  .init_scope
 {
+  \\ Initialize the oscilloscope state.
+  LDA #0
+  LDX #0
+  .loop
+  STA addr_scope_chan1,X
+  STA addr_scope_chan2,X
+  STA addr_scope_chan3,X
+  INX
+  BNE loop
+}
+
+{
+  \\ Calculate the lookup tables for scope rendering.
+  LDX #0
+  .loop
+  TXA
+  AND #&0F
+  TAY
+  LDA scope_y_table,Y
+  STA addr_scope_y_table,X
+  LDA scope_glyph_table,Y
+  STA addr_scope_glyph_table,X
+  INX
+  BNE loop
+  \\ &FF is special and used for the silence page -- make it central.
+  LDX #&FF
+  LDY #8
+  LDA scope_y_table,Y
+  STA addr_scope_y_table,X
+  LDA scope_glyph_table,Y
+  STA addr_scope_glyph_table,X
+}
+
+  \\ Set up the MODE 7 line preambles (color, gfx) for scope rendering.
+  \\ Red graphics.
+  LDA #&91
+  STA &7C28 + (0 * 40)
+  STA &7C28 + (1 * 40)
+  STA &7C28 + (2 * 40)
+  STA &7C28 + (3 * 40)
+  STA &7C28 + (4 * 40)
+  \\ Yellow graphics.
+  LDA #&93
+  STA &7D18 + (0 * 40)
+  STA &7D18 + (1 * 40)
+  STA &7D18 + (2 * 40)
+  STA &7D18 + (3 * 40)
+  STA &7D18 + (4 * 40)
+  \\ Magenta graphics.
+  LDA #&95
+  STA &7E08 + (0 * 40)
+  STA &7E08 + (1 * 40)
+  STA &7E08 + (2 * 40)
+  STA &7E08 + (3 * 40)
+  STA &7E08 + (4 * 40)
+
+  \\ Setup MODE7 scope pointers.
+  \\ Row 1
+  LDA #&7C
+  STA var_scope_chan1_ptr_hi
+  LDA #&29
+  STA var_scope_chan1_ptr_lo
+  \\ Row 7.
+  LDA #&7D
+  STA var_scope_chan2_ptr_hi
+  LDA #&19
+  STA var_scope_chan2_ptr_lo
+  \\ Row 13.
+  LDA #&7E
+  STA var_scope_chan3_ptr_hi
+  LDA #&09
+  STA var_scope_chan3_ptr_lo
+
+  RTS
+
+  .init_player
   \\ Read and fully use any input parameters from the zero page.
   \\ They will be trashed below in the relocation loop.
 
@@ -725,6 +889,7 @@ CLEAR P%, &8000
   STA self_modify_song_ticks_reload + 1
 }
 
+{
   \\ Relocate the player code into the zero and stack pages.
   LDA #LO(zero_page_play_copy)
   STA load + 1
@@ -784,63 +949,6 @@ CLEAR P%, &8000
   STA addr_sample_ends + &F
 }
 
-{
-  \\ Initialize the oscilloscope state.
-  LDA #0
-  LDX #0
-  .loop
-  STA addr_scope_chan1,X
-  STA addr_scope_chan2,X
-  STA addr_scope_chan3,X
-  INX
-  BNE loop
-}
-
-{
-  \\ Calculate the lookup tables for scope rendering.
-  LDX #0
-  .loop
-  TXA
-  AND #&0F
-  TAY
-  LDA scope_y_table,Y
-  STA addr_scope_y_table,X
-  LDA scope_glyph_table,Y
-  STA addr_scope_glyph_table,X
-  INX
-  BNE loop
-  \\ &FF is special and used for the silence page -- make it central.
-  LDX #&FF
-  LDY #8
-  LDA scope_y_table,Y
-  STA addr_scope_y_table,X
-  LDA scope_glyph_table,Y
-  STA addr_scope_glyph_table,X
-}
-
-  \\ Set up the MODE 7 line preambles (color, gfx) for scope rendering.
-  \\ Red graphics.
-  LDA #&91
-  STA &7C28 + (0 * 40)
-  STA &7C28 + (1 * 40)
-  STA &7C28 + (2 * 40)
-  STA &7C28 + (3 * 40)
-  STA &7C28 + (4 * 40)
-  \\ Yellow graphics.
-  LDA #&93
-  STA &7D18 + (0 * 40)
-  STA &7D18 + (1 * 40)
-  STA &7D18 + (2 * 40)
-  STA &7D18 + (3 * 40)
-  STA &7D18 + (4 * 40)
-  \\ Magenta graphics.
-  LDA #&95
-  STA &7E08 + (0 * 40)
-  STA &7E08 + (1 * 40)
-  STA &7E08 + (2 * 40)
-  STA &7E08 + (3 * 40)
-  STA &7E08 + (4 * 40)
-
   \\ Point the channel addresses at the silence page.
   LDA #0
   STA channel1_load + 1
@@ -868,111 +976,11 @@ CLEAR P%, &8000
   STA channel2_advance + 2
   STA channel3_advance + 2
 
-  \\ Setup MODE7 scope pointers.
-  \\ Row 1
-  LDA #&7C
-  STA var_scope_chan1_ptr_hi
-  LDA #&29
-  STA var_scope_chan1_ptr_lo
-  \\ Row 7.
-  LDA #&7D
-  STA var_scope_chan2_ptr_hi
-  LDA #&19
-  STA var_scope_chan2_ptr_lo
-  \\ Row 13.
-  LDA #&7E
-  STA var_scope_chan3_ptr_hi
-  LDA #&09
-  STA var_scope_chan3_ptr_lo
-
   \\ Set song tick and line skip counters to fire on first vsync.
   LDA #1
   STA var_song_tick_counter
   STA var_song_row_skip_counter
 
-  JSR setup_hardware
-
-  \\ Consistent register state.
-  \\ X is used as the index to the advances tables.
-  LDX #&FF
-  TXS
-  LDX #0
-  LDY #0
-
-  \\ Silence on noise.
-  LDA #&FF
-  STA &FE4F
-  \\ Open the sound write gate and leave open.
-  LDA &00
-  LDA #&00
-  \\ 5 cycles, shorter 2 cycle 1MHz write.
-  STA &FE40
-  \\ Aligned to even cycle.
-  \\ 1us for SN write gate to low, then 9us before it's the time to change
-  \\ the bus value.
-  \\ For a total requirement of 10us, and 16us multiples thereafter.
-
-  LDA &00
-  JMP play_entry
-
-  .play_entry
-  \\ At write gate +3us. Write targets are +10us and then every +16us after.
-  \\ The play loop writes the bus at +8us. It took 3us to jump here. There's
-  \\ another 3us to jump out of here.
-  \\ Need to wait 26 - 8 - 3 - 3 = 12us of NOPs, or 24 cycles.
-  JSR jsr_wait_12_cycles
-  JSR jsr_wait_12_cycles
-  LDA &00
-  JMP main_loop
-
-  .setup_hardware
-  \\ System VIA port A to output.
-  LDA #&FF
-  STA &FE43
-  \\ Keyboard to auto-scan mode.
-  LDA #&0B
-  STA &FE40
-
-  \\ Channels 1, 2, 3 to period 1, 2, 3.
-  .self_modify_channel1_period
-  LDA #0
-  JSR sound_write
-  LDA #0
-  JSR sound_write
-  .self_modify_channel2_period
-  LDA #0
-  JSR sound_write
-  LDA #0
-  JSR sound_write
-  .self_modify_channel3_period
-  LDA #0
-  JSR sound_write
-  LDA #0
-  JSR sound_write
-
-  \\ Tone 1, 2, 3 to midpoint volume and noise channel to silent.
-  LDA #&93
-  JSR sound_write
-  LDA #&B3
-  JSR sound_write
-  LDA #&D3
-  JSR sound_write
-  LDA #&FF
-  JSR sound_write
-
-  RTS
-
-  .sound_write
-  STA &FE4F
-  LDA #&00
-  STA &FE40
-  \\ Sound write held low for 8us, which is plenty.
-  NOP:NOP:NOP:NOP
-  LDA #&08
-  STA &FE40
-  RTS
-
-  .jsr_wait_12_cycles
   RTS
 
 .zero_page_play_copy
