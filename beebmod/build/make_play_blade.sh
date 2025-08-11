@@ -11,7 +11,7 @@ cd tmp
                  -pattern 12 -pattern 13 -pattern 14 -pattern 15 \
                  -pattern 16 -pattern 17 \
                  ../../mods/blade_of_destiny.mod
-../bin/modpatconv -o conv.out -t tables.out \
+../bin/modpatconv -o conv.out -a adv_tables.out -l lookup_tables.out \
                   mod.pattern.0 mod.pattern.1 mod.pattern.2 mod.pattern.3 \
                   mod.pattern.4 mod.pattern.5 mod.pattern.6 mod.pattern.7 \
                   mod.pattern.8 mod.pattern.9 mod.pattern.10 mod.pattern.11 \

@@ -7,7 +7,7 @@ cd tmp
 ../bin/modxtract -sample 1 -sample 2 -sample 3 -sample 4 \
                  -pattern 0 -pattern 1 -pattern 2 -pattern 3 -pattern 4 \
                  ../../mods/mod.roboingame
-../bin/modpatconv -o conv.out -t tables.out \
+../bin/modpatconv -o conv.out -a adv_tables.out -l lookup_tables.out \
                   mod.pattern.0 mod.pattern.1 mod.pattern.2 mod.pattern.3 \
                   mod.pattern.4
 ../bin/sample_adjust -i mod.sample.1 -o sample.sdrum \

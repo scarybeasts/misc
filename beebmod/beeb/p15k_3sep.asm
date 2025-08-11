@@ -20,6 +20,10 @@ addr_scope_y_table = &500
 addr_scope_glyph_table = &600
 \\ Spills 24 bytes past 1 page.
 addr_silence = &700
+addr_lookup_channel = &900
+addr_lookup_note = &940
+addr_lookup_instr = &980
+addr_lookup_row_skip = &9C0
 
 \\ Player variables from &00 - &1F.
 \\ Avoid colliding with input parameter space at &70.
@@ -27,10 +31,10 @@ ORG &00
 GUARD &1F
 
 .var_song_tick_counter SKIP 1
+.var_song_row_skip_counter SKIP 1
 .var_song_lo SKIP 1
 .var_song_hi SKIP 1
 .var_next_byte SKIP 1
-.var_next_instrument SKIP 1
 .var_scope_chan1_ptr_lo SKIP 1
 .var_scope_chan1_ptr_hi SKIP 1
 .var_scope_chan2_ptr_lo SKIP 1
@@ -39,9 +43,9 @@ GUARD &1F
 .var_scope_chan3_ptr_hi SKIP 1
 .var_scope_value SKIP 1
 .var_temp_x SKIP 1
-.var_channel1_instrument SKIP 1
-.var_channel2_instrument SKIP 1
-.var_channel3_instrument SKIP 1
+.var_channel1_instr SKIP 1
+.var_channel2_instr SKIP 1
+.var_channel3_instr SKIP 1
 
 ORG &40
 GUARD &FF
@@ -111,7 +115,7 @@ GUARD &FF
   .load_next_do_after_channel3_check
   LDA #LO(jmp_do_vsync_check)
   STA main_loop_jump + 1
-  LDY var_channel3_instrument
+  LDY var_channel3_instr
   LDA channel3_load + 2
   CMP addr_sample_ends,Y
   BNE no_channel3_wrap
@@ -132,7 +136,7 @@ GUARD &FF
   LDA #HI(addr_silence)
   STA channel3_load + 2
   LDA #&F
-  STA var_channel3_instrument
+  STA var_channel3_instr
   CLC
   JMP jmp_main_loop_6
 
@@ -158,26 +162,20 @@ GUARD &FF
   JMP do_vsync_check
   .jmp_do_song_tick
   JMP do_song_tick
-  .jmp_do_load_channel1
-  JMP do_load_channel1
-  .jmp_do_exec_channel1_note
-  JMP do_exec_channel1_note
-  .jmp_do_exec_channel1_instrument
-  JMP do_exec_channel1_instrument
-  .jmp_do_load_channel2
-  JMP do_load_channel2
-  .jmp_do_exec_channel2_note
-  JMP do_exec_channel2_note
-  .jmp_do_exec_channel2_instrument
-  JMP do_exec_channel2_instrument
-  .jmp_do_load_channel3
-  JMP do_load_channel3
-  .jmp_do_exec_channel3_note
-  JMP do_exec_channel3_note
-  .jmp_do_exec_channel3_instrument
-  JMP do_exec_channel3_instrument
-  .jmp_do_increment_song_pointer
-  JMP do_increment_song_pointer
+  .jmp_do_load_song_byte
+  JMP do_load_song_byte
+  .jmp_do_song_byte_decode
+  JMP do_song_byte_decode
+  .jmp_do_song_byte_decode_2
+  JMP do_song_byte_decode_2
+  .jmp_do_song_byte_decode_3
+  JMP do_song_byte_decode_3
+  .jmp_do_song_byte_decode_4
+  JMP do_song_byte_decode_4
+  .jmp_do_commit_channel
+  JMP do_commit_channel
+  .jmp_do_check_row_skip
+  JMP do_check_row_skip
 
 .zero_page_play_end
 
@@ -189,8 +187,6 @@ GUARD &2000
 .binary_start
 
 \\ The jumps in this block are cycle counted and must not cross pages.
-\\ TODO: not all of these blocks contain jumps, so we can save space by not
-\\ enforcing alignment for those.
 CLEAR P%, &8000
 ALIGN &100
 GUARD (P% + &FF)
@@ -199,7 +195,7 @@ GUARD (P% + &FF)
   \\ 89 cycles (39 remain)
   LDA #LO(jmp_do_channel2_check_wrap)
   STA main_loop_jump + 1
-  LDY var_channel1_instrument
+  LDY var_channel1_instr
   LDA channel1_load + 2
   CMP addr_sample_ends,Y
   BNE no_channel_wrap
@@ -220,7 +216,7 @@ GUARD (P% + &FF)
   LDA #HI(addr_silence)
   STA channel1_load + 2
   LDA #&F
-  STA var_channel1_instrument
+  STA var_channel1_instr
   CLC
   JMP main_loop
 
@@ -228,7 +224,7 @@ GUARD (P% + &FF)
   \\ 89 cycles (39 remain)
   LDA #LO(do_channel3_check_wrap)
   STA main_loop_jump + 1
-  LDY var_channel2_instrument
+  LDY var_channel2_instr
   LDA channel2_load + 2
   CMP addr_sample_ends,Y
   BNE no_channel_wrap
@@ -246,7 +242,7 @@ GUARD (P% + &FF)
   LDA #HI(addr_silence)
   STA channel2_load + 2
   LDA #&F
-  STA var_channel2_instrument
+  STA var_channel2_instr
   CLC
   JMP main_loop
 
@@ -274,218 +270,128 @@ GUARD (P% + &FF)
   \\ 94 cycles (34 remain)
   DEC var_song_tick_counter
   BNE no_song_tick_hit
-  LDA #LO(jmp_do_load_channel1)
-  STA load_next_do_after_channel3_check + 1
   .self_modify_song_ticks_reload
   LDA #0
   STA var_song_tick_counter
-  \\ 111 cycles (17 remain)
-  JMP jmp_main_loop_17
+  \\ 106 cycles (22 remain)
+  DEC var_song_row_skip_counter
+  BNE no_row_skip_hit
+  LDA #LO(jmp_do_load_song_byte)
+  STA load_next_do_after_channel3_check + 1
+  \\ 118 cycles (10 remain)
+  JMP jmp_main_loop_10
   .no_song_tick_hit
+  \\ 102 cycles (26 remain)
   LDA #LO(jmp_do_vsync_check)
   STA load_next_do_after_channel3_check + 1
   \\ 107 cycles (21 remain)
   JMP jmp_main_loop_21
+  .no_row_skip_hit
+  \\ 114 cycles (14 remain)
+  LDA #LO(jmp_do_vsync_check)
+  STA load_next_do_after_channel3_check + 1
+  \\ 119 cycles (9 remain)
+  JMP jmp_main_loop_9
 
-  .do_load_channel1
+  .do_load_song_byte
   \\ 89 cycles (39 remain)
   LDA #LO(jmp_do_scope_chan1_clear_load)
   STA main_loop_jump + 1
+  LDA #LO(jmp_do_song_byte_decode)
+  STA load_next_do_after_channel3_check + 1
   LDY #0
   LDA (var_song_lo),Y
-  BNE has_channel1_note
-  \\ 103 cycles (25 remain)
-  LDA #LO(jmp_do_load_channel2)
-  STA load_next_do_after_channel3_check + 1
-  JMP jmp_main_loop_20
-  .has_channel1_note
-  \\ 104 cycles (24 remain)
   STA var_next_byte
-  \\ TODO: could use a lookup table for this.
-  LSR A:LSR A:LSR A:LSR A:LSR A
-  STA var_next_instrument
-  LDA #LO(jmp_do_exec_channel1_note)
-  STA load_next_do_after_channel3_check + 1
-  \\ 125 cycles (3 remain)
+  INC var_song_lo
+  BNE no_song_ptr_hi
+  INC var_song_hi
+  \\ 121 cycles (7 remain)
+  NOP:NOP
   JMP main_loop
+  .no_song_ptr_hi
+  \\ 117 cycles (11 remain)
+  JMP jmp_main_loop_11
 
-  .do_exec_channel1_note
+  .do_song_byte_decode
   \\ 89 cycles (39 remain)
   LDA #LO(jmp_do_scope_chan1_clear_load)
   STA main_loop_jump + 1
-  LDA #LO(jmp_do_exec_channel1_instrument)
-  STA load_next_do_after_channel3_check + 1
+  LDY var_next_byte
+  BMI special_command
   \\ 99 cycles (29 remain)
-  LDA var_next_byte
-  AND #&1F
-  \\ Carry should already be cleared on entry.
-  CLC
-  .self_modify_advance_table_channel1
-  ADC #0
-  STA channel1_advance + 2
+  LDA #LO(jmp_do_song_byte_decode_2)
+  STA load_next_do_after_channel3_check + 1
+  \\ 104 cycles (24 remain)
+  LDA addr_lookup_note,Y
+  STA self_modify_advance_hi_value + 1
+  \\ 112 cycles (16 remain)
+  LDA addr_lookup_instr,Y
+  STA self_modify_instr_value + 1
+  \\ 120 cycles (8 remain)
+  JMP jmp_main_loop_8
+  .special_command
+  LDA #LO(jmp_do_load_song_byte)
+  STA load_next_do_after_channel3_check + 1
+  \\ 105 cycles (23 remain)
+  .self_modify_song_restart
+  LDA #0
+  STA var_song_hi
+  LDA #0
+  STA var_song_lo
+  \\ 115 cycles (13 remain)
+  JMP jmp_main_loop_13
+
+  .do_check_row_skip
+  \\ 89 cycles (39 remain)
+  LDA #LO(jmp_do_scope_chan1_clear_load)
+  STA main_loop_jump + 1
+  LDY var_next_byte
+  LDA addr_lookup_row_skip,Y
+  STA var_song_row_skip_counter
+  BNE row_skip
+  \\ 106 cycles (22 remain)
+  LDA #LO(jmp_do_load_song_byte)
+  STA load_next_do_after_channel3_check + 1
   \\ 111 cycles (17 remain)
   JMP jmp_main_loop_17
-
-  .do_exec_channel1_instrument
-  \\ 89 cycles (39 remain)
-  LDA #LO(jmp_do_scope_chan1_clear_load)
-  STA main_loop_jump + 1
-  LDA #LO(jmp_do_load_channel2)
+  .row_skip
+  \\ 107 cycles (21 remain)
+  LDA #LO(jmp_do_vsync_check)
   STA load_next_do_after_channel3_check + 1
-  \\ 99 cycles (29 remain)
-  LDY var_next_instrument
-  STY var_channel1_instrument
-  LDA addr_sample_starts,Y
-  STA channel1_load + 2
-  LDA addr_sample_starts_fine,Y
-  STA channel1_load + 1
-  \\ 115 cycles (9 remain)
-  JMP jmp_main_loop_9
+  \\ 112 cycles (16 remain)
+  JMP jmp_main_loop_16
 
 \\ The jumps in this block are cycle counted and must not cross pages.
 CLEAR P%, &8000
 ALIGN &100
 GUARD (P% + &FF)
 
-  .do_load_channel2
+  .do_scope_inc
   \\ 89 cycles (39 remain)
-  LDA #LO(jmp_do_scope_chan1_clear_load)
+  LDA #LO(jmp_do_channel1_check_wrap)
   STA main_loop_jump + 1
-  LDY #1
-  LDA (var_song_lo),Y
-  BNE has_channel2_note
-  \\ 103 cycles (25 remain)
-  LDA #LO(jmp_do_load_channel3)
-  STA load_next_do_after_channel3_check + 1
-  JMP jmp_main_loop_20
-  .has_channel2_note
-  \\ 104 cycles (24 remain)
-  STA var_next_byte
-  LSR A:LSR A:LSR A:LSR A:LSR A
-  STA var_next_instrument
-  LDA #LO(jmp_do_exec_channel2_note)
-  STA load_next_do_after_channel3_check + 1
-  \\ 125 cycles (3 remain)
-  JMP main_loop
-
-  .do_exec_channel2_note
-  \\ 89 cycles (39 remain)
-  LDA #LO(jmp_do_scope_chan1_clear_load)
-  STA main_loop_jump + 1
-  LDA #LO(jmp_do_exec_channel2_instrument)
-  STA load_next_do_after_channel3_check + 1
-  \\ 99 cycles (29 remain)
-  LDA var_next_byte
-  AND #&1F
-  \\ Carry should already be cleared on entry.
-  CLC
-  .self_modify_advance_table_channel2
-  ADC #0
-  STA channel2_advance + 2
-  \\ 111 cycles (17 remain)
-  JMP jmp_main_loop_17
-
-  .do_exec_channel2_instrument
-  \\ 89 cycles (39 remain)
-  LDA #LO(jmp_do_scope_chan1_clear_load)
-  STA main_loop_jump + 1
-  LDA #LO(jmp_do_load_channel3)
-  STA load_next_do_after_channel3_check + 1
-  \\ 99 cycles (29 remain)
-  LDY var_next_instrument
-  STY var_channel2_instrument
-  LDA addr_sample_starts,Y
-  STA channel2_load + 2
-  LDA #0
-  STA channel2_load + 1
+  LDY var_scope_chan1_ptr_lo
+  CPY #&4F
+  BEQ scope_wrap
+  INC var_scope_chan1_ptr_lo
+  INC var_scope_chan2_ptr_lo
+  INC var_scope_chan3_ptr_lo
+  \\ 116 cycles (12 remain)
+  JMP jmp_main_loop_12
+  .scope_wrap
+  LDA #&29
+  STA var_scope_chan1_ptr_lo
+  LDA #&19
+  STA var_scope_chan2_ptr_lo
+  LDA #&09
+  STA var_scope_chan3_ptr_lo
   \\ 117 cycles (11 remain)
   JMP jmp_main_loop_11
 
-  .do_load_channel3
-  \\ 89 cycles (39 remain)
-  LDA #LO(jmp_do_scope_chan1_clear_load)
-  STA main_loop_jump + 1
-  LDY #2
-  LDA (var_song_lo),Y
-  BNE has_channel3_note
-  \\ 103 cycles (25 remain)
-  LDA #LO(jmp_do_increment_song_pointer)
-  STA load_next_do_after_channel3_check + 1
-  JMP jmp_main_loop_20
-  .has_channel3_note
-  \\ 104 cycles (24 remain)
-  STA var_next_byte
-  LSR A:LSR A:LSR A:LSR A:LSR A
-  STA var_next_instrument
-  LDA #LO(jmp_do_exec_channel3_note)
-  STA load_next_do_after_channel3_check + 1
-  \\ 125 cycles (3 remain)
-  JMP main_loop
+CLEAR P%, &8000
 
-  .do_exec_channel3_note
-  \\ 89 cycles (39 remain)
-  LDA #LO(jmp_do_scope_chan1_clear_load)
-  STA main_loop_jump + 1
-  LDA #LO(jmp_do_exec_channel3_instrument)
-  STA load_next_do_after_channel3_check + 1
-  \\ 99 cycles (29 remain)
-  LDA var_next_byte
-  AND #&1F
-  \\ Carry should already be cleared on entry.
-  CLC
-  .self_modify_advance_table_channel3
-  ADC #0
-  STA channel3_advance + 2
-  \\ 111 cycles (17 remain)
-  JMP jmp_main_loop_17
-
-  .do_exec_channel3_instrument
-  \\ 89 cycles (39 remain)
-  LDA #LO(jmp_do_scope_chan1_clear_load)
-  STA main_loop_jump + 1
-  LDA #LO(jmp_do_increment_song_pointer)
-  STA load_next_do_after_channel3_check + 1
-  \\ 99 cycles (29 remain)
-  LDY var_next_instrument
-  STY var_channel3_instrument
-  LDA addr_sample_starts,Y
-  STA channel3_load + 2
-  LDA #0
-  STA channel3_load + 1
-  \\ 117 cycles (11 remain)
-  JMP jmp_main_loop_11
-
-  .do_increment_song_pointer
-  \\ 89 cycles (39 remain)
-  LDA #LO(jmp_do_scope_chan1_clear_load)
-  STA main_loop_jump + 1
-  LDA #LO(jmp_do_vsync_check)
-  STA load_next_do_after_channel3_check + 1
-  \\ 99 cycles (29 remain)
-  LDA var_song_lo
-  \\ Carry should already be cleared on entry.
-  ADC #4
-  STA var_song_lo
-  \\ 107 cycles (21 remain)
-  BCC no_song_lo_hit
-  LDY var_song_hi
-  INY
-  .self_modify_song_end_check
-  CPY #0
-  BNE no_song_hi_hit
-  .self_modify_song_restart
-  LDA #0
-  STA var_song_hi
-  \\ 123 cycles (5 remain)
-  NOP
-  JMP main_loop
-  .no_song_lo_hit
-  \\ 110 cycles (18 remain)
-  JMP jmp_main_loop_18
-  .no_song_hi_hit
-  \\ 119 cycles (9 remain)
-  STY var_song_hi
-  JMP jmp_main_loop_6
+  \\ Players blocks that contain no branches, so don't need to worry about page
+  \\ crossings.
 
   .do_scope_chan1_clear_load
   \\ 89 cycles (39 remain)
@@ -504,11 +410,6 @@ GUARD (P% + &FF)
   STA var_scope_value
   \\ 125 cycles (3 remain)
   JMP main_loop
-
-\\ The jumps in this block are cycle counted and must not cross pages.
-CLEAR P%, &8000
-ALIGN &100
-GUARD (P% + &FF)
 
   .do_scope_chan1_render
   \\ 89 cycles (39 remain)
@@ -603,42 +504,99 @@ GUARD (P% + &FF)
   NOP
   JMP main_loop
 
-  .do_scope_inc
+  .do_song_byte_decode_2
   \\ 89 cycles (39 remain)
-  LDA #LO(jmp_do_channel1_check_wrap)
+  LDA #LO(jmp_do_scope_chan1_clear_load)
   STA main_loop_jump + 1
-  LDY var_scope_chan1_ptr_lo
-  CPY #&4F
-  BEQ scope_wrap
-  INC var_scope_chan1_ptr_lo
-  INC var_scope_chan2_ptr_lo
-  INC var_scope_chan3_ptr_lo
-  \\ 116 cycles (12 remain)
-  JMP jmp_main_loop_12
-  .scope_wrap
-  LDA #&29
-  STA var_scope_chan1_ptr_lo
-  LDA #&19
-  STA var_scope_chan2_ptr_lo
-  LDA #&09
-  STA var_scope_chan3_ptr_lo
-  \\ 117 cycles (11 remain)
-  JMP jmp_main_loop_11
+  LDA #LO(jmp_do_song_byte_decode_3)
+  STA load_next_do_after_channel3_check + 1
+  \\ 99 cycles (29 remain)
+  LDY self_modify_instr_value + 1
+  LDA addr_sample_starts,Y
+  STA self_modify_load_hi_value + 1
+  LDA addr_sample_starts_fine,Y
+  STA self_modify_load_lo_value + 1
+  \\ 119 cycles (9 remain)
+  JMP jmp_main_loop_9
 
-CLEAR P%, &8000
+  .do_song_byte_decode_3
+  \\ 89 cycles (39 remain)
+  LDA #LO(jmp_do_scope_chan1_clear_load)
+  STA main_loop_jump + 1
+  LDA #LO(jmp_do_song_byte_decode_4)
+  STA load_next_do_after_channel3_check + 1
+  \\ 99 cycles (29 remain)
+  LDY var_next_byte
+  LDA addr_lookup_channel,Y
+  TAY
+  LDA table_channel_code_advance_hi,Y
+  STA self_modify_advance_hi_store + 1
+  STY self_modify_decode_4_channel + 1
+  \\ 120 cycles (8 remain)
+  JMP jmp_main_loop_8
+
+  .do_song_byte_decode_4
+  \\ 89 cycles (39 remain)
+  LDA #LO(jmp_do_scope_chan1_clear_load)
+  STA main_loop_jump + 1
+  LDA #LO(jmp_do_commit_channel)
+  STA load_next_do_after_channel3_check + 1
+  \\ 99 cycles (29 remain)
+  .self_modify_decode_4_channel
+  LDY #00
+  LDA table_channel_code_load_hi,Y
+  STA self_modify_load_hi_store + 1
+  LDA table_channel_code_load_lo,Y
+  STA self_modify_load_lo_store + 1
+  LDA table_channel_var_instr,Y
+  STA self_modify_instr_store + 1
+  \\ 125 cycles (3 remain)
+  JMP main_loop
+
+  .do_commit_channel
+  \\ 89 cycles (39 remain)
+  LDA #LO(jmp_do_scope_chan1_clear_load)
+  STA main_loop_jump + 1
+  LDA #LO(jmp_do_check_row_skip)
+  STA load_next_do_after_channel3_check + 1
+  \\ 99 cycles (29 remain)
+  .self_modify_advance_hi_value
+  LDA #00
+  .self_modify_advance_hi_store
+  STA &00
+  .self_modify_load_hi_value
+  LDA #00
+  .self_modify_load_hi_store
+  STA &00
+  .self_modify_load_lo_value
+  LDA #00
+  .self_modify_load_lo_store
+  STA &00
+  .self_modify_instr_value
+  LDA #00
+  .self_modify_instr_store
+  STA &00
+  \\ 119 cycles (9 remain)
+  JMP jmp_main_loop_9
+
 
   .jmp_main_loop_24
   NOP
+  .jmp_main_loop_22
   NOP
   .jmp_main_loop_20
   NOP
   .jmp_main_loop_18
   NOP
+  .jmp_main_loop_16
   NOP
+  .jmp_main_loop_14
   NOP
   .jmp_main_loop_12
   NOP
+  .jmp_main_loop_10
   NOP
+  .jmp_main_loop_8
   NOP
   .jmp_main_loop_6
   JMP main_loop
@@ -647,9 +605,11 @@ CLEAR P%, &8000
   NOP
   .jmp_main_loop_21
   NOP
+  .jmp_main_loop_19
   NOP
   .jmp_main_loop_17
   NOP
+  .jmp_main_loop_15
   NOP
   .jmp_main_loop_13
   NOP
@@ -663,6 +623,14 @@ CLEAR P%, &8000
   EQUB 0, 0, 0, 0, 40, 40, 40, 80, 80, 80, 120, 120, 120, 160, 160, 160
   .scope_glyph_table
   EQUB &23, &23, &2C, &70, &23, &2C, &70, &23, &2C, &70, &23, &2C, &70, &23, &2C, &70
+  .table_channel_code_advance_hi
+  EQUB channel1_advance + 2, channel2_advance + 2, channel3_advance + 2
+  .table_channel_code_load_hi
+  EQUB channel1_load + 2, channel2_load + 2, channel3_load + 2
+  .table_channel_code_load_lo
+  EQUB channel1_load + 1, channel2_load + 1, channel3_load + 1
+  .table_channel_var_instr
+  EQUB var_channel1_instr, var_channel2_instr, var_channel3_instr
 
 \\ The entry point.
 .binary_exec
@@ -693,11 +661,6 @@ CLEAR P%, &8000
   LDA addr_input_advance_tables_dst
   STA self_modify_init_advance_tables + 1
   STA self_modify_store_advance_table_dst + 2
-  SEC
-  SBC #1
-  STA self_modify_advance_table_channel1 + 1
-  STA self_modify_advance_table_channel2 + 1
-  STA self_modify_advance_table_channel3 + 1
   LDA addr_input_advance_tables_src
   STA self_modify_load_advance_table_src + 2
 
@@ -734,6 +697,17 @@ CLEAR P%, &8000
   BNE loop_note
   DEC addr_input_advance_tables_len
   BNE loop_table
+
+  \\ Update the values in the note lookup array to be based at the address of
+  \\ the advance tables.
+  CLC
+  LDX #63
+  .loop_note_rebase
+  LDA addr_lookup_note,X
+  ADC addr_input_advance_tables_dst
+  STA addr_lookup_note,X
+  DEX
+  BPL loop_note_rebase
 }
 
 {
@@ -743,8 +717,6 @@ CLEAR P%, &8000
   LDA addr_input_song_start
   STA var_song_hi
   STA self_modify_song_restart + 1
-  LDA addr_input_song_end
-  STA self_modify_song_end_check + 1
 }
 
 {
@@ -881,9 +853,9 @@ CLEAR P%, &8000
 
   \\ Set initial instruments to the silent sample.
   LDA #&0F
-  STA var_channel1_instrument
-  STA var_channel2_instrument
-  STA var_channel3_instrument
+  STA var_channel1_instr
+  STA var_channel2_instr
+  STA var_channel3_instr
 
   \\ Point the tables advances at the first advance table.
   LDA #0
@@ -913,9 +885,10 @@ CLEAR P%, &8000
   LDA #&09
   STA var_scope_chan3_ptr_lo
 
-  \\ Set song tick counter to fire on first vsync.
+  \\ Set song tick and line skip counters to fire on first vsync.
   LDA #1
   STA var_song_tick_counter
+  STA var_song_row_skip_counter
 
   JSR setup_hardware
 
@@ -1010,6 +983,7 @@ CLEAR P%, &8000
 COPYBLOCK zero_page_play_start, zero_page_play_end, zero_page_play_copy
 
 SAVE "PLAY", binary_start, binary_end, binary_exec
-PUTFILE "tables.out", "ADVTAB", 0
+PUTFILE "adv_tables.out", "ADVTAB", 0
+PUTFILE "lookup_tables.out", "LOOKTAB", 0
 PUTFILE "conv.out", "SONG", 0
 INCLUDE SONG_DETAILS_FILE
