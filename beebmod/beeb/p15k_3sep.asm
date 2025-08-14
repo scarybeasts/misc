@@ -117,28 +117,27 @@ GUARD &FF
   STA main_loop_jump + 1
   LDY var_channel3_instr
   LDA channel3_load + 2
-  CMP addr_sample_ends,Y
+  EOR addr_sample_ends,Y
   BNE no_channel3_wrap
   LDA addr_sample_wraps,Y
-  BEQ no_channel3_sample_loop
   STA channel3_load + 2
   LDA channel3_load + 1
-  \\ Warning: carry set. Must be catered for in lookup table.
   ADC addr_sample_wraps_fine,Y
   STA channel3_load + 1
-  \\ 122 cycles (6 remain)
-  JMP jmp_main_loop_6
+  \\ 120 cycles (8 remain)
+  JMP jmp_main_loop_8
   .no_channel3_wrap
-  \\ 104 cycles (24 remain)
-  JMP jmp_main_loop_24
-  .no_channel3_sample_loop
-  \\ 110 cycles (18 remain)
-  LDA #HI(addr_silence)
-  STA channel3_load + 2
+  \\ 104 cycles (20 remain)
+  LDA channel3_load + 2
+  EOR #HI(addr_silence)
+  BNE no_channel3_silence
   LDA #&F
   STA var_channel3_instr
-  CLC
-  JMP jmp_main_loop_6
+  \\ 116 cycles (12 remain)
+  JMP jmp_main_loop_12
+  .no_channel3_silence
+  \\ 112 cycles (16 remain)
+  JMP jmp_main_loop_16
 
   .jmp_do_scope_chan1_clear_load
   JMP do_scope_chan1_clear_load
@@ -197,28 +196,28 @@ GUARD (P% + &FF)
   STA main_loop_jump + 1
   LDY var_channel1_instr
   LDA channel1_load + 2
-  CMP addr_sample_ends,Y
-  BNE no_channel_wrap
+  EOR addr_sample_ends,Y
+  BNE no_channel1_wrap
   LDA addr_sample_wraps,Y
-  BEQ no_channel1_sample_loop
   STA channel1_load + 2
   LDA channel1_load + 1
-  \\ Warning: carry set. Must be catered for in lookup table.
   ADC addr_sample_wraps_fine,Y
   STA channel1_load + 1
-  \\ 125 cycles (3 remain)
+  \\ 123 cycles (5 remain)
+  NOP
   JMP main_loop
-  .no_channel_wrap
+  .no_channel1_wrap
   \\ 107 cycles (21 remain)
-  JMP jmp_main_loop_21
-  .no_channel1_sample_loop
-  \\ 113 cycles (15 remain)
-  LDA #HI(addr_silence)
-  STA channel1_load + 2
+  LDA channel1_load + 2
+  EOR #HI(addr_silence)
+  BNE no_channel_silence
   LDA #&F
   STA var_channel1_instr
-  CLC
-  JMP main_loop
+  \\ 119 cycles (9 remain)
+  JMP jmp_main_loop_9
+  .no_channel_silence
+  \\ 115 cycles (13 remain)
+  JMP jmp_main_loop_13
 
   .do_channel2_check_wrap
   \\ 89 cycles (39 remain)
@@ -226,25 +225,25 @@ GUARD (P% + &FF)
   STA main_loop_jump + 1
   LDY var_channel2_instr
   LDA channel2_load + 2
-  CMP addr_sample_ends,Y
-  BNE no_channel_wrap
+  EOR addr_sample_ends,Y
+  BNE no_channel2_wrap
   LDA addr_sample_wraps,Y
-  BEQ no_channel2_sample_loop
   STA channel2_load + 2
   LDA channel2_load + 1
-  \\ Warning: carry set. Must be catered for in lookup table.
   ADC addr_sample_wraps_fine,Y
   STA channel2_load + 1
-  \\ 125 cycles (3 remain)
+  \\ 123 cycles (5 remain)
+  NOP
   JMP main_loop
-  .no_channel2_sample_loop
-  \\ 113 cycles (15 remain)
-  LDA #HI(addr_silence)
-  STA channel2_load + 2
+  .no_channel2_wrap
+  \\ 107 cycles (21 remain)
+  LDA channel2_load + 2
+  EOR #HI(addr_silence)
+  BNE no_channel_silence
   LDA #&F
   STA var_channel2_instr
-  CLC
-  JMP main_loop
+  \\ 119 cycles (9 remain)
+  JMP jmp_main_loop_9
 
   .do_vsync_check
   \\ 89 cycles (39 remain)
