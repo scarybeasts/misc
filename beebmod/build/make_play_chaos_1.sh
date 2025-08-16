@@ -13,27 +13,27 @@ cd tmp
 ../bin/sample_adjust -i mod.sample.1 -o sample.bass -pre_begin_pad 70 \
                      -static_offset 64 \
                      -sn sntab1d.dat -snchannel 1 \
-                     -post_end_pad 24 -loop_start $((1240 + 70))
+                     -post_end_pad 64 -loop_start $((1240 + 70))
 ../bin/sample_adjust -i mod.sample.2 -o sample.guitar -pre_begin_pad 52 \
                      -static_offset 96 \
                      -sn sntab1d.dat -snchannel 2 \
-                     -post_end_pad 24 -loop_start $((2632 + 52))
+                     -post_end_pad 64 -loop_start $((2632 + 52))
 ../bin/sample_adjust -i mod.sample.3 -o sample.bdrum \
                      -static_offset 96 \
                      -sn sntab1d.dat -snchannel 3 \
-                     -post_end_pad 24
+                     -post_end_pad 64
 ../bin/sample_adjust -i mod.sample.4 -o sample.hihat1 \
                      -static_offset 96 \
                      -sn sntab1d.dat -snchannel 3 \
-                     -post_end_pad 24
+                     -post_end_pad 64
 ../bin/sample_adjust -i mod.sample.5 -o sample.hihat2 \
                      -static_offset 96 \
                      -sn sntab1d.dat -snchannel 3 \
-                     -post_end_pad 24
+                     -post_end_pad 64
 ../bin/sample_adjust -i mod.sample.6 -o sample.sdrum \
                      -static_offset 96 \
                      -sn sntab1d.dat -snchannel 3 \
-                     -post_end_pad 24
+                     -post_end_pad 64
 ~/beebasm/beebasm -i ../../beeb/p15k_3sep.asm \
                   -S SONG_DETAILS_FILE="../../beeb/play_chaos_1.inc" \
                   -do ../play_chaos_1.ssd
