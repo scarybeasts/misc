@@ -304,8 +304,8 @@ GUARD (P% + &100)
   \\ 89 cycles (39 remain)
   LDA #LO(do_channel1_check_wrap)
   STA main_loop_jump + 1
-  LDY var_scope_chan1_ptr_lo
-  CPY #&4F
+  LDA var_scope_chan1_ptr_lo
+  EOR #&4F
   BEQ scope_wrap
   INC var_scope_chan1_ptr_lo
   INC var_scope_chan2_ptr_lo
