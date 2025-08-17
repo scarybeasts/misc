@@ -33,8 +33,6 @@ GUARD &20
 
 .var_song_tick_counter SKIP 1
 .var_song_row_skip_counter SKIP 1
-.var_song_lo SKIP 1
-.var_song_hi SKIP 1
 .var_next_byte SKIP 1
 .var_scope_chan1_ptr_lo SKIP 1
 .var_scope_chan1_ptr_hi SKIP 1
@@ -227,17 +225,17 @@ GUARD &300
   \\ 86 cycles (42 remain)
   LDA #LO(do_song_byte_decode)
   STA main_loop_jump + 1
-  LDY #0
-  LDA (var_song_lo),Y
+  .self_modify_song_ptr
+  LDA &FFFF
   STA var_next_byte
-  INC var_song_lo
+  INC self_modify_song_ptr + 1
   BNE no_song_ptr_hi
-  INC var_song_hi
-  \\ 113 cycles (15 remain)
-  JMP jmp_main_loop_15
+  INC self_modify_song_ptr + 2
+  \\ 112 cycles (16 remain)
+  JMP jmp_main_loop_16
   .no_song_ptr_hi
-  \\ 109 cycles (19 remain)
-  JMP jmp_main_loop_19
+  \\ 107 cycles (21 remain)
+  JMP jmp_main_loop_21
 
   .do_song_byte_decode
   \\ 86 cycles (42 remain)
@@ -258,11 +256,11 @@ GUARD &300
   STA main_loop_jump + 1
   .self_modify_song_restart
   LDA #0
-  STA var_song_hi
+  STA self_modify_song_ptr + 2
   LDA #0
-  STA var_song_lo
-  \\ 107 cycles (21 remain)
-  JMP jmp_main_loop_21
+  STA self_modify_song_ptr + 1
+  \\ 109 cycles (19 remain)
+  JMP jmp_main_loop_19
 
   .do_song_byte_decode_2
   JMP body_do_song_byte_decode_2
@@ -876,9 +874,9 @@ CLEAR P%, &8000
 {
   \\ Input parameter: song start and end.
   LDA #0
-  STA var_song_lo
+  STA self_modify_song_ptr + 1
   LDA addr_input_song_start
-  STA var_song_hi
+  STA self_modify_song_ptr + 2
   STA self_modify_song_restart + 1
 }
 
