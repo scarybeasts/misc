@@ -101,7 +101,7 @@ GUARD &100
   \\ 83 cycles (45 remain)
 
   .main_loop_jump
-  JMP do_scope_chan1_clear_load
+  JMP do_channel1_check_wrap
 
   \\ All jump targets: 86 cycles (42 remain)
 
@@ -113,27 +113,6 @@ ORG &200
 GUARD &300
 
 .page_two_play_start
-
-  .do_scope_chan1_clear_load
-  JMP body_do_scope_chan1_clear_load
-
-  .do_scope_chan1_render
-  JMP body_do_scope_chan1_render
-
-  .do_scope_chan2_clear_load
-  JMP body_do_scope_chan2_clear_load
-
-  .do_scope_chan2_render
-  JMP body_do_scope_chan2_render
-
-  .do_scope_chan3_clear_load
-  JMP body_do_scope_chan3_clear_load
-
-  .do_scope_chan3_render
-  JMP body_do_scope_chan3_render
-
-  .do_scope_inc
-  JMP body_do_scope_inc
 
   \\ TODO: some of these per-instrument lookups could be a lot faster if we
   \\ wanted to self-modify the values when the note is played.
@@ -192,7 +171,7 @@ GUARD &300
 
   .do_channel3_check_wrap
   \\ 86 cycles (42 remain)
-  LDA #LO(do_next_or_vsync_check)
+  LDA #LO(do_scope_chan1_clear_load)
   STA main_loop_jump + 1
   LDY var_channel3_instr
   LDA channel3_load + 2
@@ -214,6 +193,27 @@ GUARD &300
   STA var_channel3_instr
   \\ 116 cycles (12 remain)
   JMP jmp_main_loop_12
+
+  .do_scope_chan1_clear_load
+  JMP body_do_scope_chan1_clear_load
+
+  .do_scope_chan1_render
+  JMP body_do_scope_chan1_render
+
+  .do_scope_chan2_clear_load
+  JMP body_do_scope_chan2_clear_load
+
+  .do_scope_chan2_render
+  JMP body_do_scope_chan2_render
+
+  .do_scope_chan3_clear_load
+  JMP body_do_scope_chan3_clear_load
+
+  .do_scope_chan3_render
+  JMP body_do_scope_chan3_render
+
+  .do_scope_inc
+  JMP body_do_scope_inc
 
   .do_next_or_vsync_check
   JMP body_do_next_or_vsync_check
@@ -254,7 +254,7 @@ GUARD &300
   JMP jmp_main_loop_9
   .special_command
   \\ 92 cycles (36 remain)
-  LDA #LO(do_scope_chan1_clear_load)
+  LDA #LO(do_channel1_check_wrap)
   STA main_loop_jump + 1
   .self_modify_song_restart
   LDA #0
@@ -292,7 +292,7 @@ GUARD (P% + &100)
 
   .body_do_scope_inc
   \\ 89 cycles (39 remain)
-  LDA #LO(do_channel1_check_wrap)
+  LDA #LO(do_next_or_vsync_check)
   STA main_loop_jump + 1
   LDA var_scope_chan1_ptr_lo
   EOR #&4F
@@ -327,7 +327,7 @@ GUARD (P% + &100)
   JMP jmp_main_loop_13
   .no_vsync_hit
   \\ 105 cycles (23 remain)
-  LDA #LO(do_scope_chan1_clear_load)
+  LDA #LO(do_channel1_check_wrap)
   STA main_loop_jump + 1
   \\ 110 cycles (18 remain)
   JMP jmp_main_loop_18
@@ -352,13 +352,13 @@ GUARD (P% + &100)
   JMP jmp_main_loop_15
   .no_song_tick_hit
   \\ 97 cycles (31 remain)
-  LDA #LO(do_scope_chan1_clear_load)
+  LDA #LO(do_channel1_check_wrap)
   STA main_loop_jump + 1
   \\ 102 cycles (26 remain)
   JMP jmp_main_loop_26
   .no_row_skip_hit
   \\ 109 cycles (19 remain)
-  LDA #LO(do_scope_chan1_clear_load)
+  LDA #LO(do_channel1_check_wrap)
   STA main_loop_jump + 1
   \\ 114 cycles (14 remain)
   JMP jmp_main_loop_14
@@ -521,7 +521,7 @@ CLEAR P%, &8000
 
   .body_do_commit_channel
   \\ 89 cycles (39 remain)
-  LDA #LO(do_scope_chan1_clear_load)
+  LDA #LO(do_channel1_check_wrap)
   STA main_loop_jump + 1
   .self_modify_advance_hi_value
   LDA #00
