@@ -248,8 +248,10 @@ GUARD &300
   STA self_modify_advance_hi_value + 1
   LDA addr_lookup_instr,Y
   STA self_modify_instr_value + 1
-  \\ 112 cycles (16 remain)
-  JMP jmp_main_loop_16
+  LDA addr_lookup_row_skip,Y
+  STA var_song_row_skip_counter
+  \\ 119 cycles (9 remain)
+  JMP jmp_main_loop_9
   .special_command
   \\ 92 cycles (36 remain)
   LDA #LO(do_scope_chan1_clear_load)
@@ -273,16 +275,6 @@ GUARD &300
 
   .do_commit_channel
   JMP body_do_commit_channel
-
-  .do_check_row_skip
-  \\ 86 cycles (42 remain)
-  LDA #LO(do_scope_chan1_clear_load)
-  STA main_loop_jump + 1
-  LDY var_next_byte
-  LDA addr_lookup_row_skip,Y
-  STA var_song_row_skip_counter
-  \\ 101 cycles (27 remain)
-  JMP jmp_main_loop_27
 
 .page_two_play_end
 
@@ -529,7 +521,7 @@ CLEAR P%, &8000
 
   .body_do_commit_channel
   \\ 89 cycles (39 remain)
-  LDA #LO(do_check_row_skip)
+  LDA #LO(do_scope_chan1_clear_load)
   STA main_loop_jump + 1
   .self_modify_advance_hi_value
   LDA #00
@@ -575,8 +567,6 @@ CLEAR P%, &8000
   .jmp_main_loop_6
   JMP main_loop
 
-  .jmp_main_loop_27
-  NOP
   .jmp_main_loop_25
   NOP
   .jmp_main_loop_23
