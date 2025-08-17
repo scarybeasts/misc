@@ -396,13 +396,12 @@ CLEAR P%, &8000
   LDY addr_scope_y_table,X
   LDA addr_scope_glyph_table,X
   STA (var_scope_chan1_ptr_lo),Y
-  TYA
   \\ Self-modified by previous clear / load.
   .self_modify_scope_chan1_y_store
-  STA addr_scope_chan1
+  STY addr_scope_chan1
   LDX var_temp_x
-  \\ 123 cycles (5 remain)
-  NOP
+  \\ 121 cycles (7 remain)
+  NOP:NOP
   JMP main_loop
 
   .body_do_scope_chan2_clear_load
@@ -433,13 +432,12 @@ CLEAR P%, &8000
   LDY addr_scope_y_table,X
   LDA addr_scope_glyph_table,X
   STA (var_scope_chan2_ptr_lo),Y
-  TYA
   \\ Self-modified by previous clear / load.
   .self_modify_scope_chan2_y_store
-  STA addr_scope_chan2
+  STY addr_scope_chan2
   LDX var_temp_x
-  \\ 123 cycles (5 remain)
-  NOP
+  \\ 123 cycles (7 remain)
+  NOP:NOP
   JMP main_loop
 
   .body_do_scope_chan3_clear_load
@@ -470,13 +468,12 @@ CLEAR P%, &8000
   LDY addr_scope_y_table,X
   LDA addr_scope_glyph_table,X
   STA (var_scope_chan3_ptr_lo),Y
-  TYA
   \\ Self-modified by previous clear / load.
   .self_modify_scope_chan3_y_store
-  STA addr_scope_chan3
+  STY addr_scope_chan3
   LDX var_temp_x
-  \\ 123 cycles (5 remain)
-  NOP
+  \\ 123 cycles (7 remain)
+  NOP:NOP
   JMP main_loop
 
   .body_do_song_byte_decode_2
