@@ -137,9 +137,6 @@ GUARD &300
   .do_song_tick
   JMP body_do_song_tick
 
-  .do_load_song_byte
-  JMP body_do_load_song_byte
-
   .do_song_byte_decode_2
   JMP body_do_song_byte_decode_2
 
@@ -382,38 +379,6 @@ GUARD (P% + &100)
   JMP jmp_main_loop_18
   .is_next
   \\ 95 cycles (33 remain)
-  LDA #LO(do_load_song_byte)
-  STA main_loop_jump + 1
-  JMP jmp_main_loop_28
-
-  .body_do_song_tick
-  \\ 89 cycles (39 remain)
-  DEC var_song_tick_counter
-  BNE no_song_tick_hit
-  .self_modify_song_ticks_reload
-  LDA #0
-  STA var_song_tick_counter
-  DEC var_song_row_skip_counter
-  BNE no_row_skip_hit
-  LDA #LO(do_load_song_byte)
-  STA main_loop_jump + 1
-  \\ 113 cycles (15 remain)
-  JMP jmp_main_loop_15
-  .no_song_tick_hit
-  \\ 97 cycles (31 remain)
-  LDA #LO(do_channel1_check_wrap)
-  STA main_loop_jump + 1
-  \\ 102 cycles (26 remain)
-  JMP jmp_main_loop_26
-  .no_row_skip_hit
-  \\ 109 cycles (19 remain)
-  LDA #LO(do_channel1_check_wrap)
-  STA main_loop_jump + 1
-  \\ 114 cycles (14 remain)
-  JMP jmp_main_loop_14
-
-  .body_do_load_song_byte
-  \\ 89 cycles (39 remain)
   LDA #LO(do_song_byte_decode)
   STA main_loop_jump + 1
   .self_modify_song_ptr
@@ -422,11 +387,28 @@ GUARD (P% + &100)
   INC self_modify_song_ptr + 1
   BNE no_song_ptr_hi
   INC self_modify_song_ptr + 2
-  \\ 115 cycles (13 remain)
-  JMP jmp_main_loop_13
+  \\ 121 cycles (7 remain)
+  NOP:NOP
+  JMP main_loop
   .no_song_ptr_hi
-  \\ 110 cycles (18 remain)
-  JMP jmp_main_loop_18
+  \\ 116 cycles (12 remain)
+  JMP jmp_main_loop_12
+
+  .body_do_song_tick
+  \\ 89 cycles (39 remain)
+  LDA #LO(do_channel1_check_wrap)
+  STA main_loop_jump + 1
+  DEC var_song_tick_counter
+  BNE no_song_tick_hit
+  .self_modify_song_ticks_reload
+  LDA #0
+  STA var_song_tick_counter
+  DEC var_song_row_skip_counter
+  \\ 111 cycles (17 remain)
+  JMP jmp_main_loop_17
+  .no_song_tick_hit
+  \\ 102 cycles (26 remain)
+  JMP jmp_main_loop_26
 
 CLEAR P%, &8000
 
@@ -550,8 +532,6 @@ CLEAR P%, &8000
   \\ 114 cycles (14 remain)
   JMP jmp_main_loop_14
 
-  .jmp_main_loop_28
-  NOP
   .jmp_main_loop_26
   NOP
   .jmp_main_loop_24
