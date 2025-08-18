@@ -114,6 +114,44 @@ GUARD &300
 
 .page_two_play_start
 
+  \\ Must remain here so that #LO(do_scope_chan1_render) is 0.
+  .do_scope_chan1_render
+  JMP body_do_scope_chan1_render
+
+  \\ 3
+  .do_scope_inc
+  JMP body_do_scope_inc
+
+  \\ 6
+  .do_next_or_vsync_check
+  JMP body_do_next_or_vsync_check
+
+  \\ Must remain here so that #LO(do_scope_chan2_render) is 9.
+  .do_scope_chan2_render
+  JMP body_do_scope_chan2_render
+
+  \\ Must remain here so that #LO(do_scope_chan2_render) is 12.
+  .do_scope_chan3_render
+  JMP body_do_scope_chan3_render
+
+  .do_song_tick
+  JMP body_do_song_tick
+
+  .do_load_song_byte
+  JMP body_do_load_song_byte
+
+  .do_song_byte_decode_2
+  JMP body_do_song_byte_decode_2
+
+  .do_song_byte_decode_3
+  JMP body_do_song_byte_decode_3
+
+  .do_song_byte_decode_4
+  JMP body_do_song_byte_decode_4
+
+  .do_commit_channel
+  JMP body_do_commit_channel
+
   \\ TODO: some of these per-instrument lookups could be a lot faster if we
   \\ wanted to self-modify the values when the note is played.
   .do_channel1_check_wrap
@@ -175,78 +213,57 @@ GUARD &300
 
   .do_scope_chan1_clear_load
   \\ 86 cycles (42 remain)
-  LDA #LO(do_scope_chan1_render)
-  STA main_loop_jump + 1
-  \\ 91 cycles (37 remain)
   LDY var_scope_chan1_ptr_lo
   STY self_modify_scope_chan1_y_store + 1
   LDA addr_scope_chan1,Y
   TAY
-  LDA #&20
+  LDA #LO(do_scope_chan1_render)
+  STA main_loop_jump + 1
+  \\ NOTE! Uses #LO(do_scope_chan1_render) to save two cycles.
+  \\ The byte value is $00, which renders as a blank.
   STA (var_scope_chan1_ptr_lo),Y
-  \\ 112 cycles (16 remain)
+  \\ 110 cycles (18 remain)
   LDY #0
   LDA (channel1_load + 1),Y
   STA var_scope_value
-  \\ 122 cycles (6 remain)
-  JMP jmp_main_loop_6
-
-  .do_scope_chan1_render
-  JMP body_do_scope_chan1_render
+  \\ 120 cycles (8 remain)
+  JMP jmp_main_loop_8
 
   .do_scope_chan2_clear_load
   \\ 86 cycles (42 remain)
-  LDA #LO(do_scope_chan2_render)
-  STA main_loop_jump + 1
-  \\ 91 cycles (37 remain)
   LDY var_scope_chan2_ptr_lo
   STY self_modify_scope_chan2_y_store + 1
   LDA addr_scope_chan2,Y
   TAY
-  LDA #&20
+  LDA #LO(do_scope_chan2_render)
+  STA main_loop_jump + 1
+  \\ NOTE! Uses #LO(do_scope_chan2_render) to save two cycles.
+  \\ The byte value is $09, "flash off", which renders as a blank.
   STA (var_scope_chan2_ptr_lo),Y
-  \\ 112 cycles (16 remain)
+  \\ 110 cycles (18 remain)
   LDY #0
   LDA (channel2_load + 1),Y
   STA var_scope_value
-  \\ 122 cycles (6 remain)
-  JMP jmp_main_loop_6
-
-  .do_scope_chan2_render
-  JMP body_do_scope_chan2_render
+  \\ 120 cycles (8 remain)
+  JMP jmp_main_loop_8
 
   .do_scope_chan3_clear_load
   \\ 86 cycles (42 remain)
-  LDA #LO(do_scope_chan3_render)
-  STA main_loop_jump + 1
-  \\ 91 cycles (37 remain)
   LDY var_scope_chan3_ptr_lo
   STY self_modify_scope_chan3_y_store + 1
   LDA addr_scope_chan3,Y
   TAY
-  LDA #&20
+  LDA #LO(do_scope_chan3_render)
+  STA main_loop_jump + 1
+  \\ NOTE! Uses #LO(do_scope_chan3_render) to save two cycles.
+  \\ The byte value is $0C, "double off", which renders as a blank.
   STA (var_scope_chan3_ptr_lo),Y
-  \\ 112 cycles (16 remain)
+  \\ 110 cycles (18 remain)
   LDY #0
   LDA (channel3_load + 1),Y
   STA var_scope_value
-  \\ 122 cycles (6 remain)
-  JMP jmp_main_loop_6
-
-  .do_scope_chan3_render
-  JMP body_do_scope_chan3_render
-
-  .do_scope_inc
-  JMP body_do_scope_inc
-
-  .do_next_or_vsync_check
-  JMP body_do_next_or_vsync_check
-
-  .do_song_tick
-  JMP body_do_song_tick
-
-  .do_load_song_byte
-  JMP body_do_load_song_byte
+  \\ 120 cycles (8 remain)
+  JMP jmp_main_loop_8
 
   .do_song_byte_decode
   \\ 86 cycles (42 remain)
@@ -274,18 +291,6 @@ GUARD &300
   STA self_modify_song_ptr + 1
   \\ 109 cycles (19 remain)
   JMP jmp_main_loop_19
-
-  .do_song_byte_decode_2
-  JMP body_do_song_byte_decode_2
-
-  .do_song_byte_decode_3
-  JMP body_do_song_byte_decode_3
-
-  .do_song_byte_decode_4
-  JMP body_do_song_byte_decode_4
-
-  .do_commit_channel
-  JMP body_do_commit_channel
 
 .page_two_play_end
 
