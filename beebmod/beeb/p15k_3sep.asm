@@ -174,19 +174,64 @@ GUARD &300
   JMP body_no_channel3_wrap
 
   .do_scope_chan1_clear_load
-  JMP body_do_scope_chan1_clear_load
+  \\ 86 cycles (42 remain)
+  LDA #LO(do_scope_chan1_render)
+  STA main_loop_jump + 1
+  \\ 91 cycles (37 remain)
+  LDY var_scope_chan1_ptr_lo
+  STY self_modify_scope_chan1_y_store + 1
+  LDA addr_scope_chan1,Y
+  TAY
+  LDA #&20
+  STA (var_scope_chan1_ptr_lo),Y
+  \\ 112 cycles (16 remain)
+  LDY #0
+  LDA (channel1_load + 1),Y
+  STA var_scope_value
+  \\ 122 cycles (6 remain)
+  JMP jmp_main_loop_6
 
   .do_scope_chan1_render
   JMP body_do_scope_chan1_render
 
   .do_scope_chan2_clear_load
-  JMP body_do_scope_chan2_clear_load
+  \\ 86 cycles (42 remain)
+  LDA #LO(do_scope_chan2_render)
+  STA main_loop_jump + 1
+  \\ 91 cycles (37 remain)
+  LDY var_scope_chan2_ptr_lo
+  STY self_modify_scope_chan2_y_store + 1
+  LDA addr_scope_chan2,Y
+  TAY
+  LDA #&20
+  STA (var_scope_chan2_ptr_lo),Y
+  \\ 112 cycles (16 remain)
+  LDY #0
+  LDA (channel2_load + 1),Y
+  STA var_scope_value
+  \\ 122 cycles (6 remain)
+  JMP jmp_main_loop_6
 
   .do_scope_chan2_render
   JMP body_do_scope_chan2_render
 
   .do_scope_chan3_clear_load
-  JMP body_do_scope_chan3_clear_load
+  \\ 86 cycles (42 remain)
+  LDA #LO(do_scope_chan3_render)
+  STA main_loop_jump + 1
+  \\ 91 cycles (37 remain)
+  LDY var_scope_chan3_ptr_lo
+  STY self_modify_scope_chan3_y_store + 1
+  LDA addr_scope_chan3,Y
+  TAY
+  LDA #&20
+  STA (var_scope_chan3_ptr_lo),Y
+  \\ 112 cycles (16 remain)
+  LDY #0
+  LDA (channel3_load + 1),Y
+  STA var_scope_value
+  \\ 122 cycles (6 remain)
+  JMP jmp_main_loop_6
 
   .do_scope_chan3_render
   JMP body_do_scope_chan3_render
@@ -201,20 +246,7 @@ GUARD &300
   JMP body_do_song_tick
 
   .do_load_song_byte
-  \\ 86 cycles (42 remain)
-  LDA #LO(do_song_byte_decode)
-  STA main_loop_jump + 1
-  .self_modify_song_ptr
-  LDA &FFFF
-  STA var_next_byte
-  INC self_modify_song_ptr + 1
-  BNE no_song_ptr_hi
-  INC self_modify_song_ptr + 2
-  \\ 112 cycles (16 remain)
-  JMP jmp_main_loop_16
-  .no_song_ptr_hi
-  \\ 107 cycles (21 remain)
-  JMP jmp_main_loop_21
+  JMP body_do_load_song_byte
 
   .do_song_byte_decode
   \\ 86 cycles (42 remain)
@@ -375,28 +407,26 @@ GUARD (P% + &100)
   \\ 114 cycles (14 remain)
   JMP jmp_main_loop_14
 
+  .body_do_load_song_byte
+  \\ 89 cycles (39 remain)
+  LDA #LO(do_song_byte_decode)
+  STA main_loop_jump + 1
+  .self_modify_song_ptr
+  LDA &FFFF
+  STA var_next_byte
+  INC self_modify_song_ptr + 1
+  BNE no_song_ptr_hi
+  INC self_modify_song_ptr + 2
+  \\ 115 cycles (13 remain)
+  JMP jmp_main_loop_13
+  .no_song_ptr_hi
+  \\ 110 cycles (18 remain)
+  JMP jmp_main_loop_18
+
 CLEAR P%, &8000
 
   \\ Player blocks that contain no branches, so don't need to worry about page
   \\ crossings.
-
-  .body_do_scope_chan1_clear_load
-  \\ 89 cycles (39 remain)
-  LDA #LO(do_scope_chan1_render)
-  STA main_loop_jump + 1
-  \\ 94 cycles (34 remain)
-  LDY var_scope_chan1_ptr_lo
-  STY self_modify_scope_chan1_y_store + 1
-  LDA addr_scope_chan1,Y
-  TAY
-  LDA #&20
-  STA (var_scope_chan1_ptr_lo),Y
-  \\ 115 cycles (13 remain)
-  LDY #0
-  LDA (channel1_load + 1),Y
-  STA var_scope_value
-  \\ 125 cycles (3 remain)
-  JMP main_loop
 
   .body_do_scope_chan1_render
   \\ 89 cycles (39 remain)
@@ -416,24 +446,6 @@ CLEAR P%, &8000
   NOP:NOP
   JMP main_loop
 
-  .body_do_scope_chan2_clear_load
-  \\ 89 cycles (39 remain)
-  LDA #LO(do_scope_chan2_render)
-  STA main_loop_jump + 1
-  \\ 94 cycles (34 remain)
-  LDY var_scope_chan2_ptr_lo
-  STY self_modify_scope_chan2_y_store + 1
-  LDA addr_scope_chan2,Y
-  TAY
-  LDA #&20
-  STA (var_scope_chan2_ptr_lo),Y
-  \\ 115 cycles (13 remain)
-  LDY #0
-  LDA (channel2_load + 1),Y
-  STA var_scope_value
-  \\ 125 cycles (3 remain)
-  JMP main_loop
-
   .body_do_scope_chan2_render
   \\ 89 cycles (39 remain)
   LDA #LO(do_scope_chan3_clear_load)
@@ -450,24 +462,6 @@ CLEAR P%, &8000
   LDX var_temp_x
   \\ 123 cycles (7 remain)
   NOP:NOP
-  JMP main_loop
-
-  .body_do_scope_chan3_clear_load
-  \\ 89 cycles (39 remain)
-  LDA #LO(do_scope_chan3_render)
-  STA main_loop_jump + 1
-  \\ 94 cycles (34 remain)
-  LDY var_scope_chan3_ptr_lo
-  STY self_modify_scope_chan3_y_store + 1
-  LDA addr_scope_chan3,Y
-  TAY
-  LDA #&20
-  STA (var_scope_chan3_ptr_lo),Y
-  \\ 115 cycles (13 remain)
-  LDY #0
-  LDA (channel3_load + 1),Y
-  STA var_scope_value
-  \\ 125 cycles (3 remain)
   JMP main_loop
 
   .body_do_scope_chan3_render
