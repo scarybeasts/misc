@@ -133,16 +133,7 @@ GUARD &300
   JMP jmp_main_loop_8
   .no_channel1_wrap
   \\ 104 cycles (24 remain)
-  LDA channel1_load + 2
-  EOR #HI(addr_silence)
-  BNE no_channel_silence
-  LDA #&F
-  STA var_channel1_instr
-  \\ 116 cycles (12 remain)
-  JMP jmp_main_loop_12
-  .no_channel_silence
-  \\ 112 cycles (16 remain)
-  JMP jmp_main_loop_16
+  JMP body_no_channel1_wrap
 
   .do_channel2_check_wrap
   \\ 86 cycles (42 remain)
@@ -161,13 +152,7 @@ GUARD &300
   JMP jmp_main_loop_8
   .no_channel2_wrap
   \\ 104 cycles (24 remain)
-  LDA channel2_load + 2
-  EOR #HI(addr_silence)
-  BNE no_channel_silence
-  LDA #&F
-  STA var_channel2_instr
-  \\ 116 cycles (12 remain)
-  JMP jmp_main_loop_12
+  JMP body_no_channel2_wrap
 
   .do_channel3_check_wrap
   \\ 86 cycles (42 remain)
@@ -186,13 +171,7 @@ GUARD &300
   JMP jmp_main_loop_8
   .no_channel3_wrap
   \\ 104 cycles (24 remain)
-  LDA channel3_load + 2
-  EOR #HI(addr_silence)
-  BNE no_channel_silence
-  LDA #&F
-  STA var_channel3_instr
-  \\ 116 cycles (12 remain)
-  JMP jmp_main_loop_12
+  JMP body_no_channel3_wrap
 
   .do_scope_chan1_clear_load
   JMP body_do_scope_chan1_clear_load
@@ -289,6 +268,39 @@ GUARD &2000
 CLEAR P%, &8000
 ALIGN &100
 GUARD (P% + &100)
+
+  .body_no_channel1_wrap
+  \\ 107 cycles (21 remain)
+  LDA channel1_load + 2
+  EOR #HI(addr_silence)
+  BNE no_channel_silence
+  LDA #&F
+  STA var_channel1_instr
+  \\ 119 cycles (9 remain)
+  JMP jmp_main_loop_9
+  .no_channel_silence
+  \\ 115 cycles (13 remain)
+  JMP jmp_main_loop_13
+
+  .body_no_channel2_wrap
+  \\ 107 cycles (21 remain)
+  LDA channel2_load + 2
+  EOR #HI(addr_silence)
+  BNE no_channel_silence
+  LDA #&F
+  STA var_channel2_instr
+  \\ 119 cycles (9 remain)
+  JMP jmp_main_loop_9
+
+  .body_no_channel3_wrap
+  \\ 107 cycles (21 remain)
+  LDA channel3_load + 2
+  EOR #HI(addr_silence)
+  BNE no_channel_silence
+  LDA #&F
+  STA var_channel3_instr
+  \\ 119 cycles (9 remain)
+  JMP jmp_main_loop_9
 
   .body_do_scope_inc
   \\ 89 cycles (39 remain)
