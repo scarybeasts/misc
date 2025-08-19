@@ -58,6 +58,9 @@ main(int argc, const char** argv) {
       } else if (!strcmp(p_arg, "-dyn_factor")) {
         dyn_factor = atof(p_next_arg);
         ++i;
+      } else if (!strcmp(p_arg, "-dyn_rate")) {
+        dyn_offset_rate = atof(p_next_arg);
+        ++i;
       } else if (!strcmp(p_arg, "-static_offset")) {
         int32_t new_pad_byte = pad_byte;
         static_offset = atoi(p_next_arg);
