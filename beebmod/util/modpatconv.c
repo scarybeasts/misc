@@ -230,16 +230,20 @@ main(int argc, const char** argv) {
     (void) close(tables_fd);
   }
   if (p_lookup_tables_file != NULL) {
+    uint32_t write_size = 64;
     int tables_fd = open(p_lookup_tables_file,
                          O_WRONLY | O_CREAT | O_TRUNC,
                          0666);
     if (tables_fd == -1) {
       errx(1, "cannot open output lookup tables file");
     }
-    (void) write(tables_fd, channel_combination_array, 64);
-    (void) write(tables_fd, note_combination_array, 64);
-    (void) write(tables_fd, instr_combination_array, 64);
-    (void) write(tables_fd, row_skip_combination_array, 64);
+    if (num_combinations_used > 64) {
+      write_size = 128;
+    }
+    (void) write(tables_fd, channel_combination_array, write_size);
+    (void) write(tables_fd, note_combination_array, write_size);
+    (void) write(tables_fd, instr_combination_array, write_size);
+    (void) write(tables_fd, row_skip_combination_array, write_size);
     (void) close(tables_fd);
   }
 
