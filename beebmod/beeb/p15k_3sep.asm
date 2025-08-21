@@ -58,7 +58,7 @@ GUARD &100
   LDY &FFFF
   LDA channel1_load + 1
   .channel1_advance
-  ADC &FFFF,X
+  ADC &FF00,X
   \\ 5 cycles, shorter 2 cycle 1MHz write.
   STY &FE4F
   \\ 16 cycles (next slot 16+32 == 48 cycles)
@@ -75,7 +75,7 @@ GUARD &100
   LDY &FFFF
   LDA channel2_load + 1
   .channel2_advance
-  ADC &FFFF,X
+  ADC &FF00,X
   STA channel2_load + 1
   INX
   \\ 5 cycles, shorter 2 cycle 1MHz write.
@@ -90,7 +90,7 @@ GUARD &100
   LDY &FFFF
   LDA channel3_load + 1
   .channel3_advance
-  ADC &FFFF,X
+  ADC &FF00,X
   STA channel3_load + 1
   LDA channel3_load + 2
   ADC #0
@@ -925,10 +925,6 @@ CLEAR P%, &8000
   STA var_channel3_instr
 
   \\ Point the tables advances at the first advance table.
-  LDA #0
-  STA channel1_advance + 1
-  STA channel2_advance + 1
-  STA channel3_advance + 1
   .self_modify_init_advance_tables
   LDA #0
   STA channel1_advance + 2
