@@ -55,7 +55,7 @@ GUARD &100
   .main_loop
   \\ 0 cycles
   .channel1_load
-  LDY &FFFF
+  LDY &FF00
   LDA channel1_load + 1
   .channel1_advance
   ADC &FF00,X
@@ -72,7 +72,7 @@ GUARD &100
   \\ 27 cycles
 
   .channel2_load
-  LDY &FFFF
+  LDY &FF00
   LDA channel2_load + 1
   .channel2_advance
   ADC &FF00,X
@@ -87,7 +87,7 @@ GUARD &100
   \\ 56 cycles
 
   .channel3_load
-  LDY &FFFF
+  LDY &FF00
   LDA channel3_load + 1
   .channel3_advance
   ADC &FF00,X
@@ -909,10 +909,6 @@ CLEAR P%, &8000
 }
 
   \\ Point the channel addresses at the silence page.
-  LDA #0
-  STA channel1_load + 1
-  STA channel2_load + 1
-  STA channel3_load + 1
   LDA #HI(addr_silence)
   STA channel1_load + 2
   STA channel2_load + 2
