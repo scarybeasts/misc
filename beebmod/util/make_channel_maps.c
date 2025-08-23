@@ -1,4 +1,6 @@
 #include <math.h>
+#include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -36,6 +38,7 @@ main(int argc, const char** argv) {
   double offset = 0.0;
   int full = 0;
   int rebalance = 0;
+  int is_verbose = 0;
 
   /* Parse command line. */
   for (i = 1; i < argc; ++i) {
@@ -57,6 +60,8 @@ main(int argc, const char** argv) {
       full = 1;
     } else if (!strcmp(p_arg, "-rebalance")) {
       rebalance = 1;
+    } else if (!strcmp(p_arg, "-v")) {
+      is_verbose = 1;
     }
   }
 
@@ -95,7 +100,7 @@ main(int argc, const char** argv) {
   for (i = 0; i < 16; ++i) {
     for (j = 0; j < 16; ++j) {
       double output;
-      int u8_output;
+      uint8_t u8_output;
 
       if (!full) {
         if (j < i) continue;
@@ -107,8 +112,11 @@ main(int argc, const char** argv) {
         output += sn_output[j];
       }
 
-      u8_output = (int) round((output / channels) * 255.0);
+      u8_output = (uint8_t) round((output / channels) * 255.0);
       if (u8_to_sn1[u8_output] == -1) {
+        if (is_verbose) {
+          (void) printf("u8 level: %d\n", u8_output);
+        }
         u8_to_sn1[u8_output] = i;
         u8_to_sn2[u8_output] = j;
       }
@@ -130,7 +138,7 @@ main(int argc, const char** argv) {
       for (j = (i + 1); j < 256; ++j) {
         if (u8_to_sn1[j] != -1) {
           next_output = j;
-          next_switchover = ((current_output + next_output) / 2);
+          next_switchover = round(((double) current_output + next_output) / 2);
           next_sn1 = u8_to_sn1[j];
           next_sn2 = u8_to_sn2[j];
           break;
@@ -138,17 +146,26 @@ main(int argc, const char** argv) {
       }
     }
 
-    val = (current_sn1 | 0x90);
-    sn1_value[i] = val;
-    val = (current_sn2 | 0xB0);
-    sn2_value[i] = val;
-
     if (i == next_switchover) {
+      if (is_verbose) {
+        /* TODO: this is printing weird results for 1 channel, although the
+         * eventual lookup table looks ok.
+         */
+        (void) printf("switchover: %d, levels %d %d\n",
+                      i,
+                      next_sn1,
+                      next_sn2);
+      }
       current_output = next_output;
       next_output = -1;
       current_sn1 = next_sn1;
       current_sn2 = next_sn2;
     }
+
+    val = (current_sn1 | 0x90);
+    sn1_value[i] = val;
+    val = (current_sn2 | 0xB0);
+    sn2_value[i] = val;
   }
 
   /* Apply gain and offset. */
