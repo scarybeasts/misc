@@ -211,6 +211,7 @@ class MODProcessor extends AudioWorkletProcessor {
     for (let i = 0; i < 256; ++i) {
       if (i == next_target) {
         current_vol--;
+console.log(i + ": " + current_vol);
         const this_level =
             Math.round(this.beeb_sn_vol_to_output[current_vol] * 255);
         const next_level =
