@@ -1,6 +1,6 @@
 addr_input_song_start = &70
-addr_input_song_end = &71
-addr_input_advance_tables_src = &72
+addr_input_advance_tables_src_hi = &71
+addr_input_advance_tables_src_lo = &72
 addr_input_advance_tables_dst = &73
 addr_input_advance_tables_len = &74
 addr_input_period_1 = &75
@@ -800,8 +800,10 @@ CLEAR P%, &8000
   LDA addr_input_advance_tables_dst
   STA self_modify_init_advance_tables + 1
   STA self_modify_store_advance_table_dst + 2
-  LDA addr_input_advance_tables_src
+  LDA addr_input_advance_tables_src_hi
   STA self_modify_load_advance_table_src + 2
+  LDA addr_input_advance_tables_src_lo
+  STA self_modify_load_advance_table_src + 1
 
   \\ Unpack advance tables.
   \\ They come in packed, which helps fit everything in memory. We might
@@ -810,7 +812,7 @@ CLEAR P%, &8000
   LDX #64
   .loop_note
   .self_modify_load_advance_table_src
-  LDA &FF00
+  LDA &FFFF
   STA var_temp_x
   INC self_modify_load_advance_table_src + 1
   BNE no_advance_table_src_wrap
