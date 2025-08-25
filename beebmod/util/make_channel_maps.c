@@ -39,6 +39,7 @@ main(int argc, const char** argv) {
   int full = 0;
   int rebalance = 0;
   int is_verbose = 0;
+  int sn_channel = 1;
 
   /* Parse command line. */
   for (i = 1; i < argc; ++i) {
@@ -53,6 +54,9 @@ main(int argc, const char** argv) {
         ++i;
       } else if (!strcmp(p_arg, "-channels")) {
         channels = atoi(p_next_arg);
+        ++i;
+      } else if (!strcmp(p_arg, "-sn_channel")) {
+        sn_channel = atoi(p_next_arg);
         ++i;
       }
     }
@@ -162,9 +166,9 @@ main(int argc, const char** argv) {
       current_sn2 = next_sn2;
     }
 
-    val = (current_sn1 | 0x90);
+    val = (current_sn1 | (0x70 + (sn_channel * 0x20)));
     sn1_value[i] = val;
-    val = (current_sn2 | 0xB0);
+    val = (current_sn2 | (0x70 + ((sn_channel + 1) * 0x20)));
     sn2_value[i] = val;
   }
 
@@ -191,14 +195,13 @@ main(int argc, const char** argv) {
     val = sn1_value[index];
     write(1, &val, 1);
   }
-  /* Always write out the table for tone 2.
-   * For the one channel configuration, it'll be the same values as tone 1.
-   */
-  for (i = 0; i < 256; ++i) {
-    unsigned char val;
-    int index = sample_remap[i];
-    val = sn2_value[index];
-    write(1, &val, 1);
+  if (channels > 1) {
+    for (i = 0; i < 256; ++i) {
+      unsigned char val;
+      int index = sample_remap[i];
+      val = sn2_value[index];
+      write(1, &val, 1);
+    }
   }
 
   return 0;
