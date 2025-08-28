@@ -39,62 +39,66 @@ main(int argc, const char** argv) {
   uint32_t pre_begin_pad = 0;
   int32_t loop_start = -1;
   uint32_t dyn_taper = 128;
+  int do_flip = 0;
 
   for (i = 1; i < argc; ++i) {
     const char* p_arg = argv[i];
+    const char* p_next_arg = NULL;
     if ((i + 1) < argc) {
-      const char* p_next_arg = argv[i + 1];
-      if (!strcmp(p_arg, "-i")) {
-        p_in_file = p_next_arg;
-        ++i;
-      } else if (!strcmp(p_arg, "-o")) {
-        p_out_file = p_next_arg;
-        ++i;
-      } else if (!strcmp(p_arg, "-sn")) {
-        p_sn_file = p_next_arg;
-        ++i;
-      } else if (!strcmp(p_arg, "-dyn_offset")) {
-        dyn_offset_max = atoi(p_next_arg);
-        ++i;
-      } else if (!strcmp(p_arg, "-dyn_factor")) {
-        dyn_factor = atof(p_next_arg);
-        ++i;
-      } else if (!strcmp(p_arg, "-dyn_rate")) {
-        dyn_offset_rate = atof(p_next_arg);
-        ++i;
-      } else if (!strcmp(p_arg, "-dyn_taper")) {
-        dyn_taper = atoi(p_next_arg);
-        ++i;
-      } else if (!strcmp(p_arg, "-static_offset")) {
-        int32_t new_pad_byte = pad_byte;
-        static_offset = atoi(p_next_arg);
-        new_pad_byte -= static_offset;
-        if (new_pad_byte > 255) {
-          new_pad_byte = 255;
-        } else if (new_pad_byte < 0) {
-          new_pad_byte = 0;
-        }
-        pad_byte = new_pad_byte;
-        ++i;
-      } else if (!strcmp(p_arg, "-gain")) {
-        gain = atof(p_next_arg);
-        ++i;
-      } else if (!strcmp(p_arg, "-snchannel")) {
-        sn_channel = atoi(p_next_arg);
-        ++i;
-      } else if (!strcmp(p_arg, "-pre_begin_trunc")) {
-        pre_begin_trunc = atoi(p_next_arg);
-        ++i;
-      } else if (!strcmp(p_arg, "-pre_begin_pad")) {
-        pre_begin_pad = atoi(p_next_arg);
-        ++i;
-      } else if (!strcmp(p_arg, "-post_end_pad")) {
-        post_end_pad = atoi(p_next_arg);
-        ++i;
-      } else if (!strcmp(p_arg, "-loop_start")) {
-        loop_start = atoi(p_next_arg);
-        ++i;
+      p_next_arg = argv[i + 1];
+    }
+    if (!strcmp(p_arg, "-i")) {
+      p_in_file = p_next_arg;
+      ++i;
+    } else if (!strcmp(p_arg, "-o")) {
+      p_out_file = p_next_arg;
+      ++i;
+    } else if (!strcmp(p_arg, "-sn")) {
+      p_sn_file = p_next_arg;
+      ++i;
+    } else if (!strcmp(p_arg, "-dyn_offset")) {
+      dyn_offset_max = atoi(p_next_arg);
+      ++i;
+    } else if (!strcmp(p_arg, "-dyn_factor")) {
+      dyn_factor = atof(p_next_arg);
+      ++i;
+    } else if (!strcmp(p_arg, "-dyn_rate")) {
+      dyn_offset_rate = atof(p_next_arg);
+      ++i;
+    } else if (!strcmp(p_arg, "-dyn_taper")) {
+      dyn_taper = atoi(p_next_arg);
+      ++i;
+    } else if (!strcmp(p_arg, "-static_offset")) {
+      int32_t new_pad_byte = pad_byte;
+      static_offset = atoi(p_next_arg);
+      new_pad_byte -= static_offset;
+      if (new_pad_byte > 255) {
+        new_pad_byte = 255;
+      } else if (new_pad_byte < 0) {
+        new_pad_byte = 0;
       }
+      pad_byte = new_pad_byte;
+      ++i;
+    } else if (!strcmp(p_arg, "-gain")) {
+      gain = atof(p_next_arg);
+      ++i;
+    } else if (!strcmp(p_arg, "-snchannel")) {
+      sn_channel = atoi(p_next_arg);
+      ++i;
+    } else if (!strcmp(p_arg, "-pre_begin_trunc")) {
+      pre_begin_trunc = atoi(p_next_arg);
+      ++i;
+    } else if (!strcmp(p_arg, "-pre_begin_pad")) {
+      pre_begin_pad = atoi(p_next_arg);
+      ++i;
+    } else if (!strcmp(p_arg, "-post_end_pad")) {
+      post_end_pad = atoi(p_next_arg);
+      ++i;
+    } else if (!strcmp(p_arg, "-loop_start")) {
+      loop_start = atoi(p_next_arg);
+      ++i;
+    } else if (!strcmp(p_arg, "-flip")) {
+      do_flip = 1;
     }
   }
 
@@ -155,6 +159,7 @@ main(int argc, const char** argv) {
   }
 
   /* Apply modifications to the sample:
+   * Flip.
    * Static gain.
    * Static offset.
    * A dynamic lowering offset to the sample data for parts of the sample that
@@ -188,6 +193,9 @@ main(int argc, const char** argv) {
     }
 
     sample = p_sample[i];
+    if (do_flip) {
+      sample = -sample;
+    }
     sample *= gain;
     sample -= offset;
     sample -= static_offset;
