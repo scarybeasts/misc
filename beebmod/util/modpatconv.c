@@ -3,6 +3,7 @@
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -35,6 +36,8 @@ main(int argc, const char** argv) {
   const char* p_lookup_tables_file = NULL;
   uint32_t num_infiles = 0;
   int fd_out = -1;
+  /* 15kHz player. */
+  uint32_t beeb_period = 64;
 
   static const int periods[] = {
       856,808,762,720,678,640,604,570,538,508,480,453,
@@ -57,6 +60,9 @@ main(int argc, const char** argv) {
       ++i_args;
     } else if (!strcmp(p_arg, "-l")) {
       p_lookup_tables_file = p_next_arg;
+      ++i_args;
+    } else if (!strcmp(p_arg, "-p")) {
+      beeb_period = atoi(p_next_arg);
       ++i_args;
     } else {
       if (num_infiles == 32) {
@@ -195,7 +201,7 @@ main(int argc, const char** argv) {
     uint8_t packed_accum;
     uint32_t note = note_array[i_notes];
     /* 15kHz. */
-    double beeb_freq = (1000000 / 64.0);
+    double beeb_freq = (1000000.0 / beeb_period);
 
     amiga_period = periods[note - 1];
     amiga_freq = ((28375160.0 / 8.0) / amiga_period);
