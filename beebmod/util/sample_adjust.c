@@ -38,6 +38,7 @@ main(int argc, const char** argv) {
   uint32_t pre_begin_trunc = 0;
   uint32_t pre_begin_pad = 0;
   int32_t loop_start = -1;
+  uint32_t dyn_taper = 128;
 
   for (i = 1; i < argc; ++i) {
     const char* p_arg = argv[i];
@@ -60,6 +61,9 @@ main(int argc, const char** argv) {
         ++i;
       } else if (!strcmp(p_arg, "-dyn_rate")) {
         dyn_offset_rate = atof(p_next_arg);
+        ++i;
+      } else if (!strcmp(p_arg, "-dyn_taper")) {
+        dyn_taper = atoi(p_next_arg);
         ++i;
       } else if (!strcmp(p_arg, "-static_offset")) {
         int32_t new_pad_byte = pad_byte;
@@ -150,32 +154,22 @@ main(int argc, const char** argv) {
     p_volumes[i] = volume;
   }
 
-  /* Apply any gain and static offset, with clipping. */
-  for (i = 0; i < length; ++i) {
-    double sample = p_sample[i];
-    sample *= gain;
-    sample -= static_offset;
-    if (sample > 127) {
-      sample = 127;
-    } else if (sample < -128) {
-      sample = -128;
-    }
-    p_sample[i] = sample;
-  }
-
-  /* Apply a dynamic lowering offset to the sample data for parts of the sample
-   * that are quieter.
+  /* Apply modifications to the sample:
+   * Static gain.
+   * Static offset.
+   * A dynamic lowering offset to the sample data for parts of the sample that
+   * are quieter.
    */
   offset = 0.0;
   for (i = 0; i < length; ++i) {
-    int32_t sample;
+    double sample;
     double target_delta;
     /* Calculate target offset, with quieter sections having a larger offset
      * towards the negative side of the waveform.
      */
     double target_offset = (dyn_offset_max - (p_volumes[i] * dyn_factor));
     /* Cap the target offset if we're nearing the end of the input. */
-    if (i >= (length - (128 / dyn_offset_rate))) {
+    if (i >= (length - (dyn_taper / dyn_offset_rate))) {
       target_offset = 0;
     }
     if (target_offset < 0) {
@@ -194,7 +188,10 @@ main(int argc, const char** argv) {
     }
 
     sample = p_sample[i];
+    sample *= gain;
     sample -= offset;
+    sample -= static_offset;
+    sample = round(sample);
     if (sample > 127) {
       sample = 127;
     } else if (sample < -128) {
