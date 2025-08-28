@@ -40,6 +40,7 @@ main(int argc, const char** argv) {
   int32_t loop_start = -1;
   uint32_t dyn_taper = 128;
   int do_flip = 0;
+  int do_pad_256 = 1;
 
   for (i = 1; i < argc; ++i) {
     const char* p_arg = argv[i];
@@ -99,6 +100,8 @@ main(int argc, const char** argv) {
       ++i;
     } else if (!strcmp(p_arg, "-flip")) {
       do_flip = 1;
+    } else if (!strcmp(p_arg, "-no_pad_256")) {
+      do_pad_256 = 0;
     }
   }
 
@@ -270,10 +273,12 @@ main(int argc, const char** argv) {
      * Then we add bytes of padding to handle read overruns due to the
      * player doing out-of-band sample wrap.
      */
-    uint32_t page_pad_length = (256 - (length % 256));
-    page_pad_length &= 255;
-    for (i = 0; i < page_pad_length; ++i) {
-      (void) write(fd, &pad_byte, 1);
+    if (do_pad_256) {
+      uint32_t page_pad_length = (256 - (length % 256));
+      page_pad_length &= 255;
+      for (i = 0; i < page_pad_length; ++i) {
+        (void) write(fd, &pad_byte, 1);
+      }
     }
     for (i = 0; i < post_end_pad; ++i) {
       if (loop_start >= 0) {
