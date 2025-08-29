@@ -41,6 +41,7 @@ main(int argc, const char** argv) {
   uint32_t dyn_taper = 128;
   int do_flip = 0;
   int do_pad_256 = 1;
+  int do_bounce = 0;
   int32_t trunc_length = -1;
 
   for (i = 1; i < argc; ++i) {
@@ -106,6 +107,8 @@ main(int argc, const char** argv) {
       do_flip = 1;
     } else if (!strcmp(p_arg, "-no_pad_256")) {
       do_pad_256 = 0;
+    } else if (!strcmp(p_arg, "-bounce")) {
+      do_bounce = 1;
     }
   }
 
@@ -174,6 +177,7 @@ main(int argc, const char** argv) {
    * Static offset.
    * A dynamic lowering offset to the sample data for parts of the sample that
    * are quieter.
+   * Clip, with optional bounce.
    */
   offset = 0.0;
   for (i = 0; i < length; ++i) {
@@ -209,6 +213,13 @@ main(int argc, const char** argv) {
     sample *= gain;
     sample -= offset;
     sample -= static_offset;
+    if (do_bounce) {
+      if (sample > 127) {
+        sample = (127 - (sample - 127));
+      } else if (sample < -128) {
+        sample = (-128 + (-128 - sample));
+      }
+    }
     sample = round(sample);
     if (sample > 127) {
       sample = 127;
