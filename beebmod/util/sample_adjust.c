@@ -41,6 +41,7 @@ main(int argc, const char** argv) {
   uint32_t dyn_taper = 128;
   int do_flip = 0;
   int do_pad_256 = 1;
+  int32_t trunc_length = -1;
 
   for (i = 1; i < argc; ++i) {
     const char* p_arg = argv[i];
@@ -98,6 +99,9 @@ main(int argc, const char** argv) {
     } else if (!strcmp(p_arg, "-loop_start")) {
       loop_start = atoi(p_next_arg);
       ++i;
+    } else if (!strcmp(p_arg, "-length")) {
+      trunc_length = atoi(p_next_arg);
+      ++i;
     } else if (!strcmp(p_arg, "-flip")) {
       do_flip = 1;
     } else if (!strcmp(p_arg, "-no_pad_256")) {
@@ -120,6 +124,9 @@ main(int argc, const char** argv) {
   (void) fstat(fd, &statbuf);
   in_length = statbuf.st_size;
   length = in_length;
+  if ((trunc_length >= 0) && (trunc_length < length)) {
+    length = trunc_length;
+  }
   length -= pre_begin_trunc;
   length += pre_begin_pad;
 
