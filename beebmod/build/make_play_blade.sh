@@ -18,7 +18,7 @@ cd tmp
                   mod.pattern.12 mod.pattern.13 mod.pattern.14 mod.pattern.15 \
                   mod.pattern.16 mod.pattern.17
 ../bin/sample_adjust -i mod.sample.1 -o sample.choir \
-                     -gain 1.5 -static_offset 96 \
+                     -gain 1.2 -static_offset 96 \
                      -sn sntab1d.dat -snchannel 1 \
                      -post_end_pad 64 -loop_start 24
 ../bin/sample_adjust -i mod.sample.2 -o sample.guitar -pre_begin_pad 6 \
