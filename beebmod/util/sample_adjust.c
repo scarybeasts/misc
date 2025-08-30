@@ -1,5 +1,6 @@
 #include <err.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -43,6 +44,7 @@ main(int argc, const char** argv) {
   int do_pad_256 = 1;
   int do_bounce = 0;
   int32_t trunc_length = -1;
+  int32_t clip_max = INT_MAX;
 
   for (i = 1; i < argc; ++i) {
     const char* p_arg = argv[i];
@@ -102,6 +104,9 @@ main(int argc, const char** argv) {
       ++i;
     } else if (!strcmp(p_arg, "-length")) {
       trunc_length = atoi(p_next_arg);
+      ++i;
+    } else if (!strcmp(p_arg, "-clip_max")) {
+      clip_max = atoi(p_next_arg);
       ++i;
     } else if (!strcmp(p_arg, "-flip")) {
       do_flip = 1;
@@ -213,6 +218,9 @@ main(int argc, const char** argv) {
     sample *= gain;
     sample -= offset;
     sample -= static_offset;
+    if (sample > clip_max) {
+      sample = clip_max;
+    }
     if (do_bounce) {
       if (sample > 127) {
         sample = (127 - (sample - 127));
