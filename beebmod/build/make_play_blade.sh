@@ -31,4 +31,4 @@ cd tmp
                      -post_end_pad 64 -loop_start $((4922 - 2))
 ~/beebasm/beebasm -i ../../beeb/p15k_3sep.asm \
                   -S SONG_DETAILS_FILE="../../beeb/play_blade.inc" \
-                  -do ../play_blade.ssd
+                  -do ../play_blade.ssd -opt 3

@@ -972,6 +972,7 @@ COPYBLOCK zero_page_play_start, zero_page_play_end, zero_page_play_copy
 COPYBLOCK page_two_play_start, page_two_play_end, page_two_play_copy
 
 SAVE "PLAY", binary_start, binary_end, binary_exec
+PUTTEXT "../../beeb/boot15.txt", "!BOOT", 0
 PUTFILE "adv_tables.out", "ADVTAB", 0
 PUTFILE "lookup_tables.out", "LOOKTAB", 0
 PUTFILE "conv.out", "SONG", 0

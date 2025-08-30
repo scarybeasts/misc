@@ -36,4 +36,4 @@ cd tmp
                      -post_end_pad 64
 ~/beebasm/beebasm -i ../../beeb/p15k_3sep.asm \
                   -S SONG_DETAILS_FILE="../../beeb/play_chaos_1.inc" \
-                  -do ../play_chaos_1.ssd
+                  -do ../play_chaos_1.ssd -opt 3
