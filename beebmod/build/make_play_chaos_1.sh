@@ -11,11 +11,11 @@ cd tmp
                   mod.pattern.4 mod.pattern.0 mod.pattern.1 mod.pattern.2 \
                   mod.pattern.3
 ../bin/sample_adjust -i mod.sample.1 -o sample.bass -pre_begin_pad 70 \
-                     -static_offset 64 \
+                     -gain 2.0 \
                      -sn sntab1d.dat -snchannel 3 \
                      -post_end_pad 64 -loop_start $((1240 + 70))
 ../bin/sample_adjust -i mod.sample.2 -o sample.guitar -pre_begin_pad 52 \
-                     -static_offset 96 \
+                     -gain 1.5 -static_offset 96 \
                      -sn sntab1d.dat -snchannel 2 \
                      -post_end_pad 64 -loop_start $((2632 + 52))
 ../bin/sample_adjust -i mod.sample.3 -o sample.bdrum \
