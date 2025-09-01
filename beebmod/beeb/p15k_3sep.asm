@@ -41,7 +41,6 @@ GUARD &20
 .var_scope_chan3_ptr_lo SKIP 1
 .var_scope_chan3_ptr_hi SKIP 1
 .var_scope_value SKIP 1
-.var_temp_x SKIP 1
 .var_channel1_instr SKIP 1
 .var_channel2_instr SKIP 1
 .var_channel3_instr SKIP 1
@@ -420,7 +419,7 @@ CLEAR P%, &8000
   LDA #LO(do_scope_chan2_clear_load)
   STA main_loop_jump + 1
   \\ 94 cycles (34 remain)
-  STX var_temp_x
+  TXS
   LDX var_scope_value
   LDY addr_scope_y_table,X
   LDA addr_scope_glyph_table,X
@@ -428,17 +427,16 @@ CLEAR P%, &8000
   \\ Self-modified by previous clear / load.
   .self_modify_scope_chan1_y_store
   STY addr_scope_chan1
-  LDX var_temp_x
-  \\ 121 cycles (7 remain)
-  NOP:NOP
-  JMP main_loop
+  TSX
+  \\ 119 cycles (9 remain)
+  JMP jmp_main_loop_9
 
   .body_do_scope_chan2_render
   \\ 89 cycles (39 remain)
   LDA #LO(do_scope_chan3_clear_load)
   STA main_loop_jump + 1
   \\ 94 cycles (34 remain)
-  STX var_temp_x
+  TXS
   LDX var_scope_value
   LDY addr_scope_y_table,X
   LDA addr_scope_glyph_table,X
@@ -446,17 +444,16 @@ CLEAR P%, &8000
   \\ Self-modified by previous clear / load.
   .self_modify_scope_chan2_y_store
   STY addr_scope_chan2
-  LDX var_temp_x
-  \\ 123 cycles (7 remain)
-  NOP:NOP
-  JMP main_loop
+  TSX
+  \\ 119 cycles (9 remain)
+  JMP jmp_main_loop_9
 
   .body_do_scope_chan3_render
   \\ 89 cycles (39 remain)
   LDA #LO(do_scope_inc)
   STA main_loop_jump + 1
   \\ 94 cycles (34 remain)
-  STX var_temp_x
+  TXS
   LDX var_scope_value
   LDY addr_scope_y_table,X
   LDA addr_scope_glyph_table,X
@@ -464,10 +461,9 @@ CLEAR P%, &8000
   \\ Self-modified by previous clear / load.
   .self_modify_scope_chan3_y_store
   STY addr_scope_chan3
-  LDX var_temp_x
-  \\ 123 cycles (7 remain)
-  NOP:NOP
-  JMP main_loop
+  TSX
+  \\ 119 cycles (9 remain)
+  JMP jmp_main_loop_9
 
   .body_do_song_byte_decode_2
   \\ 89 cycles (39 remain)
@@ -813,14 +809,14 @@ CLEAR P%, &8000
   .loop_note
   .self_modify_load_advance_table_src
   LDA &FFFF
-  STA var_temp_x
+  STA var_next_byte
   INC self_modify_load_advance_table_src + 1
   BNE no_advance_table_src_wrap
   INC self_modify_load_advance_table_src + 2
   .no_advance_table_src_wrap
   LDY #4
   .loop_unpack
-  LDA var_temp_x
+  LDA var_next_byte
   AND #3
   .self_modify_store_advance_table_dst
   STA &FF00
@@ -828,10 +824,10 @@ CLEAR P%, &8000
   BNE no_advance_table_dst_wrap
   INC self_modify_store_advance_table_dst + 2
   .no_advance_table_dst_wrap
-  LDA var_temp_x
+  LDA var_next_byte
   LSR A
   LSR A
-  STA var_temp_x
+  STA var_next_byte
   DEY
   BNE loop_unpack
   DEX
