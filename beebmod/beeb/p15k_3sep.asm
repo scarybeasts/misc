@@ -56,53 +56,66 @@ GUARD &100
   .channel1_load
   LDY &FF00
   LDA channel1_load + 1
-  .channel1_advance
-  ADC &FF00,X
   \\ 5 cycles, shorter 2 cycle 1MHz write.
   STY &FE4F
-  \\ 16 cycles (next slot 16+32 == 48 cycles)
+  \\ 12 cycles (next slot 12+32 == 44 cycles)
+  .channel1_advance
+  ADC &FF00,X
   STA channel1_load + 1
-  \\ TODO: can save a cycle here by using a branch / INC. This comes at the
-  \\ cost of leaving the carry flag potentially clear, potentially set as we
-  \\ exit each channel block.
-  LDA channel1_load + 2
-  ADC #0
-  STA channel1_load + 2
-  \\ 27 cycles
+  ROL self_modify_advance_carries + 1
+  \\ 24 cycles
 
   .channel2_load
   LDY &FF00
   LDA channel2_load + 1
   .channel2_advance
   ADC &FF00,X
-  STA channel2_load + 1
-  INX
+  \\ 4 cycle STA abs for alignment.
+  EQUB &8D, channel2_load + 1, &00
   \\ 5 cycles, shorter 2 cycle 1MHz write.
   STY &FE4F
-  \\ 48 cycles (next slot 48+32 == 80 cycles)
-  LDA channel2_load + 2
-  ADC #0
-  STA channel2_load + 2
-  \\ 56 cycles
+  \\ 44 cycles (next slot 44+32 == 76 cycles)
+  ROL self_modify_advance_carries + 1
+  \\ 49 cycles
 
   .channel3_load
   LDY &FF00
   LDA channel3_load + 1
   .channel3_advance
   ADC &FF00,X
-  STA channel3_load + 1
-  LDA channel3_load + 2
-  ADC #0
+  \\ 4 cycle STA abs for alignment.
+  EQUB &8D, channel3_load + 1, &00
+  INX
+  ROL self_modify_advance_carries + 1
   \\ 5 cycles, shorter 2 cycle 1MHz write.
   STY &FE4F
-  \\ 80 cycles
-  STA channel3_load + 2
-  \\ 83 cycles (45 remain)
+  \\ 76 cycles
+
+  \\ Uses the result of the ROL.
+  BNE do_advance_carries
 
   .main_loop_jump
   JMP do_channel1_check_wrap
 
-  \\ All jump targets: 86 cycles (42 remain)
+  \\ All jump targets: 81 cycles (47 remain)
+
+  .do_advance_carries
+  \\ 79 cycles
+  .self_modify_advance_carries
+  LDY #0
+  LDA table_carries_1,Y
+  ADC channel1_load + 2
+  STA channel1_load + 2
+  LDA table_carries_2,Y
+  ADC channel2_load + 2
+  STA channel2_load + 2
+  LDA table_carries_3,Y
+  ADC channel3_load + 2
+  STA channel3_load + 2
+  LDA #0
+  STA self_modify_advance_carries + 1
+  \\ 116 cycles (12 remain)
+  JMP jmp_main_loop_12
 
 .zero_page_play_end
 
@@ -151,7 +164,7 @@ GUARD &300
   \\ TODO: some of these per-instrument lookups could be a lot faster if we
   \\ wanted to self-modify the values when the note is played.
   .do_channel1_check_wrap
-  \\ 86 cycles (42 remain)
+  \\ 81 cycles (47 remain)
   LDA #LO(do_channel2_check_wrap)
   STA main_loop_jump + 1
   LDY var_channel1_instr
@@ -163,14 +176,14 @@ GUARD &300
   LDA channel1_load + 1
   ADC addr_sample_wraps_fine,Y
   STA channel1_load + 1
-  \\ 120 cycles (8 remain)
-  JMP jmp_main_loop_8
+  \\ 115 cycles (13 remain)
+  JMP jmp_main_loop_13
   .no_channel1_wrap
-  \\ 104 cycles (24 remain)
+  \\ 99 cycles (29 remain)
   JMP body_no_channel1_wrap
 
   .do_channel2_check_wrap
-  \\ 86 cycles (42 remain)
+  \\ 81 cycles (47 remain)
   LDA #LO(do_channel3_check_wrap)
   STA main_loop_jump + 1
   LDY var_channel2_instr
@@ -182,14 +195,14 @@ GUARD &300
   LDA channel2_load + 1
   ADC addr_sample_wraps_fine,Y
   STA channel2_load + 1
-  \\ 120 cycles (8 remain)
-  JMP jmp_main_loop_8
+  \\ 115 cycles (13 remain)
+  JMP jmp_main_loop_13
   .no_channel2_wrap
-  \\ 104 cycles (24 remain)
+  \\ 99 cycles (29 remain)
   JMP body_no_channel2_wrap
 
   .do_channel3_check_wrap
-  \\ 86 cycles (42 remain)
+  \\ 81 cycles (47 remain)
   LDA #LO(do_scope_chan1_clear_load)
   STA main_loop_jump + 1
   LDY var_channel3_instr
@@ -201,14 +214,14 @@ GUARD &300
   LDA channel3_load + 1
   ADC addr_sample_wraps_fine,Y
   STA channel3_load + 1
-  \\ 120 cycles (8 remain)
-  JMP jmp_main_loop_8
+  \\ 115 cycles (13 remain)
+  JMP jmp_main_loop_13
   .no_channel3_wrap
-  \\ 104 cycles (24 remain)
+  \\ 99 cycles (29 remain)
   JMP body_no_channel3_wrap
 
   .do_scope_chan1_clear_load
-  \\ 86 cycles (42 remain)
+  \\ 81 cycles (47 remain)
   LDY var_scope_chan1_ptr_lo
   STY self_modify_scope_chan1_y_store + 1
   LDA addr_scope_chan1,Y
@@ -218,15 +231,15 @@ GUARD &300
   \\ NOTE! Uses #LO(do_scope_chan1_render) to save two cycles.
   \\ The byte value is $00, which renders as a blank.
   STA (var_scope_chan1_ptr_lo),Y
-  \\ 110 cycles (18 remain)
+  \\ 105 cycles (23 remain)
   LDY #0
   LDA (channel1_load + 1),Y
   STA var_scope_value
-  \\ 120 cycles (8 remain)
-  JMP jmp_main_loop_8
+  \\ 115 cycles (13 remain)
+  JMP jmp_main_loop_13
 
   .do_scope_chan2_clear_load
-  \\ 86 cycles (42 remain)
+  \\ 81 cycles (47 remain)
   LDY var_scope_chan2_ptr_lo
   STY self_modify_scope_chan2_y_store + 1
   LDA addr_scope_chan2,Y
@@ -236,15 +249,15 @@ GUARD &300
   \\ NOTE! Uses #LO(do_scope_chan2_render) to save two cycles.
   \\ The byte value is $09, "flash off", which renders as a blank.
   STA (var_scope_chan2_ptr_lo),Y
-  \\ 110 cycles (18 remain)
+  \\ 105 cycles (23 remain)
   LDY #0
   LDA (channel2_load + 1),Y
   STA var_scope_value
-  \\ 120 cycles (8 remain)
-  JMP jmp_main_loop_8
+  \\ 115 cycles (13 remain)
+  JMP jmp_main_loop_13
 
   .do_scope_chan3_clear_load
-  \\ 86 cycles (42 remain)
+  \\ 81 cycles (47 remain)
   LDY var_scope_chan3_ptr_lo
   STY self_modify_scope_chan3_y_store + 1
   LDA addr_scope_chan3,Y
@@ -254,18 +267,18 @@ GUARD &300
   \\ NOTE! Uses #LO(do_scope_chan3_render) to save two cycles.
   \\ The byte value is $0C, "double off", which renders as a blank.
   STA (var_scope_chan3_ptr_lo),Y
-  \\ 110 cycles (18 remain)
+  \\ 105 cycles (23 remain)
   LDY #0
   LDA (channel3_load + 1),Y
   STA var_scope_value
-  \\ 120 cycles (8 remain)
-  JMP jmp_main_loop_8
+  \\ 115 cycles (13 remain)
+  JMP jmp_main_loop_13
 
   .do_song_byte_decode
-  \\ 86 cycles (42 remain)
+  \\ 81 cycles (47 remain)
   LDY var_next_byte
   BMI special_command
-  \\ 91 cycles (37 remain)
+  \\ 86 cycles (42 remain)
   LDA #LO(do_song_byte_decode_2)
   STA main_loop_jump + 1
   LDA addr_lookup_note,Y
@@ -274,10 +287,10 @@ GUARD &300
   STA self_modify_instr_value + 1
   LDA addr_lookup_row_skip,Y
   STA var_song_row_skip_counter
-  \\ 119 cycles (9 remain)
-  JMP jmp_main_loop_9
+  \\ 114 cycles (14 remain)
+  JMP jmp_main_loop_14
   .special_command
-  \\ 92 cycles (36 remain)
+  \\ 87 cycles (41 remain)
   LDA #LO(do_channel1_check_wrap)
   STA main_loop_jump + 1
   .self_modify_song_restart
@@ -285,8 +298,8 @@ GUARD &300
   STA self_modify_song_ptr + 2
   LDA #0
   STA self_modify_song_ptr + 1
-  \\ 109 cycles (19 remain)
-  JMP jmp_main_loop_19
+  \\ 104 cycles (24 remain)
+  JMP jmp_main_loop_24
 
 .page_two_play_end
 
@@ -303,40 +316,40 @@ ALIGN &100
 GUARD (P% + &100)
 
   .body_no_channel1_wrap
-  \\ 107 cycles (21 remain)
+  \\ 102 cycles (26 remain)
   LDA channel1_load + 2
   EOR #HI(addr_silence)
   BNE no_channel_silence
   LDA #&F
   STA var_channel1_instr
-  \\ 119 cycles (9 remain)
-  JMP jmp_main_loop_9
+  \\ 114 cycles (14 remain)
+  JMP jmp_main_loop_14
   .no_channel_silence
-  \\ 115 cycles (13 remain)
-  JMP jmp_main_loop_13
+  \\ 110 cycles (18 remain)
+  JMP jmp_main_loop_18
 
   .body_no_channel2_wrap
-  \\ 107 cycles (21 remain)
+  \\ 102 cycles (26 remain)
   LDA channel2_load + 2
   EOR #HI(addr_silence)
   BNE no_channel_silence
   LDA #&F
   STA var_channel2_instr
-  \\ 119 cycles (9 remain)
-  JMP jmp_main_loop_9
+  \\ 114 cycles (14 remain)
+  JMP jmp_main_loop_14
 
   .body_no_channel3_wrap
-  \\ 107 cycles (21 remain)
+  \\ 102 cycles (26 remain)
   LDA channel3_load + 2
   EOR #HI(addr_silence)
   BNE no_channel_silence
   LDA #&F
   STA var_channel3_instr
-  \\ 119 cycles (9 remain)
-  JMP jmp_main_loop_9
+  \\ 114 cycles (14 remain)
+  JMP jmp_main_loop_14
 
   .body_do_scope_inc
-  \\ 89 cycles (39 remain)
+  \\ 84 cycles (44 remain)
   LDA #LO(do_next_or_vsync_check)
   STA main_loop_jump + 1
   LDA var_scope_chan1_ptr_lo
@@ -345,8 +358,8 @@ GUARD (P% + &100)
   INC var_scope_chan1_ptr_lo
   INC var_scope_chan2_ptr_lo
   INC var_scope_chan3_ptr_lo
-  \\ 116 cycles (12 remain)
-  JMP jmp_main_loop_12
+  \\ 111 cycles (17 remain)
+  JMP jmp_main_loop_17
   .scope_wrap
   LDA #&29
   STA var_scope_chan1_ptr_lo
@@ -354,30 +367,30 @@ GUARD (P% + &100)
   STA var_scope_chan2_ptr_lo
   LDA #&09
   STA var_scope_chan3_ptr_lo
-  \\ 117 cycles (11 remain)
-  JMP jmp_main_loop_11
+  \\ 112 cycles (16 remain)
+  JMP jmp_main_loop_16
 
   .body_do_next_or_vsync_check
-  \\ 89 cycles (39 remain)
+  \\ 84 cycles (44 remain)
   LDA var_song_row_skip_counter
   BEQ is_next
-  \\ 94 cycles (34 remain)
+  \\ 89 cycles (39 remain)
   LDA #2
   BIT &FE4D
   BEQ no_vsync_hit
   STA &FE4D
   LDA #LO(do_song_tick)
   STA main_loop_jump + 1
-  \\ 115 cycles (13 remain)
-  JMP jmp_main_loop_13
-  .no_vsync_hit
-  \\ 105 cycles (23 remain)
-  LDA #LO(do_channel1_check_wrap)
-  STA main_loop_jump + 1
   \\ 110 cycles (18 remain)
   JMP jmp_main_loop_18
+  .no_vsync_hit
+  \\ 100 cycles (28 remain)
+  LDA #LO(do_channel1_check_wrap)
+  STA main_loop_jump + 1
+  \\ 105 cycles (23 remain)
+  JMP jmp_main_loop_23
   .is_next
-  \\ 95 cycles (33 remain)
+  \\ 90 cycles (38 remain)
   LDA #LO(do_song_byte_decode)
   STA main_loop_jump + 1
   .self_modify_song_ptr
@@ -386,15 +399,14 @@ GUARD (P% + &100)
   INC self_modify_song_ptr + 1
   BNE no_song_ptr_hi
   INC self_modify_song_ptr + 2
-  \\ 121 cycles (7 remain)
-  NOP:NOP
-  JMP main_loop
-  .no_song_ptr_hi
   \\ 116 cycles (12 remain)
   JMP jmp_main_loop_12
+  .no_song_ptr_hi
+  \\ 111 cycles (17 remain)
+  JMP jmp_main_loop_17
 
   .body_do_song_tick
-  \\ 89 cycles (39 remain)
+  \\ 84 cycles (44 remain)
   LDA #LO(do_channel1_check_wrap)
   STA main_loop_jump + 1
   DEC var_song_tick_counter
@@ -403,11 +415,11 @@ GUARD (P% + &100)
   LDA #0
   STA var_song_tick_counter
   DEC var_song_row_skip_counter
-  \\ 111 cycles (17 remain)
-  JMP jmp_main_loop_17
+  \\ 106 cycles (22 remain)
+  JMP jmp_main_loop_22
   .no_song_tick_hit
-  \\ 102 cycles (26 remain)
-  JMP jmp_main_loop_26
+  \\ 97 cycles (31 remain)
+  JMP jmp_main_loop_31
 
 CLEAR P%, &8000
 
@@ -415,10 +427,10 @@ CLEAR P%, &8000
   \\ crossings.
 
   .body_do_scope_chan1_render
-  \\ 89 cycles (39 remain)
+  \\ 84 cycles (44 remain)
   LDA #LO(do_scope_chan2_clear_load)
   STA main_loop_jump + 1
-  \\ 94 cycles (34 remain)
+  \\ 89 cycles (39 remain)
   TXS
   LDX var_scope_value
   LDY addr_scope_y_table,X
@@ -428,14 +440,14 @@ CLEAR P%, &8000
   .self_modify_scope_chan1_y_store
   STY addr_scope_chan1
   TSX
-  \\ 119 cycles (9 remain)
-  JMP jmp_main_loop_9
+  \\ 114 cycles (14 remain)
+  JMP jmp_main_loop_14
 
   .body_do_scope_chan2_render
-  \\ 89 cycles (39 remain)
+  \\ 84 cycles (44 remain)
   LDA #LO(do_scope_chan3_clear_load)
   STA main_loop_jump + 1
-  \\ 94 cycles (34 remain)
+  \\ 89 cycles (39 remain)
   TXS
   LDX var_scope_value
   LDY addr_scope_y_table,X
@@ -445,14 +457,14 @@ CLEAR P%, &8000
   .self_modify_scope_chan2_y_store
   STY addr_scope_chan2
   TSX
-  \\ 119 cycles (9 remain)
-  JMP jmp_main_loop_9
+  \\ 114 cycles (14 remain)
+  JMP jmp_main_loop_14
 
   .body_do_scope_chan3_render
-  \\ 89 cycles (39 remain)
+  \\ 84 cycles (44 remain)
   LDA #LO(do_scope_inc)
   STA main_loop_jump + 1
-  \\ 94 cycles (34 remain)
+  \\ 89 cycles (39 remain)
   TXS
   LDX var_scope_value
   LDY addr_scope_y_table,X
@@ -462,11 +474,11 @@ CLEAR P%, &8000
   .self_modify_scope_chan3_y_store
   STY addr_scope_chan3
   TSX
-  \\ 119 cycles (9 remain)
-  JMP jmp_main_loop_9
+  \\ 114 cycles (14 remain)
+  JMP jmp_main_loop_14
 
   .body_do_song_byte_decode_2
-  \\ 89 cycles (39 remain)
+  \\ 84 cycles (44 remain)
   LDA #LO(do_song_byte_decode_3)
   STA main_loop_jump + 1
   LDY self_modify_instr_value + 1
@@ -474,11 +486,11 @@ CLEAR P%, &8000
   STA self_modify_load_hi_value + 1
   LDA addr_sample_starts_fine,Y
   STA self_modify_load_lo_value + 1
-  \\ 114 cycles (14 remain)
-  JMP jmp_main_loop_14
+  \\ 109 cycles (19 remain)
+  JMP jmp_main_loop_19
 
   .body_do_song_byte_decode_3
-  \\ 89 cycles (39 remain)
+  \\ 84 cycles (44 remain)
   LDA #LO(do_song_byte_decode_4)
   STA main_loop_jump + 1
   LDY var_next_byte
@@ -487,11 +499,11 @@ CLEAR P%, &8000
   LDA table_channel_code_advance_hi,Y
   STA self_modify_advance_hi_store + 1
   STY self_modify_decode_4_channel + 1
-  \\ 115 cycles (13 remain)
-  JMP jmp_main_loop_13
+  \\ 110 cycles (18 remain)
+  JMP jmp_main_loop_18
 
   .body_do_song_byte_decode_4
-  \\ 89 cycles (39 remain)
+  \\ 84 cycles (44 remain)
   LDA #LO(do_commit_channel)
   STA main_loop_jump + 1
   .self_modify_decode_4_channel
@@ -502,11 +514,11 @@ CLEAR P%, &8000
   STA self_modify_load_lo_store + 1
   LDA table_channel_var_instr,Y
   STA self_modify_instr_store + 1
-  \\ 120 cycles (8 remain)
-  JMP jmp_main_loop_8
+  \\ 115 cycles (13 remain)
+  JMP jmp_main_loop_13
 
   .body_do_commit_channel
-  \\ 89 cycles (39 remain)
+  \\ 84 cycles (44 remain)
   LDA #LO(do_channel1_check_wrap)
   STA main_loop_jump + 1
   .self_modify_advance_hi_value
@@ -525,8 +537,8 @@ CLEAR P%, &8000
   LDA #00
   .self_modify_instr_store
   STA &00
-  \\ 114 cycles (14 remain)
-  JMP jmp_main_loop_14
+  \\ 109 cycles (19 remain)
+  JMP jmp_main_loop_19
 
   .jmp_main_loop_26
   NOP
@@ -551,6 +563,12 @@ CLEAR P%, &8000
   .jmp_main_loop_6
   JMP main_loop
 
+  .jmp_main_loop_31
+  NOP
+  .jmp_main_loop_29
+  NOP
+  .jmp_main_loop_27
+  NOP
   .jmp_main_loop_25
   NOP
   .jmp_main_loop_23
@@ -583,6 +601,12 @@ CLEAR P%, &8000
   EQUB channel1_load + 1, channel2_load + 1, channel3_load + 1
   .table_channel_var_instr
   EQUB var_channel1_instr, var_channel2_instr, var_channel3_instr
+  .table_carries_1
+  EQUB 0, 0, 0, 0, 1, 1, 1, 1
+  .table_carries_2
+  EQUB 0, 0, 1, 1, 0, 0, 1, 1
+  .table_carries_3
+  EQUB 0, 1, 0, 1, 0, 1, 0, 1
 
 \\ The entry point.
 .binary_exec
@@ -617,11 +641,12 @@ CLEAR P%, &8000
 
   .play_entry
   \\ At write gate +3us. Write targets are +10us and then every +16us after.
-  \\ The play loop writes the bus at +8us. It took 3us to jump here. There's
+  \\ The play loop writes the bus at +6us. It took 3us to jump here. There's
   \\ another 3us to jump out of here.
-  \\ Need to wait 26 - 8 - 3 - 3 = 12us of NOPs, or 24 cycles.
+  \\ Need to wait 26 - 6 - 3 - 3 = 14us of NOPs, or 28 cycles.
   JSR jsr_wait_12_cycles
   JSR jsr_wait_12_cycles
+  NOP:NOP
   LDA &00
   JMP main_loop
 
