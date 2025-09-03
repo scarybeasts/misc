@@ -1,0 +1,28 @@
+Plausible ideas to enhance the player.
+- Use the SN noise channel for simple drums (no pitch control).
+- Use the SN noise channel in periodic mode, and write the noise register
+within a low frequency block to control the periodic noise frequency. This
+will be possible because writing to the noise register resets the noise
+channel state, so it can be kept in a "playing but silent" state until the
+blip is needed at whatever output frequency is desired.
+- Play samples backwards. Same CPU power required, just different code and
+a different sound. Probably possible to rewrite the forwards / backwards
+code via self-modification at runtime.
+- Dedicate one playback channel as a drum channel. This will playback at
+constant rate and therefore take less CPU cycles to iterate.
+- Dedicate one or more playback channels as synth channels. Square wave,
+saw wave, etc. The samples are 256 bytes in size and can be iterated across
+with fewer CPU cycles.
+- Can mix in a couple of square waves very cheaply (2 cycles?) by updating a
+constant in a low frequency block.
+- Single-pole IIR low pass filter does not require many cycles...
+- Modify the in-memory sample in a low frequency block. Could be simple, i.e.
+change the pulse width of a square wave. Or could be something more
+interesting!
+- Use the VIA timer machinery, or even the shift register(!) as a source of
+auto-updating simple waveforms. The shift register could be used to
+approximate a sawtooth wave (0x80 -> 0x40 -> 0x20 -> ...) with no CPU
+cycles required to advance the waveform.
+- Double the storage for pre-computed samples by packing each memory byte
+with 4 bits each from two different samples and using the lookup table
+machinery.
