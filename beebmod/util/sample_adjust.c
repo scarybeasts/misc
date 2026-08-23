@@ -294,6 +294,7 @@ main(int argc, const char** argv) {
   }
   (void) write(fd, p_sample, length);
   if (post_end_pad > 0) {
+    uint32_t loop_index = loop_start;
     /* Pad the sample.
      * First we pad to 256 bytes.
      * Then we add bytes of padding to handle read overruns due to the
@@ -308,8 +309,11 @@ main(int argc, const char** argv) {
     }
     for (i = 0; i < post_end_pad; ++i) {
       if (loop_start >= 0) {
-        pad_byte = p_sample[loop_start];
-        loop_start++;
+        pad_byte = p_sample[loop_index];
+        loop_index++;
+        if (loop_index == length) {
+          loop_index = loop_start;
+        }
       }
       (void) write(fd, &pad_byte, 1);
     }
