@@ -16,7 +16,17 @@ enum {
   k_chan_merge = 1,
   k_chan_move = 2,
   k_instr_set = 3,
+  k_fix_notes = 4,
 };
+
+static const int periods[] = {
+    856,808,762,720,678,640,604,570,538,508,480,453,
+    428,404,381,360,339,320,302,285,269,254,240,226,
+    214,202,190,180,170,160,151,143,135,127,120,113,
+    0,
+};
+
+static int period_to_note[1024];
 
 int
 main(int argc, const char** argv) {
@@ -31,12 +41,21 @@ main(int argc, const char** argv) {
   uint32_t num_commands;
   const char* p_mod_filename;
 
+  uint32_t i;
   uint32_t arg;
   uint8_t* p_data;
   uint32_t num_patterns;
   uint32_t pattern;
   uint32_t command;
   uint32_t sequence;
+
+  (void) memset(period_to_note, '\0', sizeof(period_to_note));
+  i = 0;
+  while (periods[i] != 0) {
+    uint32_t period = periods[i];
+    period_to_note[period] = 1;
+    ++i;
+  }
 
   num_commands = 0;
   p_mod_filename = NULL;
@@ -71,6 +90,9 @@ main(int argc, const char** argv) {
       arg2s[num_commands] = arg2;
       num_commands++;
       arg += 2;
+    } else if (!strcmp(p_command, "-fix_notes")) {
+      commands[num_commands] = k_fix_notes;
+      num_commands++;
     } else {
       p_mod_filename = argv[arg];
     }
@@ -147,6 +169,41 @@ main(int argc, const char** argv) {
               p_note[0] = ((p_note[0] & 0x0F) | (instr & 0xF0));
               p_note[2] = ((p_note[2] & 0x0F) | (instr << 4));
             }
+            break;
+          }
+          case k_fix_notes:
+          {
+            uint8_t* p_note = (p_data + (channel * 4));
+            uint16_t period;
+            uint16_t upper_period;
+            uint16_t lower_period;
+            uint16_t upper_delta;
+            uint16_t lower_delta;
+            period = ((p_note[0] & 0x0F) << 8);
+            period |= p_note[1];
+            if (period == 0) {
+              break;
+            }
+            if (period_to_note[period] != 0) {
+              break;
+            }
+            upper_period = period;
+            lower_period = period;
+            /* No bounds checking ;-) */
+            while (period_to_note[upper_period] == 0) {
+              upper_period++;
+            }
+            while (period_to_note[lower_period] == 0) {
+              lower_period--;
+            }
+            upper_delta = (upper_period - period);
+            lower_delta = (period - lower_period);
+            period = upper_period;
+            if (lower_delta < upper_delta) {
+              period = lower_period;
+            }
+            p_note[0] = ((p_note[0] & 0xF0) | (period >> 8));
+            p_note[1] = (period & 0xFF);
             break;
           }
           default:
