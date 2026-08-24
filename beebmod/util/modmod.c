@@ -17,6 +17,7 @@ enum {
   k_chan_move = 2,
   k_instr_set = 3,
   k_fix_notes = 4,
+  k_chan_clear = 5,
 };
 
 static const int periods[] = {
@@ -90,6 +91,11 @@ main(int argc, const char** argv) {
       arg2s[num_commands] = arg2;
       num_commands++;
       arg += 2;
+    } else if ((max_args >= 1) && !strcmp(p_command, "-chan_clear")) {
+      commands[num_commands] = k_chan_clear;
+      arg1s[num_commands] = arg1;
+      num_commands++;
+      arg += 1;
     } else if (!strcmp(p_command, "-fix_notes")) {
       commands[num_commands] = k_fix_notes;
       num_commands++;
@@ -204,6 +210,15 @@ main(int argc, const char** argv) {
             }
             p_note[0] = ((p_note[0] & 0xF0) | (period >> 8));
             p_note[1] = (period & 0xFF);
+            break;
+          }
+          case k_chan_clear:
+          {
+            uint8_t* p_to = (p_data + (arg1s[command] * 4));
+            if (channel != 0) {
+              break;
+            }
+            (void) memset(p_to, '\0', 4);
             break;
           }
           default:
