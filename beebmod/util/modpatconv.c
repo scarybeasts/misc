@@ -38,6 +38,7 @@ main(int argc, const char** argv) {
   int fd_out = -1;
   /* 15kHz player. */
   uint32_t beeb_period = 64;
+  uint32_t output_table_size = 64;
 
   static const int periods[] = {
       856,808,762,720,678,640,604,570,538,508,480,453,
@@ -64,6 +65,8 @@ main(int argc, const char** argv) {
     } else if (!strcmp(p_arg, "-p")) {
       beeb_period = atoi(p_next_arg);
       ++i_args;
+    } else if (!strcmp(p_arg, "-128")) {
+      output_table_size = 128;
     } else {
       if (num_infiles == 32) {
         errx(1, "too many infiles");
@@ -236,7 +239,6 @@ main(int argc, const char** argv) {
     (void) close(tables_fd);
   }
   if (p_lookup_tables_file != NULL) {
-    uint32_t write_size = 64;
     int tables_fd = open(p_lookup_tables_file,
                          O_WRONLY | O_CREAT | O_TRUNC,
                          0666);
@@ -244,12 +246,12 @@ main(int argc, const char** argv) {
       errx(1, "cannot open output lookup tables file");
     }
     if (num_combinations_used > 64) {
-      write_size = 128;
+      output_table_size = 128;
     }
-    (void) write(tables_fd, channel_combination_array, write_size);
-    (void) write(tables_fd, note_combination_array, write_size);
-    (void) write(tables_fd, instr_combination_array, write_size);
-    (void) write(tables_fd, row_skip_combination_array, write_size);
+    (void) write(tables_fd, channel_combination_array, output_table_size);
+    (void) write(tables_fd, note_combination_array, output_table_size);
+    (void) write(tables_fd, instr_combination_array, output_table_size);
+    (void) write(tables_fd, row_skip_combination_array, output_table_size);
     (void) close(tables_fd);
   }
 
