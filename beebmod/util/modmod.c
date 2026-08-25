@@ -18,6 +18,7 @@ enum {
   k_instr_set = 3,
   k_fix_notes = 4,
   k_chan_clear = 5,
+  k_transpose_instr = 6,
 };
 
 static const int periods[] = {
@@ -37,8 +38,8 @@ main(int argc, const char** argv) {
   uint8_t* p_buf;
 
   uint8_t commands[256];
-  uint8_t arg1s[256];
-  uint8_t arg2s[256];
+  int32_t arg1s[256];
+  int32_t arg2s[256];
   uint32_t num_commands;
   const char* p_mod_filename;
 
@@ -50,11 +51,13 @@ main(int argc, const char** argv) {
   uint32_t command;
   uint32_t sequence;
 
-  (void) memset(period_to_note, '\0', sizeof(period_to_note));
+  for (i = 0; i < 1024; ++i) {
+    period_to_note[i] = -1;
+  }
   i = 0;
   while (periods[i] != 0) {
     uint32_t period = periods[i];
-    period_to_note[period] = 1;
+    period_to_note[period] = i;
     ++i;
   }
 
@@ -62,8 +65,8 @@ main(int argc, const char** argv) {
   p_mod_filename = NULL;
   for (arg = 1; arg < argc; ++arg) {
     const char* p_command = argv[arg];
-    uint8_t arg1 = 0;
-    uint8_t arg2 = 0;
+    int32_t arg1 = 0;
+    int32_t arg2 = 0;
     int max_args = 0;
     if ((arg + 1) < argc) {
       max_args = 1;
@@ -87,6 +90,12 @@ main(int argc, const char** argv) {
       arg += 2;
     } else if ((max_args >= 2) && !strcmp(p_command, "-instr_set")) {
       commands[num_commands] = k_instr_set;
+      arg1s[num_commands] = arg1;
+      arg2s[num_commands] = arg2;
+      num_commands++;
+      arg += 2;
+    } else if ((max_args >= 2) && !strcmp(p_command, "-transpose_instr")) {
+      commands[num_commands] = k_transpose_instr;
       arg1s[num_commands] = arg1;
       arg2s[num_commands] = arg2;
       num_commands++;
@@ -190,16 +199,16 @@ main(int argc, const char** argv) {
             if (period == 0) {
               break;
             }
-            if (period_to_note[period] != 0) {
+            if (period_to_note[period] != -1) {
               break;
             }
             upper_period = period;
             lower_period = period;
             /* No bounds checking ;-) */
-            while (period_to_note[upper_period] == 0) {
+            while (period_to_note[upper_period] == -1) {
               upper_period++;
             }
-            while (period_to_note[lower_period] == 0) {
+            while (period_to_note[lower_period] == -1) {
               lower_period--;
             }
             upper_delta = (upper_period - period);
@@ -219,6 +228,30 @@ main(int argc, const char** argv) {
               break;
             }
             (void) memset(p_to, '\0', 4);
+            break;
+          }
+          case k_transpose_instr:
+          {
+            uint16_t period;
+            uint8_t period_index;
+            uint16_t new_period;
+            uint8_t* p_note = (p_data + (channel * 4));
+            uint8_t instr = ((p_note[0] & 0xF0) | (p_note[2] >> 4));
+            period = ((p_note[0] & 0x0F) << 8);
+            period |= p_note[1];
+            if (instr != arg1s[command]) {
+              break;
+            }
+            if (period == 0) {
+              break;
+            }
+            period_index = period_to_note[period];
+            if (period_index == 0) {
+              break;
+            }
+            new_period = (periods[period_index + arg2s[command]]);
+            p_note[0] = ((p_note[0] & 0xF0) | (new_period >> 8));
+            p_note[1] = (new_period & 0xFF);
             break;
           }
           default:
