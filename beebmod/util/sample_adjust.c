@@ -270,7 +270,10 @@ main(int argc, const char** argv) {
     sn_value = (sn_map[pad_byte] & 0x0f);
     if (sn_channel > 0) {
       sn_channel_command = (0x90 | ((sn_channel - 1) * 0x20));
-      pad_byte = (sn_value | sn_channel_command);
+      /* Pad with a no-op, so the padding effectively leaves the SN channel
+       * volume at the last sample value output.
+       */
+      pad_byte = 0xFF;
     } else {
       pad_byte = sn_output_levels[sn_value];
     }
