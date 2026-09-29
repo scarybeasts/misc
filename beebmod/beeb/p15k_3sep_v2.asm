@@ -147,7 +147,7 @@ GUARD &300
   .do_scope_chan2_render
   JMP body_do_scope_chan2_render
 
-  \\ Must remain here so that #LO(do_scope_chan2_render) is 12.
+  \\ Must remain here so that #LO(do_scope_chan3_render) is 12.
   .do_scope_chan3_render
   JMP body_do_scope_chan3_render
 
@@ -283,7 +283,7 @@ GUARD &300
   \\ 88 cycles
   LDY var_next_byte
   BMI special_command
-  \\ 86 cycles (42 remain)
+  \\ 93 cycles
   LDA #LO(do_song_byte_decode_2)
   STA main_loop_jump + 1
   LDA addr_lookup_note,Y
@@ -387,6 +387,7 @@ GUARD (P% + &100)
   LDA #2
   BIT &FE4D
   BEQ no_vsync_hit
+  \\ 6 cycle store is fine here.
   STA &FE4D
   LDA #LO(do_song_tick)
   STA main_loop_jump + 1
