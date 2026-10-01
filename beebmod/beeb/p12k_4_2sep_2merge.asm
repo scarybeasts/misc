@@ -584,8 +584,9 @@ CLEAR P%, &7FFF
   LDA table_channel_code_advance_hi,Y
   STA self_modify_advance_hi_store + 1
   STY self_modify_decode_4_channel + 1
-  \\ 154 cycles (6 remain)
-  JMP jmp_main_loop_6
+  \\ 153 cycles (7 remain)
+  NOP:NOP
+  JMP main_loop
 
   .body_do_song_byte_decode_4
   \\ 128 cycles (32 remain)
