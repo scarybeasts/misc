@@ -610,12 +610,10 @@ console.log("unique values: " + unique_values);
   }
 
   processBeeb() {
-    this.beeb_sn_cycles_counter--;
-    if (this.beeb_sn_cycles_counter == 0) {
-      // A new command can be given to the SN chip once every 4 SN cycles,
-      // which is 16us / 62.5kHz.
-      this.beeb_sn_cycles_counter = 4;
-
+    this.beeb_sn_cycles_counter++;
+    // A new command can be given to the SN chip once every 2 SN cycles,
+    // which is 8us / 125kHz.
+    if (this.beeb_sn_cycles_counter & 1) {
       if (this.beeb_channels == 1) {
         /* One SN channel per MOD output channel scheme. */
         this.processBeebSeparate();
@@ -625,10 +623,11 @@ console.log("unique values: " + unique_values);
         this.processBeebMerged();
       }
 
-      // 7kHz: 8 write slots.
-      // 10kHz: 6 write slots.
-      // 12kHz: 5 write slots.
-      // 15kHz: 4 write slots.
+      //  7.8kHz: 16 write slots.
+      // 10.4kHz: 12 write slots.
+      // 12.5kHz: 10 write slots.
+      // 15.6kHz: 8 write slots.
+      // 20.8kHz: 6 write slots.
       this.beeb_sn_write_slot++;
       if (this.beeb_sn_write_slot >= this.beeb_num_sn_write_slots) {
         this.beeb_sn_write_slot = 0;
@@ -724,42 +723,42 @@ console.log("unique values: " + unique_values);
       this.is_amiga = false;
       this.beeb_channels = 1;
       this.beeb_period_advances = this.beeb_period_advances_15k;
-      this.beeb_num_sn_write_slots = 4;
+      this.beeb_num_sn_write_slots = 8;
       this.beeb_output_divider = 3.0;
     } else if (name == "BEEB_12K_1_1_2") {
       this.is_amiga = false;
       this.beeb_channels = 0;
       this.beeb_period_advances = this.beeb_period_advances_12k;
-      this.beeb_num_sn_write_slots = 5;
+      this.beeb_num_sn_write_slots = 10;
       this.beeb_output_divider = 3.0;
     } else if (name == "BEEB_MERGED2_7K") {
       this.is_amiga = false;
       this.beeb_channels = 2;
       this.beeb_period_advances = this.beeb_period_advances_7k;
-      this.beeb_num_sn_write_slots = 8;
+      this.beeb_num_sn_write_slots = 16;
       this.beeb_output_divider = 2.0;
     } else if (name == "BEEB_MERGED2_10K") {
       this.is_amiga = false;
       this.beeb_channels = 2;
       this.beeb_period_advances = this.beeb_period_advances_10k;
-      this.beeb_num_sn_write_slots = 6;
+      this.beeb_num_sn_write_slots = 12;
       this.beeb_output_divider = 2.0;
     } else if (name == "BEEB_MERGED2_15K") {
       this.is_amiga = false;
       this.beeb_channels = 2;
       this.beeb_period_advances = this.beeb_period_advances_15k;
-      this.beeb_num_sn_write_slots = 4;
+      this.beeb_num_sn_write_slots = 8;
       this.beeb_output_divider = 2.0;
     } else if (name == "BEEB_MERGED3_7K") {
       this.is_amiga = false;
       this.beeb_channels = 3;
-      this.beeb_num_sn_write_slots = 8;
+      this.beeb_num_sn_write_slots = 16;
       this.beeb_period_advances = this.beeb_period_advances_7k;
       this.beeb_output_divider = 3.0;
     } else if (name == "BEEB_MERGED3_10K") {
       this.is_amiga = false;
       this.beeb_channels = 3;
-      this.beeb_num_sn_write_slots = 6;
+      this.beeb_num_sn_write_slots = 12;
       this.beeb_period_advances = this.beeb_period_advances_10k;
       this.beeb_output_divider = 3.0;
     } else if (name == "BEEB_MERGED_GAIN") {
@@ -1122,7 +1121,7 @@ console.log("unique values: " + unique_values);
   }
 
   resetBeeb() {
-    this.beeb_sn_cycles_counter = 1;
+    this.beeb_sn_cycles_counter = 0;
     this.beeb_sn_write_slot = 0;
 
     for (let i = 0; i < 4; ++i) {
