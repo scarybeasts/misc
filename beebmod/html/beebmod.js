@@ -23,6 +23,10 @@ function beebmod_setup_listeners() {
       document.getElementById("radio_beeb_separate_15k");
   radio_beeb_separate_15k.addEventListener("change",
                                           beebmod_radio_beeb_separate_15k);
+  const radio_beeb_separate_20k =
+      document.getElementById("radio_beeb_separate_20k");
+  radio_beeb_separate_20k.addEventListener("change",
+                                          beebmod_radio_beeb_separate_20k);
   const radio_beeb_12k_1_1_2 =
       document.getElementById("radio_beeb_12k_1_1_2");
   radio_beeb_12k_1_1_2.addEventListener("change",
@@ -182,14 +186,26 @@ function sample_table_add(i,
   half_res_checkbox.checked = false;
   half_res_checkbox.addEventListener("change", beebmod_sample_half_res_changed);
   half_res_cell.appendChild(half_res_checkbox);
-  const effect_cell = row.insertCell(7);
+  const gain_cell = row.insertCell(7);
+  const gain_input = document.createElement("input");
+  gain_input.name = index_string;
+  gain_input.type = "number";
+  gain_input.addEventListener("change", beebmod_sample_gain_changed);
+  gain_cell.appendChild(gain_input);
+  const offset_cell = row.insertCell(8);
+  const offset_input = document.createElement("input");
+  offset_input.name = index_string;
+  offset_input.type = "number";
+  offset_input.addEventListener("change", beebmod_sample_offset_changed);
+  offset_cell.appendChild(offset_input);
+  const effect_cell = row.insertCell(9);
   const effect_input = document.createElement("input");
   effect_input.name = index_string;
   effect_input.type = "number";
   effect_input.value = 0;
   effect_input.addEventListener("change", beebmod_sample_effect_changed);
   effect_cell.appendChild(effect_input);
-  const play_cell = row.insertCell(8);
+  const play_cell = row.insertCell(10);
   const play_input = document.createElement("input");
   play_input.name = index_string;
   play_input.type = "text";
@@ -289,6 +305,10 @@ function beebmod_radio_amiga() {
 
 function beebmod_radio_beeb_separate_15k() {
   window.beebmod_port.postMessage(["BEEB_SEPARATE_15K"]);
+}
+
+function beebmod_radio_beeb_separate_20k() {
+  window.beebmod_port.postMessage(["BEEB_SEPARATE_20K"]);
 }
 
 function beebmod_radio_beeb_12k_1_1_2() {
@@ -456,6 +476,22 @@ function beebmod_sample_volume_changed(event) {
   const sample_index = Number(name);
   const value = target.value;
   window.beebmod_port.postMessage(["SAMPLE_VOLUME", sample_index, value]);
+}
+
+function beebmod_sample_gain_changed(event) {
+  const target = event.target;
+  const name = target.name;
+  const sample_index = Number(name);
+  const value = target.value;
+  window.beebmod_port.postMessage(["SAMPLE_GAIN", sample_index, value]);
+}
+
+function beebmod_sample_offset_changed(event) {
+  const target = event.target;
+  const name = target.name;
+  const sample_index = Number(name);
+  const value = target.value;
+  window.beebmod_port.postMessage(["SAMPLE_OFFSET", sample_index, value]);
 }
 
 function file_dropped(event) {

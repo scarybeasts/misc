@@ -23,8 +23,10 @@ class MODProcessor extends AudioWorkletProcessor {
     for (let i = 0; i < 4; ++i) {
       this.is_channel_playing[i] = 1;
     }
-    this.sample_half_res = new Uint8Array(32);
-    this.sample_effect = new Uint8Array(32);
+    this.sample_half_res = new Array(32);
+    this.sample_gain = new Array(32);
+    this.sample_offset = new Array(32);
+    this.sample_effect = new Array(32);
     this.do_volumes = false;
 
     // Play state.
@@ -50,6 +52,8 @@ class MODProcessor extends AudioWorkletProcessor {
     this.mod_sample_repeat_length = new Uint16Array(4);
     this.mod_sample_index = new Int32Array(4);
     this.mod_sample_half_res = new Uint8Array(4);
+    this.mod_gain = new Float64Array(4);
+    this.mod_offset = new Int32Array(4);
     this.mod_sample_effect_table = new Array(4);
     this.mod_period = new Uint16Array(4);
     this.mod_volume = new Uint16Array(4);
@@ -175,6 +179,7 @@ class MODProcessor extends AudioWorkletProcessor {
     this.beeb_period_advances_10k = new Uint16Array(1024);
     this.beeb_period_advances_12k = new Uint16Array(1024);
     this.beeb_period_advances_15k = new Uint16Array(1024);
+    this.beeb_period_advances_20k = new Uint16Array(1024);
     this.beeb_sn_vol_to_output = new Float64Array(16);
     this.beeb_u8_to_sn_vol = new Uint8Array(256);
     this.beeb_u8_to_sn_vol_pair1 = new Int8Array(256);
@@ -306,13 +311,13 @@ console.log("unique values: " + unique_values);
     this.setupBeebAdvances(this.beeb_period_advances_10k, 192);
     this.setupBeebAdvances(this.beeb_period_advances_12k, 160);
     this.setupBeebAdvances(this.beeb_period_advances_15k, 128);
+    this.setupBeebAdvances(this.beeb_period_advances_20k, 96);
 
     this.resetBeeb();
   }
 
   setupBeebAdvances(array, beeb_cycles) {
     const amiga_clocks = (28375160.0 / 8.0);
-    // 7.8kHz.
     const beeb_freq = (2000000 / beeb_cycles);
     for (let i = 113; i <= 856; ++i) {
       const freq = (amiga_clocks / i);
@@ -471,11 +476,21 @@ console.log("unique values: " + unique_values);
       s8_output = effect_table[u8_index];
     }
 
+    s8_output *= this.mod_gain[channel];
+
     if (this.do_volumes) {
       let volume = this.mod_volume[channel];
       s8_output *= volume;
-      s8_output = Math.round(s8_output / 64.0);
-   }
+      s8_output /= 64;
+    }
+
+    if (s8_output > 127) {
+      s8_output = 127;
+    } else if (s8_output < -128) {
+      s8_output = -128;
+    } else {
+      s8_output = Math.round(s8_output);
+    }
 
     this.s8_outputs[channel] = s8_output;
   }
@@ -489,7 +504,8 @@ console.log("unique values: " + unique_values);
 
     this.advanceBeeb(beeb_sn_write_slot);
     let u8_sample_value = (this.s8_outputs[beeb_sn_write_slot] + 128);
-    u8_sample_value += this.beeb_offset;
+    u8_sample_value += this.mod_offset[beeb_sn_write_slot];
+
     if (u8_sample_value > 255) {
       u8_sample_value = 255;
     } else if (u8_sample_value < 0) {
@@ -725,6 +741,12 @@ console.log("unique values: " + unique_values);
       this.beeb_period_advances = this.beeb_period_advances_15k;
       this.beeb_num_sn_write_slots = 8;
       this.beeb_output_divider = 3.0;
+    } else if (name == "BEEB_SEPARATE_20K") {
+      this.is_amiga = false;
+      this.beeb_channels = 1;
+      this.beeb_period_advances = this.beeb_period_advances_20k;
+      this.beeb_num_sn_write_slots = 6;
+      this.beeb_output_divider = 3.0;
     } else if (name == "BEEB_12K_1_1_2") {
       this.is_amiga = false;
       this.beeb_channels = 0;
@@ -786,6 +808,22 @@ console.log("unique values: " + unique_values);
       const sample_index = data_array[1];
       const half_res = data_array[2];
       this.sample_half_res[sample_index] = half_res;
+    } else if (name == "SAMPLE_GAIN") {
+      const sample_index = data_array[1];
+      const object = data_array[2];
+      let gain = Number(object);
+      if (object == '') {
+        gain = undefined;
+      }
+      this.sample_gain[sample_index] = gain;
+    } else if (name == "SAMPLE_OFFSET") {
+      const sample_index = data_array[1];
+      const object = data_array[2];
+      let offset = Number(object);
+      if (object == '') {
+        offset = undefined;
+      }
+      this.sample_offset[sample_index] = offset;
     } else if (name == "SAMPLE_EFFECT") {
       const sample_index = data_array[1];
       const effect = data_array[2];
@@ -1067,7 +1105,16 @@ console.log("unique values: " + unique_values);
       const effect = this.sample_effect[sample_index];
       const effect_table = this.effects_tables[effect];
       this.mod_sample_effect_table[channel] = effect_table;
-      this.mod_sample_half_res[channel] = this.sample_half_res[sample_index];
+      this.mod_sample_half_res[channel] =
+          (this.sample_half_res[sample_index] == 1);
+      this.mod_gain[channel] = 1.0;
+      if (this.sample_gain[sample_index] !== undefined) {
+        this.mod_gain[channel] = this.sample_gain[sample_index];
+      }
+      this.mod_offset[channel] = this.beeb_offset;
+      if (this.sample_offset[sample_index] !== undefined) {
+        this.mod_offset[channel] = this.sample_offset[sample_index];
+      }
 
       this.mod_volume[channel] = this.mod_sample[channel].volume;
     }
