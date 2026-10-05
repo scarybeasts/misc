@@ -186,26 +186,33 @@ function sample_table_add(i,
   half_res_checkbox.checked = false;
   half_res_checkbox.addEventListener("change", beebmod_sample_half_res_changed);
   half_res_cell.appendChild(half_res_checkbox);
-  const gain_cell = row.insertCell(7);
+  const flip_cell = row.insertCell(7);
+  const flip_checkbox = document.createElement("input");
+  flip_checkbox.name = index_string;
+  flip_checkbox.type = "checkbox";
+  flip_checkbox.checked = false;
+  flip_checkbox.addEventListener("change", beebmod_sample_flip_changed);
+  flip_cell.appendChild(flip_checkbox);
+  const gain_cell = row.insertCell(8);
   const gain_input = document.createElement("input");
   gain_input.name = index_string;
   gain_input.type = "number";
   gain_input.addEventListener("change", beebmod_sample_gain_changed);
   gain_cell.appendChild(gain_input);
-  const offset_cell = row.insertCell(8);
+  const offset_cell = row.insertCell(9);
   const offset_input = document.createElement("input");
   offset_input.name = index_string;
   offset_input.type = "number";
   offset_input.addEventListener("change", beebmod_sample_offset_changed);
   offset_cell.appendChild(offset_input);
-  const effect_cell = row.insertCell(9);
+  const effect_cell = row.insertCell(10);
   const effect_input = document.createElement("input");
   effect_input.name = index_string;
   effect_input.type = "number";
   effect_input.value = 0;
   effect_input.addEventListener("change", beebmod_sample_effect_changed);
   effect_cell.appendChild(effect_input);
-  const play_cell = row.insertCell(10);
+  const play_cell = row.insertCell(11);
   const play_input = document.createElement("input");
   play_input.name = index_string;
   play_input.type = "text";
@@ -460,6 +467,14 @@ function beebmod_sample_half_res_changed(event) {
   const sample_index = Number(name);
   const checked = target.checked;
   window.beebmod_port.postMessage(["SAMPLE_HALF_RES", sample_index, checked]);
+}
+
+function beebmod_sample_flip_changed(event) {
+  const target = event.target;
+  const name = target.name;
+  const sample_index = Number(name);
+  const checked = target.checked;
+  window.beebmod_port.postMessage(["SAMPLE_FLIP", sample_index, checked]);
 }
 
 function beebmod_sample_effect_changed(event) {

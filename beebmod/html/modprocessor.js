@@ -24,6 +24,7 @@ class MODProcessor extends AudioWorkletProcessor {
       this.is_channel_playing[i] = 1;
     }
     this.sample_half_res = new Array(32);
+    this.sample_flip = new Array(32);
     this.sample_gain = new Array(32);
     this.sample_offset = new Array(32);
     this.sample_effect = new Array(32);
@@ -52,6 +53,7 @@ class MODProcessor extends AudioWorkletProcessor {
     this.mod_sample_repeat_length = new Uint16Array(4);
     this.mod_sample_index = new Int32Array(4);
     this.mod_sample_half_res = new Uint8Array(4);
+    this.mod_sample_flip = new Uint8Array(4);
     this.mod_gain = new Float64Array(4);
     this.mod_offset = new Int32Array(4);
     this.mod_sample_effect_table = new Array(4);
@@ -469,6 +471,12 @@ console.log("unique values: " + unique_values);
     }
 
     let s8_output = this.mod_sample_binary[channel][index];
+    if (this.mod_sample_flip[channel]) {
+      s8_output = -s8_output;
+      if (s8_output == 128) {
+        s8_output = 127;
+      }
+    }
     const effect_table = this.mod_sample_effect_table[channel];
     if (effect_table != null) {
       // Need to convert to u8 for an index into the lookup table.
@@ -808,6 +816,10 @@ console.log("unique values: " + unique_values);
       const sample_index = data_array[1];
       const half_res = data_array[2];
       this.sample_half_res[sample_index] = half_res;
+    } else if (name == "SAMPLE_FLIP") {
+      const sample_index = data_array[1];
+      const flip = data_array[2];
+      this.sample_flip[sample_index] = flip;
     } else if (name == "SAMPLE_GAIN") {
       const sample_index = data_array[1];
       const object = data_array[2];
@@ -1107,6 +1119,7 @@ console.log("unique values: " + unique_values);
       this.mod_sample_effect_table[channel] = effect_table;
       this.mod_sample_half_res[channel] =
           (this.sample_half_res[sample_index] == 1);
+      this.mod_sample_flip[channel] = (this.sample_flip[sample_index] == 1);
       this.mod_gain[channel] = 1.0;
       if (this.sample_gain[sample_index] !== undefined) {
         this.mod_gain[channel] = this.sample_gain[sample_index];
