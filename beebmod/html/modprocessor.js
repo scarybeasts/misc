@@ -726,6 +726,11 @@ console.log("unique values: " + unique_values);
       if ((index > 0) && (index < 32)) {
         this.samples[index] = sample;
       }
+      this.sample_half_res[index] = undefined;
+      this.sample_flip[index] = undefined;
+      this.sample_gain[index] = undefined;
+      this.sample_offset[index] = undefined;
+      this.sample_effect[index] = undefined;
     } else if (name == "PATTERN") {
       const index = data_array[1];
       const pattern = data_array[2];
