@@ -1280,6 +1280,12 @@ console.log("unique values: " + unique_values);
       case 0xA:
         new_volume_slide = this.getVolumeSlide(minor_command);
         break;
+      // Jump to the start of a song position. Positions count from 0 in the
+      // MOD file and from 1 here. Often used at the end of a song to loop
+      // back to somewhere other than the start.
+      case 0xB:
+        this.setMODPosition(minor_command + 1);
+        break;
       // Set volume.
       case 0xC:
         new_volume = minor_command;
