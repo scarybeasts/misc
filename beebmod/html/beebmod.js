@@ -129,9 +129,9 @@ function beebmod_set_default_config() {
   beebmod_load_number_config("number_tdm_boost_mod", 1.0);
   beebmod_load_number_config("number_tdm_boost_sn", 0);
   beebmod_load_number_config("number_period1", 2);
-  beebmod_load_number_config("number_period2", 3);
-  beebmod_load_number_config("number_period3", 5);
-  beebmod_load_number_config("number_period4", 1);
+  beebmod_load_number_config("number_period2", 2);
+  beebmod_load_number_config("number_period3", 2);
+  beebmod_load_number_config("number_period4", 2);
 }
 
 function beebmod_load_number_config(name, value) {
