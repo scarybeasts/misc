@@ -425,7 +425,7 @@ console.log("unique values: " + unique_values);
           const target = this.mod_portamento_target[j];
           if (target != 0) {
             if (((portamento > 0) && (period >= target)) ||
-                (period <= target)) {
+                ((portamento < 0) && (period <= target))) {
               period = target;
               this.mod_portamento[j] = 0;
             }
