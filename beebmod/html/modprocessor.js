@@ -73,6 +73,7 @@ class MODProcessor extends AudioWorkletProcessor {
     this.mod_volume = new Uint16Array(4);
     this.mod_portamento = new Int16Array(4);
     this.mod_last_portamento = new Int16Array(4);
+    this.mod_last_sample_offset = new Uint8Array(4);
     this.mod_last_note_period = new Uint16Array(4);
     this.mod_portamento_target = new Uint16Array(4);
     this.mod_volume_slide = new Int8Array(4);
@@ -1191,6 +1192,7 @@ console.log("unique values: " + unique_values);
       let new_volume_slide = 0;
       let period_adjust = 0;
       let new_arp_base_note = -1;
+      let new_sample_start = 0;
 
       const command = note.command;
       let major_command = (command >> 8);
@@ -1266,6 +1268,14 @@ console.log("unique values: " + unique_values);
         }
         break;
       }
+      // Sample offset: start the note at byte xx * 256 of the sample.
+      case 0x9:
+        // An offset of zero means use the old offset.
+        if (minor_command != 0) {
+          this.mod_last_sample_offset[i] = minor_command;
+        }
+        new_sample_start = (this.mod_last_sample_offset[i] * 256);
+        break;
       // Volume slide.
       case 0xA:
         new_volume_slide = this.getVolumeSlide(minor_command);
@@ -1325,6 +1335,16 @@ console.log("unique values: " + unique_values);
       if (play_period != 0) {
         if (this.is_channel_playing[i]) {
           this.loadMODSample(i, sample_index, play_period);
+          if (new_sample_start != 0) {
+            // An offset past the end goes straight to the end, which then
+            // goes to the loop, or silence if there's no loop. This is
+            // roughly what ProTracker does.
+            if (new_sample_start > this.mod_sample_end[i]) {
+              new_sample_start = this.mod_sample_end[i];
+            }
+            // Minus 1 because the index is incremented at the first tick.
+            this.mod_sample_index[i] = (new_sample_start - 1);
+          }
         }
       } else {
         // No new note struck. However, if a sample was specified, it resets
