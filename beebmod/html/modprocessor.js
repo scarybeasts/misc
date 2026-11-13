@@ -1207,24 +1207,25 @@ console.log("unique values: " + unique_values);
         break;
       // Portamento to note.
       case 0x3:
-        // If there's a new target, set it, otherwise this is a continuation.
-        if (song_period != 0) {
-          this.mod_portamento_target[i] = song_period;
-        }
-        // If the slide rate is zero, use the old slide rate.
-        if (minor_command == 0) {
-          minor_command = this.mod_last_portamento[i];
-        }
-        this.mod_last_portamento[i] = minor_command;
-        if (this.mod_portamento_target[i] > this.mod_period[i]) {
-          // Sliding positively, which is a portamento down.
-          new_portamento = minor_command;
-        } else {
-          // Sliding negatively, which is a portamento up.
-          new_portamento = -minor_command;
-        }
+        new_portamento = this.getTonePortamento(i, song_period, minor_command);
         // This command doesn't play a note.
         play_period = 0;
+        break;
+      // Portamento to note, continuing, plus volume slide.
+      case 0x5:
+        // The slide rate of zero means use the old slide rate. As with 3xx,
+        // a note in the row is a new target, not a note to play.
+        new_portamento = this.getTonePortamento(i, song_period, 0);
+        new_volume_slide = this.getVolumeSlide(minor_command);
+        play_period = 0;
+        break;
+      // Vibrato, continuing, plus volume slide.
+      case 0x6:
+        // Uses the previous vibrato speed and depth.
+        if (this.do_vibrato) {
+          new_vibrato = 1;
+        }
+        new_volume_slide = this.getVolumeSlide(minor_command);
         break;
       // Vibrato.
       case 0x4:
@@ -1245,16 +1246,7 @@ console.log("unique values: " + unique_values);
       }
       // Volume slide.
       case 0xA:
-        const slide_down = (minor_command & 0xF);
-        const slide_up = (minor_command >> 4);
-        if ((slide_up > 0) && (slide_down > 0)) {
-          alert("volume slide up and down!");
-        }
-        if (slide_up > 0) {
-          new_volume_slide = slide_up;
-        } else {
-          new_volume_slide = -slide_down;
-        }
+        new_volume_slide = this.getVolumeSlide(minor_command);
         break;
       // Set volume.
       case 0xC:
@@ -1334,6 +1326,43 @@ console.log("unique values: " + unique_values);
         this.setMODPeriod(i, (this.mod_period[i] + period_adjust));
       }
       this.mod_arp_base_note[i] = new_arp_base_note;
+    }
+  }
+
+  getTonePortamento(channel, song_period, speed) {
+    // If there's a new target, set it, otherwise this is a continuation.
+    if (song_period != 0) {
+      this.mod_portamento_target[channel] = song_period;
+    }
+    // If the slide rate is zero, use the old slide rate.
+    if (speed == 0) {
+      speed = this.mod_last_portamento[channel];
+    }
+    this.mod_last_portamento[channel] = speed;
+    const target = this.mod_portamento_target[channel];
+    // With no target, there's nothing to slide to.
+    if (target == 0) {
+      return 0;
+    }
+    if (target > this.mod_period[channel]) {
+      // Sliding positively, which is a portamento down.
+      return speed;
+    } else {
+      // Sliding negatively, which is a portamento up.
+      return -speed;
+    }
+  }
+
+  getVolumeSlide(minor_command) {
+    const slide_down = (minor_command & 0xF);
+    const slide_up = (minor_command >> 4);
+    if ((slide_up > 0) && (slide_down > 0)) {
+      alert("volume slide up and down!");
+    }
+    if (slide_up > 0) {
+      return slide_up;
+    } else {
+      return -slide_down;
     }
   }
 
