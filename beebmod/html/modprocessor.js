@@ -527,7 +527,9 @@ console.log("unique values: " + unique_values);
             (repeat_start + this.mod_sample_repeat_length[channel]);
       } else {
         this.loadSilentMODSample(channel);
-        index = this.mod_sample_index[channel];
+        // Not mod_sample_index, which is -1, ready to be incremented at the
+        // next tick. This is that tick, so start at 0.
+        index = 0;
       }
     }
     this.mod_sample_index[channel] = index;
