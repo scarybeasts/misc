@@ -74,6 +74,8 @@ class MODProcessor extends AudioWorkletProcessor {
     this.mod_portamento = new Int16Array(4);
     this.mod_last_portamento = new Int16Array(4);
     this.mod_last_sample_offset = new Uint8Array(4);
+    // The tick in this row to cut the note at (ECx), or -1 for none.
+    this.mod_note_cut_tick = new Int8Array(4);
     this.mod_last_note_period = new Uint16Array(4);
     this.mod_portamento_target = new Uint16Array(4);
     this.mod_volume_slide = new Int8Array(4);
@@ -429,6 +431,9 @@ console.log("unique values: " + unique_values);
             new_volume = 64;
           }
           this.mod_volume[j] = new_volume;
+          if (this.mod_ticks_counter == this.mod_note_cut_tick[j]) {
+            this.cutMODNote(j);
+          }
           if (this.mod_vibrato[j]) {
             // ProTracker's vibrato: a sine table lookup scaled by the depth,
             // added to the period for the first half of the cycle and
@@ -1193,6 +1198,7 @@ console.log("unique values: " + unique_values);
       let period_adjust = 0;
       let new_arp_base_note = -1;
       let new_sample_start = 0;
+      let new_note_cut_tick = -1;
 
       const command = note.command;
       let major_command = (command >> 8);
@@ -1322,6 +1328,10 @@ console.log("unique values: " + unique_values);
         case 0x20:
           period_adjust = minor_command;
           break;
+        // Note cut at tick x. If x isn't less than the speed, there's no cut.
+        case 0xC0:
+          new_note_cut_tick = minor_command;
+          break;
         default:
           break;
         }
@@ -1374,6 +1384,22 @@ console.log("unique values: " + unique_values);
         this.setMODPeriod(i, (this.mod_period[i] + period_adjust));
       }
       this.mod_arp_base_note[i] = new_arp_base_note;
+      this.mod_note_cut_tick[i] = new_note_cut_tick;
+      // EC0 cuts the note straight away.
+      if (new_note_cut_tick == 0) {
+        this.cutMODNote(i);
+      }
+    }
+  }
+
+  cutMODNote(channel) {
+    // ProTracker sets the volume to 0. Without volume support, silence the
+    // channel until its next note instead, as the beeb players' converters
+    // do.
+    if (this.do_volumes) {
+      this.mod_volume[channel] = 0;
+    } else {
+      this.loadSilentMODSample(channel);
     }
   }
 
