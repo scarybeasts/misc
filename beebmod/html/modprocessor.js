@@ -79,7 +79,9 @@ class MODProcessor extends AudioWorkletProcessor {
     this.mod_arp_base_note = new Int8Array(4);
     this.mod_arp_note2 = new Int8Array(4);
     this.mod_arp_note3 = new Int8Array(4);
-    this.s8_outputs = new Int8Array(4);
+    // Floats: the sample value after the transforms that apply in every
+    // mode. Each mode does its own volume, rounding and clipping.
+    this.s8_outputs = new Float64Array(4);
     for (let i = 0; i < 4; ++i) {
       this.mod_sample[i] = null;
       this.mod_sample_binary[i] = null;
@@ -488,11 +490,23 @@ console.log("unique values: " + unique_values);
       this.advanceGeneric(3);
     }
 
-    let value = this.s8_outputs[0];
-    value += this.s8_outputs[1];
-    value += this.s8_outputs[2];
-    value += this.s8_outputs[3];
-    // Value is -512 to 508.
+    // Paula applies volume to the 8-bit sample without re-quantizing it, and
+    // can't clip a channel, so there's no rounding or clipping here.
+    let value0 = this.s8_outputs[0];
+    let value1 = this.s8_outputs[1];
+    let value2 = this.s8_outputs[2];
+    let value3 = this.s8_outputs[3];
+    if (this.do_volumes) {
+      value0 *= (this.mod_volume[0] / 64);
+      value1 *= (this.mod_volume[1] / 64);
+      value2 *= (this.mod_volume[2] / 64);
+      value3 *= (this.mod_volume[3] / 64);
+    }
+    let value = value0;
+    value += value1;
+    value += value2;
+    value += value3;
+    // Value is -512 to 508 (or more, with a sample gain above 1.0).
     // Convert to 0 to 0.5, which gives a similar volume output to the beeb
     // players, thus enabling better direct comparisons.
     value += 512.0;
@@ -538,9 +552,15 @@ console.log("unique values: " + unique_values);
 
     s8_output *= this.mod_gain[channel];
 
-    // The modes that match the beeb players apply volume later, to the SN
-    // volume, in applyBeebVolume().
-    if (this.do_volumes && !this.isBeebLevelsMode()) {
+    // No volume, rounding or clipping here: each mode does its own.
+    this.s8_outputs[channel] = s8_output;
+  }
+
+  getMergedChannelValue(channel) {
+    // For the merged modes: linear volume, then round and clip to s8, before
+    // the channels are added together.
+    let s8_output = this.s8_outputs[channel];
+    if (this.do_volumes) {
       let volume = this.mod_volume[channel];
       s8_output *= volume;
       s8_output /= 64;
@@ -554,7 +574,7 @@ console.log("unique values: " + unique_values);
       s8_output = Math.round(s8_output);
     }
 
-    this.s8_outputs[channel] = s8_output;
+    return s8_output;
   }
 
   processBeebSeparate() {
@@ -565,8 +585,15 @@ console.log("unique values: " + unique_values);
     }
 
     this.advanceBeeb(beeb_sn_write_slot);
-    let u8_sample_value = (this.s8_outputs[beeb_sn_write_slot] + 128);
+    // Like the beeb player's converter (sample_adjust): add the offset, then
+    // round and clip once. Clipping only after the offset keeps the headroom
+    // that a negative offset gives a sample with gain.
+    let u8_sample_value = this.s8_outputs[beeb_sn_write_slot];
     u8_sample_value += this.mod_offset[beeb_sn_write_slot];
+    // Round halves away from zero, like C's round().
+    u8_sample_value =
+        (Math.sign(u8_sample_value) * Math.round(Math.abs(u8_sample_value)));
+    u8_sample_value += 128;
 
     if (u8_sample_value > 255) {
       u8_sample_value = 255;
@@ -577,21 +604,6 @@ console.log("unique values: " + unique_values);
     let sn_vol = this.beeb_u8_to_sn_vol[u8_sample_value];
     sn_vol = this.applyBeebVolume(beeb_sn_write_slot, sn_vol);
     this.beeb_sn_vols[beeb_sn_write_slot] = sn_vol;
-  }
-
-  isBeebLevelsMode() {
-    // The separate channel modes (like p20k2) and the TDM mode (like p15k4v)
-    // do volume the way the beeb players do.
-    if (this.is_amiga) {
-      return false;
-    }
-    if (this.beeb_channels == 1) {
-      return true;
-    }
-    if (this.beeb_channels == 4) {
-      return true;
-    }
-    return false;
   }
 
   applyBeebVolume(channel, sn_vol) {
@@ -628,10 +640,10 @@ console.log("unique values: " + unique_values);
       this.advanceBeeb(2);
       this.advanceBeeb(3);
       // Range is 0 - 252, midpoint of 128.
-      let samples_total = ((this.s8_outputs[0] + 128) >> 2);
-      samples_total += ((this.s8_outputs[1] + 128) >> 2);
-      samples_total += ((this.s8_outputs[2] + 128) >> 2);
-      samples_total += ((this.s8_outputs[3] + 128) >> 2);
+      let samples_total = ((this.getMergedChannelValue(0) + 128) >> 2);
+      samples_total += ((this.getMergedChannelValue(1) + 128) >> 2);
+      samples_total += ((this.getMergedChannelValue(2) + 128) >> 2);
+      samples_total += ((this.getMergedChannelValue(3) + 128) >> 2);
       // Center midpoint to 0.
       // Range is -128 to 124.
       samples_total -= 128;
@@ -692,7 +704,8 @@ console.log("unique values: " + unique_values);
     }
 
     this.advanceBeeb(beeb_sn_write_slot);
-    let u8_sample_value = (this.s8_outputs[beeb_sn_write_slot] + 128);
+    let u8_sample_value =
+        (this.getMergedChannelValue(beeb_sn_write_slot) + 128);
 
     if (beeb_sn_write_slot < 2) {
       u8_sample_value += this.beeb_offset;
@@ -753,8 +766,15 @@ console.log("unique values: " + unique_values);
     }
 
     this.advanceBeeb(mod_channel);
-    let u8_sample_value = (this.s8_outputs[mod_channel] + 128);
+    // Like the beeb player's converter (sample_adjust): add the offset, then
+    // round and clip once. Clipping only after the offset keeps the headroom
+    // that a negative offset gives a sample with gain.
+    let u8_sample_value = this.s8_outputs[mod_channel];
     u8_sample_value += this.mod_offset[mod_channel];
+    // Round halves away from zero, like C's round().
+    u8_sample_value =
+        (Math.sign(u8_sample_value) * Math.round(Math.abs(u8_sample_value)));
+    u8_sample_value += 128;
 
     if (u8_sample_value > 255) {
       u8_sample_value = 255;
