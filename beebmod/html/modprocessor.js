@@ -318,6 +318,22 @@ console.log(i + ": " + current_vol1 + ", " + current_vol2 + ", " + current_vol3)
     }
 console.log("unique values: " + unique_values);
 
+    // Build the mapping of MOD volume to the beeb players' volume levels.
+    // A level is how many SN volume stops (2dB each) quieter than volume 64
+    // the volume is, rounded. The beeb players have levels 0 to 9, and
+    // mute anything quieter (below about -19dB). Mute is level 15.
+    // See level_of() in the p15k4v converter.
+    this.beeb_volume_to_level = new Uint8Array(65);
+    this.beeb_volume_to_level[0] = 15;
+    for (let i = 1; i <= 64; ++i) {
+      const db = (-20 * Math.log10(i / 64));
+      let level = Math.round(db / 2);
+      if (level > 9) {
+        level = 15;
+      }
+      this.beeb_volume_to_level[i] = level;
+    }
+
     // Build the mapping of MOD periods to beeb advance increments.
     this.setupBeebAdvances(this.beeb_period_advances_7k, 256);
     this.setupBeebAdvances(this.beeb_period_advances_10k, 192);
@@ -496,17 +512,10 @@ console.log("unique values: " + unique_values);
 
     s8_output *= this.mod_gain[channel];
 
-    if (this.do_volumes) {
+    // The modes that match the beeb players apply volume later, to the SN
+    // volume, in applyBeebVolume().
+    if (this.do_volumes && !this.isBeebLevelsMode()) {
       let volume = this.mod_volume[channel];
-      // The TDM pair each have their SN channel half the time, so they are
-      // quieter. The beeb player's converter compensates by boosting the
-      // MOD volume (tdm_boost 3 is about 2.0 here), capped at full volume.
-      if (this.isTDMChannel(channel)) {
-        volume *= this.tdm_boost_mod;
-        if (volume > 64) {
-          volume = 64;
-        }
-      }
       s8_output *= volume;
       s8_output /= 64;
     }
@@ -539,8 +548,49 @@ console.log("unique values: " + unique_values);
       u8_sample_value = 0;
     }
 
-    const sn_vol = this.beeb_u8_to_sn_vol[u8_sample_value];
+    let sn_vol = this.beeb_u8_to_sn_vol[u8_sample_value];
+    sn_vol = this.applyBeebVolume(beeb_sn_write_slot, sn_vol);
     this.beeb_sn_vols[beeb_sn_write_slot] = sn_vol;
+  }
+
+  isBeebLevelsMode() {
+    // The separate channel modes (like p20k2) and the TDM mode (like p15k4v)
+    // do volume the way the beeb players do.
+    if (this.is_amiga) {
+      return false;
+    }
+    if (this.beeb_channels == 1) {
+      return true;
+    }
+    if (this.beeb_channels == 4) {
+      return true;
+    }
+    return false;
+  }
+
+  applyBeebVolume(channel, sn_vol) {
+    if (!this.do_volumes) {
+      return sn_vol;
+    }
+    let volume = this.mod_volume[channel];
+    // The TDM pair each have their SN channel half the time, so they are
+    // quieter. The beeb player's converter compensates by boosting the
+    // MOD volume (tdm_boost 3 is about 2.0 here), capped at full volume.
+    if (this.isTDMChannel(channel)) {
+      volume *= this.tdm_boost_mod;
+      volume = Math.round(volume);
+      if (volume > 64) {
+        volume = 64;
+      }
+    }
+    // Each level is one SN volume stop (2dB) quieter, and the mute level is
+    // 15, so adding it always gives 15 (off).
+    const level = this.beeb_volume_to_level[volume];
+    sn_vol += level;
+    if (sn_vol > 15) {
+      sn_vol = 15;
+    }
+    return sn_vol;
   }
 
   processBeebMerged() {
@@ -698,6 +748,8 @@ console.log("unique values: " + unique_values);
         sn_vol = 15;
       }
     }
+    // After the boost, so that a muted note stays muted.
+    sn_vol = this.applyBeebVolume(mod_channel, sn_vol);
     this.beeb_sn_vols[sn_channel] = sn_vol;
     // Silence the unused channel in this mode in case coming from a
     // different mode.
