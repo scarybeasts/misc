@@ -71,6 +71,8 @@ function beebmod_setup_listeners() {
   checkbox_filter.addEventListener("change", beebmod_checkbox_filter);
   const checkbox_volumes = document.getElementById("checkbox_volumes");
   checkbox_volumes.addEventListener("change", beebmod_checkbox_volumes);
+  const checkbox_vibrato = document.getElementById("checkbox_vibrato");
+  checkbox_vibrato.addEventListener("change", beebmod_checkbox_vibrato);
   const number_beeb_merged_gain =
       document.getElementById("number_beeb_merged_gain");
   number_beeb_merged_gain.addEventListener("change",
@@ -375,6 +377,11 @@ function beebmod_checkbox_filter(event) {
 function beebmod_checkbox_volumes(event) {
   const checked = event.target.checked;
   window.beebmod_port.postMessage(["VOLUMES", checked]);
+}
+
+function beebmod_checkbox_vibrato(event) {
+  const checked = event.target.checked;
+  window.beebmod_port.postMessage(["VIBRATO", checked]);
 }
 
 function beebmod_number_beeb_merged_gain(event) {

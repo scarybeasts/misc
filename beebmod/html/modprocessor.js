@@ -35,6 +35,7 @@ class MODProcessor extends AudioWorkletProcessor {
     this.sample_offset = new Array(32);
     this.sample_effect = new Array(32);
     this.do_volumes = false;
+    this.do_vibrato = false;
 
     // Play state.
     this.is_amiga = true;
@@ -64,6 +65,11 @@ class MODProcessor extends AudioWorkletProcessor {
     this.mod_offset = new Int32Array(4);
     this.mod_sample_effect_table = new Array(4);
     this.mod_period = new Uint16Array(4);
+    this.mod_output_period = new Uint16Array(4);
+    this.mod_vibrato = new Uint8Array(4);
+    this.mod_vibrato_speed = new Uint8Array(4);
+    this.mod_vibrato_depth = new Uint8Array(4);
+    this.mod_vibrato_pos = new Uint8Array(4);
     this.mod_volume = new Uint16Array(4);
     this.mod_portamento = new Int16Array(4);
     this.mod_last_portamento = new Int16Array(4);
@@ -101,6 +107,10 @@ class MODProcessor extends AudioWorkletProcessor {
          428,404,381,360,339,320,302,285,269,254,240,226,
          214,202,190,180,170,160,151,143,135,127,120,113]);
     this.effects_tables = new Array();
+    // ProTracker's vibrato sine table: half a cycle, peaking at 255.
+    this.vibrato_sine = new Uint8Array(
+        [  0, 24, 49, 74, 97,120,141,161,180,197,212,224,235,244,250,253,
+         255,253,250,244,235,224,212,197,180,161,141,120, 97, 74, 49, 24]);
 
     this.setupEffects();
     this.setupAmiga();
@@ -416,6 +426,22 @@ console.log("unique values: " + unique_values);
             new_volume = 64;
           }
           this.mod_volume[j] = new_volume;
+          if (this.mod_vibrato[j]) {
+            // ProTracker's vibrato: a sine table lookup scaled by the depth,
+            // added to the period for the first half of the cycle and
+            // subtracted for the second. The position steps by the speed
+            // each tick, through a cycle of 64.
+            const vibrato_pos = this.mod_vibrato_pos[j];
+            let vibrato_delta = this.vibrato_sine[vibrato_pos & 31];
+            vibrato_delta *= this.mod_vibrato_depth[j];
+            vibrato_delta >>= 7;
+            if (vibrato_pos & 32) {
+              vibrato_delta = -vibrato_delta;
+            }
+            this.setMODOutputPeriod(j, (this.mod_period[j] + vibrato_delta));
+            this.mod_vibrato_pos[j] =
+                ((vibrato_pos + this.mod_vibrato_speed[j]) & 63);
+          }
           const portamento = this.mod_portamento[j];
           if (portamento == 0) {
             continue;
@@ -443,22 +469,22 @@ console.log("unique values: " + unique_values);
 
     this.amiga_counters[0] -= amiga_clocks_per_host_sample;
     while (this.amiga_counters[0] <= 0) {
-      this.amiga_counters[0] += this.mod_period[0];
+      this.amiga_counters[0] += this.mod_output_period[0];
       this.advanceGeneric(0);
     }
     this.amiga_counters[1] -= amiga_clocks_per_host_sample;
     while (this.amiga_counters[1] <= 0) {
-      this.amiga_counters[1] += this.mod_period[1];
+      this.amiga_counters[1] += this.mod_output_period[1];
       this.advanceGeneric(1);
     }
     this.amiga_counters[2] -= amiga_clocks_per_host_sample;
     while (this.amiga_counters[2] <= 0) {
-      this.amiga_counters[2] += this.mod_period[2];
+      this.amiga_counters[2] += this.mod_output_period[2];
       this.advanceGeneric(2);
     }
     this.amiga_counters[3] -= amiga_clocks_per_host_sample;
     while (this.amiga_counters[3] <= 0) {
-      this.amiga_counters[3] += this.mod_period[3];
+      this.amiga_counters[3] += this.mod_output_period[3];
       this.advanceGeneric(3);
     }
 
@@ -1029,6 +1055,9 @@ console.log("unique values: " + unique_values);
     } else if (name == "VOLUMES") {
       const do_volumes = data_array[1];
       this.do_volumes = do_volumes;
+    } else if (name == "VIBRATO") {
+      const do_vibrato = data_array[1];
+      this.do_vibrato = do_vibrato;
     } else {
       console.log("unknown command: " + name);
       console.log("samples: ",
@@ -1136,6 +1165,7 @@ console.log("unique values: " + unique_values);
 
       let new_volume = -1;
       let new_portamento = 0;
+      let new_vibrato = 0;
       let new_volume_slide = 0;
       let period_adjust = 0;
       let new_arp_base_note = -1;
@@ -1196,6 +1226,23 @@ console.log("unique values: " + unique_values);
         // This command doesn't play a note.
         play_period = 0;
         break;
+      // Vibrato.
+      case 0x4:
+      {
+        // A speed or depth of zero means keep using the previous one.
+        const speed = (minor_command >> 4);
+        const depth = (minor_command & 0x0F);
+        if (speed != 0) {
+          this.mod_vibrato_speed[i] = speed;
+        }
+        if (depth != 0) {
+          this.mod_vibrato_depth[i] = depth;
+        }
+        if (this.do_vibrato) {
+          new_vibrato = 1;
+        }
+        break;
+      }
       // Volume slide.
       case 0xA:
         const slide_down = (minor_command & 0xF);
@@ -1279,6 +1326,10 @@ console.log("unique values: " + unique_values);
       }
       this.mod_portamento[i] = new_portamento;
       this.mod_volume_slide[i] = new_volume_slide;
+      this.mod_vibrato[i] = new_vibrato;
+      // Each row starts at the base period, removing any vibrato from the
+      // previous row.
+      this.setMODOutputPeriod(i, this.mod_period[i]);
       if (period_adjust != 0) {
         this.setMODPeriod(i, (this.mod_period[i] + period_adjust));
       }
@@ -1321,6 +1372,8 @@ console.log("unique values: " + unique_values);
     this.mod_volume_slide[channel] = 0;
     this.mod_portamento[channel] = 0;
     this.mod_arp_base_note[channel] = -1;
+    // A new note restarts the vibrato cycle.
+    this.mod_vibrato_pos[channel] = 0;
 
     // Need to set this to 0 so that our index of -1 gets incremented to 0
     // at first tick.
@@ -1333,6 +1386,13 @@ console.log("unique values: " + unique_values);
 
   setMODPeriod(channel, period) {
     this.mod_period[channel] = period;
+    this.setMODOutputPeriod(channel, period);
+  }
+
+  setMODOutputPeriod(channel, period) {
+    // The period actually played. Vibrato varies this around mod_period,
+    // without changing mod_period.
+    this.mod_output_period[channel] = period;
 
     const beeb_period_advance = this.beeb_period_advances[period];
     this.beeb_channel_advances_lo[channel] = (beeb_period_advance & 0xFF);
