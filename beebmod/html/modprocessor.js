@@ -23,6 +23,12 @@ class MODProcessor extends AudioWorkletProcessor {
     for (let i = 0; i < 4; ++i) {
       this.is_channel_playing[i] = 1;
     }
+    // Matches the TDM checkboxes' initial state in the HTML.
+    this.is_channel_tdm = new Uint8Array(4);
+    this.is_channel_tdm[2] = 1;
+    this.is_channel_tdm[3] = 1;
+    this.tdm_boost_mod = 1.0;
+    this.tdm_boost_sn = 0;
     this.sample_half_res = new Array(32);
     this.sample_flip = new Array(32);
     this.sample_gain = new Array(32);
@@ -199,6 +205,10 @@ class MODProcessor extends AudioWorkletProcessor {
     this.beeb_channel_advances_hi = new Uint8Array(4);
     this.beeb_samples_total = 0;
     this.beeb_period_advances = this.beeb_period_advances_7k;
+    // For the TDM scheme: the MOD channels in the order TDM 1st, TDM 2nd,
+    // separate 1st, separate 2nd.
+    this.beeb_tdm_order = new Uint8Array(4);
+    this.updateTDMOrder();
 
     // Build the mapping of the beeb's 16 output levels to a u8 value.
     const beeb_sn_volume_exponent = -0.1;
@@ -488,6 +498,15 @@ console.log("unique values: " + unique_values);
 
     if (this.do_volumes) {
       let volume = this.mod_volume[channel];
+      // The TDM pair each have their SN channel half the time, so they are
+      // quieter. The beeb player's converter compensates by boosting the
+      // MOD volume (tdm_boost 3 is about 2.0 here), capped at full volume.
+      if (this.isTDMChannel(channel)) {
+        volume *= this.tdm_boost_mod;
+        if (volume > 64) {
+          volume = 64;
+        }
+      }
       s8_output *= volume;
       s8_output /= 64;
     }
@@ -633,6 +652,92 @@ console.log("unique values: " + unique_values);
     }
   }
 
+  processBeebTDM() {
+    const beeb_sn_write_slot = this.beeb_sn_write_slot;
+
+    // The TDM pair share SN channel 3 (index 2). Their writes must be equally
+    // spaced, so they go in slots 0 and 4 of the 8 slots per 64us.
+    // The other two MOD channels have SN channels 1 and 2 to themselves.
+    let mod_channel;
+    let sn_channel;
+    if (beeb_sn_write_slot == 0) {
+      mod_channel = this.beeb_tdm_order[0];
+      sn_channel = 2;
+    } else if (beeb_sn_write_slot == 4) {
+      mod_channel = this.beeb_tdm_order[1];
+      sn_channel = 2;
+    } else if (beeb_sn_write_slot == 1) {
+      mod_channel = this.beeb_tdm_order[2];
+      sn_channel = 0;
+    } else if (beeb_sn_write_slot == 2) {
+      mod_channel = this.beeb_tdm_order[3];
+      sn_channel = 1;
+    } else {
+      return;
+    }
+
+    this.advanceBeeb(mod_channel);
+    let u8_sample_value = (this.s8_outputs[mod_channel] + 128);
+    u8_sample_value += this.mod_offset[mod_channel];
+
+    if (u8_sample_value > 255) {
+      u8_sample_value = 255;
+    } else if (u8_sample_value < 0) {
+      u8_sample_value = 0;
+    }
+
+    let sn_vol = this.beeb_u8_to_sn_vol[u8_sample_value];
+    // Optionally boost the TDM pair by a number of SN volume stops.
+    // Each stop is 2dB. This clips the loudest part of loud samples, but
+    // samples are often lowered by an offset, which leaves some headroom.
+    if (sn_channel == 2) {
+      sn_vol -= this.tdm_boost_sn;
+      if (sn_vol < 0) {
+        sn_vol = 0;
+      } else if (sn_vol > 15) {
+        sn_vol = 15;
+      }
+    }
+    this.beeb_sn_vols[sn_channel] = sn_vol;
+    // Silence the unused channel in this mode in case coming from a
+    // different mode.
+    this.beeb_sn_vols[3] = 0xF;
+  }
+
+  isTDMChannel(channel) {
+    if (this.is_amiga) {
+      return false;
+    }
+    if (this.beeb_channels != 4) {
+      return false;
+    }
+    if (channel == this.beeb_tdm_order[0]) {
+      return true;
+    }
+    if (channel == this.beeb_tdm_order[1]) {
+      return true;
+    }
+    return false;
+  }
+
+  updateTDMOrder() {
+    // The first two MOD channels ticked for TDM are the TDM pair. If fewer
+    // than two are ticked, the unticked channels fill in, lowest first.
+    let num = 0;
+    for (let i = 0; i < 4; ++i) {
+      if (this.is_channel_tdm[i]) {
+        this.beeb_tdm_order[num] = i;
+        num++;
+      }
+    }
+    for (let i = 0; i < 4; ++i) {
+      if (!this.is_channel_tdm[i]) {
+        this.beeb_tdm_order[num] = i;
+        num++;
+      }
+    }
+  }
+
   processBeeb() {
     this.beeb_sn_cycles_counter++;
     // A new command can be given to the SN chip once every 2 SN cycles,
@@ -643,6 +748,9 @@ console.log("unique values: " + unique_values);
         this.processBeebSeparate();
       } else if (this.beeb_channels == 0) {
         this.processBeeb_1_1_2();
+      } else if (this.beeb_channels == 4) {
+        /* Two separate SN channels plus a TDM pair on a third. */
+        this.processBeebTDM();
       } else {
         this.processBeebMerged();
       }
@@ -766,6 +874,12 @@ console.log("unique values: " + unique_values);
       this.beeb_period_advances = this.beeb_period_advances_12k;
       this.beeb_num_sn_write_slots = 10;
       this.beeb_output_divider = 3.0;
+    } else if (name == "BEEB_TDM_15K") {
+      this.is_amiga = false;
+      this.beeb_channels = 4;
+      this.beeb_period_advances = this.beeb_period_advances_15k;
+      this.beeb_num_sn_write_slots = 8;
+      this.beeb_output_divider = 3.0;
     } else if (name == "BEEB_MERGED2_7K") {
       this.is_amiga = false;
       this.beeb_channels = 2;
@@ -802,12 +916,23 @@ console.log("unique values: " + unique_values);
     } else if (name == "BEEB_OFFSET") {
       const offset = data_array[1];
       this.beeb_offset = offset;
+    } else if (name == "TDM_BOOST_MOD") {
+      const boost = data_array[1];
+      this.tdm_boost_mod = boost;
+    } else if (name == "TDM_BOOST_SN") {
+      const boost = data_array[1];
+      this.tdm_boost_sn = boost;
     } else if (name == "PLAY_CHANNEL") {
       const channel = data_array[1];
       const is_play = data_array[2];
       // Stop any in-progress note.
       this.handlePlaySample(channel, 0, 0);
       this.is_channel_playing[channel] = is_play;
+    } else if (name == "TDM_CHANNEL") {
+      const channel = data_array[1];
+      const is_tdm = data_array[2];
+      this.is_channel_tdm[channel] = is_tdm;
+      this.updateTDMOrder();
     } else if (name == "SN_PERIOD") {
       const channel = data_array[1];
       const period = data_array[2];

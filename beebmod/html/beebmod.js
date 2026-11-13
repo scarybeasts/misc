@@ -31,6 +31,10 @@ function beebmod_setup_listeners() {
       document.getElementById("radio_beeb_12k_1_1_2");
   radio_beeb_12k_1_1_2.addEventListener("change",
                                         beebmod_radio_beeb_12k_1_1_2);
+  const radio_beeb_tdm_15k =
+      document.getElementById("radio_beeb_tdm_15k");
+  radio_beeb_tdm_15k.addEventListener("change",
+                                      beebmod_radio_beeb_tdm_15k);
   const radio_beeb_merged2_7k =
       document.getElementById("radio_beeb_merged2_7k");
   radio_beeb_merged2_7k.addEventListener("change",
@@ -56,6 +60,10 @@ function beebmod_setup_listeners() {
     checkbox_play.addEventListener("change", beebmod_checkbox_play);
   }
   for (let i = 1; i <= 4; ++i) {
+    const checkbox_tdm = document.getElementById("checkbox_tdm" + i);
+    checkbox_tdm.addEventListener("change", beebmod_checkbox_tdm);
+  }
+  for (let i = 1; i <= 4; ++i) {
     const input_period = document.getElementById("number_period" + i);
     input_period.addEventListener("change", beebmod_number_period);
   }
@@ -69,6 +77,11 @@ function beebmod_setup_listeners() {
                                            beebmod_number_beeb_merged_gain);
   const number_beeb_offset = document.getElementById("number_beeb_offset");
   number_beeb_offset.addEventListener("change", beebmod_number_beeb_offset);
+  const number_tdm_boost_mod = document.getElementById("number_tdm_boost_mod");
+  number_tdm_boost_mod.addEventListener("change",
+                                        beebmod_number_tdm_boost_mod);
+  const number_tdm_boost_sn = document.getElementById("number_tdm_boost_sn");
+  number_tdm_boost_sn.addEventListener("change", beebmod_number_tdm_boost_sn);
 
   // This is the actual drop handler.
   document.addEventListener("drop", file_dropped);
@@ -113,6 +126,8 @@ function beebmod_set_default_config() {
   beebmod_load_number_config("number_start_position", 1);
   beebmod_load_number_config("number_beeb_merged_gain", 2.0);
   beebmod_load_number_config("number_beeb_offset", 0);
+  beebmod_load_number_config("number_tdm_boost_mod", 1.0);
+  beebmod_load_number_config("number_tdm_boost_sn", 0);
   beebmod_load_number_config("number_period1", 2);
   beebmod_load_number_config("number_period2", 3);
   beebmod_load_number_config("number_period3", 5);
@@ -322,6 +337,10 @@ function beebmod_radio_beeb_12k_1_1_2() {
   window.beebmod_port.postMessage(["BEEB_12K_1_1_2"]);
 }
 
+function beebmod_radio_beeb_tdm_15k() {
+  window.beebmod_port.postMessage(["BEEB_TDM_15K"]);
+}
+
 function beebmod_radio_beeb_merged2_7k() {
   window.beebmod_port.postMessage(["BEEB_MERGED2_7K"]);
 }
@@ -372,12 +391,32 @@ function beebmod_number_beeb_offset(event) {
   window.beebmod_port.postMessage(["BEEB_OFFSET", value]);
 }
 
+function beebmod_number_tdm_boost_mod(event) {
+  const target = event.target;
+  const value = Number(target.value);
+  window.beebmod_port.postMessage(["TDM_BOOST_MOD", value]);
+}
+
+function beebmod_number_tdm_boost_sn(event) {
+  const target = event.target;
+  const value = Number(target.value);
+  window.beebmod_port.postMessage(["TDM_BOOST_SN", value]);
+}
+
 function beebmod_checkbox_play(event) {
   const id = event.target.id;
   let channel = Number(id.slice(-1));
   channel--;
   const checked = event.target.checked;
   window.beebmod_port.postMessage(["PLAY_CHANNEL", channel, checked]);
+}
+
+function beebmod_checkbox_tdm(event) {
+  const id = event.target.id;
+  let channel = Number(id.slice(-1));
+  channel--;
+  const checked = event.target.checked;
+  window.beebmod_port.postMessage(["TDM_CHANNEL", channel, checked]);
 }
 
 function beebmod_number_period(event) {

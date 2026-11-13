@@ -22,6 +22,8 @@ beebmod
   <label>Beeb (separate @20k)</label>
   <input id="radio_beeb_12k_1_1_2" type="radio" name="player"></input>
   <label>Beeb (1+1+2 @12k)</label>
+  <input id="radio_beeb_tdm_15k" type="radio" name="player"></input>
+  <label>Beeb (1+1+TDM @15k)</label>
   <input id="radio_beeb_merged2_7k" type="radio" name="player"></input>
   <label>Beeb (merged to 2 @7k)</label>
   <input id="radio_beeb_merged2_10k" type="radio" name="player"></input>
@@ -43,6 +45,10 @@ beebmod
 <input id="number_beeb_merged_gain" type="number" step="0.1"></input>
 <label for="number_beeb_offset">Beeb offset:</label>
 <input id="number_beeb_offset" type="number"></input>
+<label for="number_tdm_boost_mod">TDM boost MOD:</label>
+<input id="number_tdm_boost_mod" type="number" step="0.1"></input>
+<label for="number_tdm_boost_sn">TDM boost SN:</label>
+<input id="number_tdm_boost_sn" type="number"></input>
 <p></p>
 <button id="play">Play</button>
 <button id="stop">Stop</button>
@@ -54,13 +60,14 @@ beebmod
     <tr>
       <th scope="col">MOD Channel</th>
       <th scope="col">Play?</th>
+      <th scope="col">TDM?</th>
     </tr>
   </thead>
   <tbody>
-    <tr><td>1</td><td><input id="checkbox_play1" type="checkbox" checked></input></td></tr>
-    <tr><td>2</td><td><input id="checkbox_play2" type="checkbox" checked></input></td></tr>
-    <tr><td>3</td><td><input id="checkbox_play3" type="checkbox" checked></input></td></tr>
-    <tr><td>4</td><td><input id="checkbox_play4" type="checkbox" checked></input></td></tr>
+    <tr><td>1</td><td><input id="checkbox_play1" type="checkbox" checked></input></td><td><input id="checkbox_tdm1" type="checkbox"></input></td></tr>
+    <tr><td>2</td><td><input id="checkbox_play2" type="checkbox" checked></input></td><td><input id="checkbox_tdm2" type="checkbox"></input></td></tr>
+    <tr><td>3</td><td><input id="checkbox_play3" type="checkbox" checked></input></td><td><input id="checkbox_tdm3" type="checkbox" checked></input></td></tr>
+    <tr><td>4</td><td><input id="checkbox_play4" type="checkbox" checked></input></td><td><input id="checkbox_tdm4" type="checkbox" checked></input></td></tr>
   </tbody>
 </table>
 <table style="display: inline-block;">
