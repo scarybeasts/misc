@@ -36,6 +36,8 @@ class MODProcessor extends AudioWorkletProcessor {
     this.sample_effect = new Array(32);
     this.do_volumes = false;
     this.do_vibrato = false;
+    this.do_slides = false;
+    this.do_cuts = false;
 
     // Play state.
     this.is_amiga = true;
@@ -1086,6 +1088,12 @@ console.log("unique values: " + unique_values);
     } else if (name == "VIBRATO") {
       const do_vibrato = data_array[1];
       this.do_vibrato = do_vibrato;
+    } else if (name == "SLIDES") {
+      const do_slides = data_array[1];
+      this.do_slides = do_slides;
+    } else if (name == "CUTS") {
+      const do_cuts = data_array[1];
+      this.do_cuts = do_cuts;
     } else {
       console.log("unknown command: " + name);
       console.log("samples: ",
@@ -1227,13 +1235,17 @@ console.log("unique values: " + unique_values);
       }
       // Portamento up.
       case 0x1:
-        new_portamento = -minor_command;
-        this.mod_portamento_target[i] = 0;
+        if (this.do_slides) {
+          new_portamento = -minor_command;
+          this.mod_portamento_target[i] = 0;
+        }
         break;
       // Portamento down.
       case 0x2:
-        new_portamento = minor_command;
-        this.mod_portamento_target[i] = 0;
+        if (this.do_slides) {
+          new_portamento = minor_command;
+          this.mod_portamento_target[i] = 0;
+        }
         break;
       // Portamento to note.
       case 0x3:
@@ -1330,7 +1342,9 @@ console.log("unique values: " + unique_values);
           break;
         // Note cut at tick x. If x isn't less than the speed, there's no cut.
         case 0xC0:
-          new_note_cut_tick = minor_command;
+          if (this.do_cuts) {
+            new_note_cut_tick = minor_command;
+          }
           break;
         default:
           break;
