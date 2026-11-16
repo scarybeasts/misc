@@ -59,6 +59,18 @@ function beebmod_setup_listeners() {
       document.getElementById("radio_beeb_merged3_15k");
   radio_beeb_merged3_15k.addEventListener("change",
                                           beebmod_radio_beeb_merged3_15k);
+  const radio_table_within1 = document.getElementById("radio_table_within1");
+  radio_table_within1.addEventListener("change", beebmod_radio_table_within1);
+  const radio_table_within2 = document.getElementById("radio_table_within2");
+  radio_table_within2.addEventListener("change", beebmod_radio_table_within2);
+  const radio_table_within3 = document.getElementById("radio_table_within3");
+  radio_table_within3.addEventListener("change", beebmod_radio_table_within3);
+  const radio_table_naive = document.getElementById("radio_table_naive");
+  radio_table_naive.addEventListener("change", beebmod_radio_table_naive);
+  const radio_table_odo222 = document.getElementById("radio_table_odo222");
+  radio_table_odo222.addEventListener("change", beebmod_radio_table_odo222);
+  const radio_table_odo111 = document.getElementById("radio_table_odo111");
+  radio_table_odo111.addEventListener("change", beebmod_radio_table_odo111);
   for (let i = 1; i <= 4; ++i) {
     const checkbox_play = document.getElementById("checkbox_play" + i);
     checkbox_play.addEventListener("change", beebmod_checkbox_play);
@@ -375,6 +387,30 @@ function beebmod_radio_beeb_merged3_10k() {
 
 function beebmod_radio_beeb_merged3_15k() {
   window.beebmod_port.postMessage(["BEEB_MERGED3_15K"]);
+}
+
+function beebmod_radio_table_within1() {
+  window.beebmod_port.postMessage(["MERGED3_TABLE", "within1"]);
+}
+
+function beebmod_radio_table_within2() {
+  window.beebmod_port.postMessage(["MERGED3_TABLE", "within2"]);
+}
+
+function beebmod_radio_table_within3() {
+  window.beebmod_port.postMessage(["MERGED3_TABLE", "within3"]);
+}
+
+function beebmod_radio_table_naive() {
+  window.beebmod_port.postMessage(["MERGED3_TABLE", "naive"]);
+}
+
+function beebmod_radio_table_odo222() {
+  window.beebmod_port.postMessage(["MERGED3_TABLE", "odo222"]);
+}
+
+function beebmod_radio_table_odo111() {
+  window.beebmod_port.postMessage(["MERGED3_TABLE", "odo111"]);
 }
 
 function beebmod_checkbox_filter(event) {

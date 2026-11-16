@@ -293,49 +293,9 @@ console.log(i + ": " + current_vol1 + ", " + current_vol2);
 console.log("unique values: " + unique_values);
 
     // Build the mapping of requested output level to 3 merged channels.
-    for (let i = 0; i < 256; ++i) {
-      this.beeb_u8_to_sn_vol_trio1[i] = -1;
-      this.beeb_u8_to_sn_vol_trio2[i] = -1;
-      this.beeb_u8_to_sn_vol_trio3[i] = -1;
-    }
-    for (let i = 0; i < 16; ++i) {
-      for (let j = 0; j < 16; ++j) {
-        for (let k = 0; k < 16; ++k) {
-          // Individual channel outputs must be similar to one another,
-          // otherwise there's wild hiss and crackle.
-          if (j < i) continue;
-          if (k < j) continue;
-          if (j > (i + 1)) continue;
-          if (k > (i + 1)) continue;
-          // Range is 0.0 to 3.0.
-          const output =
-              (this.beeb_sn_vol_to_output[i] +
-               this.beeb_sn_vol_to_output[j] +
-               this.beeb_sn_vol_to_output[k]);
-          const u8_output = Math.round(output / 3.0 * 255.0);
-          this.beeb_u8_to_sn_vol_trio1[u8_output] = i;
-          this.beeb_u8_to_sn_vol_trio2[u8_output] = j;
-          this.beeb_u8_to_sn_vol_trio3[u8_output] = k;
-        }
-      }
-    }
-    current_vol1 = -1;
-    current_vol2 = -1;
-    current_vol3 = -1;
-    unique_values = 0;
-    for (let i = 0; i < 256; ++i) {
-      if (this.beeb_u8_to_sn_vol_trio1[i] != -1) {
-        unique_values++;
-        current_vol1 = this.beeb_u8_to_sn_vol_trio1[i];
-        current_vol2 = this.beeb_u8_to_sn_vol_trio2[i];
-        current_vol3 = this.beeb_u8_to_sn_vol_trio3[i];
-console.log(i + ": " + current_vol1 + ", " + current_vol2 + ", " + current_vol3);
-      }
-      this.beeb_u8_to_sn_vol_trio1[i] = current_vol1;
-      this.beeb_u8_to_sn_vol_trio2[i] = current_vol2;
-      this.beeb_u8_to_sn_vol_trio3[i] = current_vol3;
-    }
-console.log("unique values: " + unique_values);
+    // The default matches the "within1" radio button's initial state.
+    this.setupBeebOdometerTables();
+    this.setupBeebTrioWithin(1);
 
     // Build the mapping of MOD volume to the beeb players' volume levels.
     // A level is how many SN volume stops (2dB each) quieter than volume 64
@@ -372,6 +332,125 @@ console.log("unique values: " + unique_values);
       const advance = Math.round(advance_float);
       array[i] = advance;
     }
+  }
+
+  setupBeebTrioWithin(spread) {
+    // The 3 merged channels' levels, loudest first (SN channel 1 gets the
+    // loudest), are all within "spread" volume stops of one another. Each
+    // u8 output level uses the triple whose output is nearest to it.
+    // A spread of 15 means any triple, which gives the most different output
+    // levels but no regard for switching noise.
+    for (let u8 = 0; u8 < 256; ++u8) {
+      let best_error = 1000.0;
+      for (let i = 0; i < 16; ++i) {
+        for (let j = 0; j < 16; ++j) {
+          for (let k = 0; k < 16; ++k) {
+            if (j < i) continue;
+            if (k < j) continue;
+            if (k > (i + spread)) continue;
+            // Range is 0.0 to 3.0.
+            const output =
+                (this.beeb_sn_vol_to_output[i] +
+                 this.beeb_sn_vol_to_output[j] +
+                 this.beeb_sn_vol_to_output[k]);
+            const u8_output = (output / 3.0 * 255.0);
+            const error = Math.abs(u8_output - u8);
+            if (error < best_error) {
+              best_error = error;
+              this.beeb_u8_to_sn_vol_trio1[u8] = i;
+              this.beeb_u8_to_sn_vol_trio2[u8] = j;
+              this.beeb_u8_to_sn_vol_trio3[u8] = k;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  setupBeebTrioFromTable(table) {
+    // The table is 256 triples of SN levels, for SN channels 1, 2, 3.
+    for (let u8 = 0; u8 < 256; ++u8) {
+      this.beeb_u8_to_sn_vol_trio1[u8] = table[(u8 * 3) + 0];
+      this.beeb_u8_to_sn_vol_trio2[u8] = table[(u8 * 3) + 1];
+      this.beeb_u8_to_sn_vol_trio3[u8] = table[(u8 * 3) + 2];
+    }
+  }
+
+  setupBeebOdometerTables() {
+    // "Odometer" tables: SN channel 1 is the coarse digit and channels 2 and
+    // 3 are finer digits, so that neighbouring u8 values mostly change one
+    // channel. Built offline by dynamic programming, trading static error
+    // against switching error for writes 8us apart, at 70% of full output.
+    // odo222 is for SN periods 2,2,2 and odo111 for periods 1,1,1.
+    // Each is 256 triples of SN levels for SN channels 1, 2, 3.
+    this.beeb_trio_odo222 = new Uint8Array([
+      15,15,15, 15,15,15, 15,15,15, 14,15,15, 14,15,15, 14,15,15, 13,15,15, 12,15,15,
+      12,15,15, 11,15,15, 14,14,15, 13,14,15, 13,13,15, 14,12,15, 13,12,15, 12,12,15,
+      13,14,14, 13,14,13, 13,13,13, 14,12,13, 13,12,13, 12,12,13, 11,13,13, 10,14,13,
+      10,13,13, 10,12,14, 10,12,13, 10,11,14, 10,11,13,  9,12,13,  9,11,14,  8,13,13,
+       8,12,14,  8,12,13,  8,11,14,  8,11,13,  7,13,13,  7,12,14,  7,12,13,  7,11,14,
+       7,11,13,  7,10,14,  7,10,13,  7,10,13,  6,12,13,  6,11,14,  6,11,13,  6,10,14,
+       6,10,14,  6,10,13,  5,13,13,  5,12,14,  5,12,13,  5,11,14,  5,11,13,  5,10,14,
+       5,10,14,  4,14,14,  4,14,14,  4,13,14,  4,13,13,  4,12,14,  4,12,13,  4,11,14,
+       4,11,13,  4,10,14,  4,10,13,  4,10,13,  4, 9,14,  4, 9,14,  3,14,14,  3,14,14,
+       3,13,14,  3,13,13,  3,12,13,  3,12,13,  3,12,12,  3,11,13,  3,10,14,  3,10,13,
+       3,10,12,  3,10,12,  3, 9,13,  3, 9,13,  3, 9,12,  3, 8,14,  3, 8,13,  3, 8,13,
+       2,13,13,  2,13,13,  2,12,13,  2,11,14,  2,11,13,  2,10,14,  2,10,14,  2,10,13,
+       2,10,12,  2,10,12,  2, 9,13,  2, 9,12,  2, 9,12,  2, 8,14,  2, 8,13,  2, 8,12,
+       2, 8,12,  1,14,14,  1,14,14,  1,13,14,  1,13,14,  1,12,14,  1,12,13,  1,11,14,
+       1,11,13,  1,10,14,  1,10,14,  1,10,13,  1, 9,14,  1, 9,14,  1, 9,13,  1, 9,12,
+       1, 8,14,  1, 8,14,  1, 8,13,  1, 8,12,  1, 8,12,  1, 7,14,  1, 7,14,  1, 7,13,
+       1, 7,12,  1, 7,12,  0,14,14,  0,14,14,  0,13,14,  0,13,14,  0,12,14,  0,12,13,
+       0,11,14,  0,11,13,  0,10,14,  0,10,14,  0,10,13,  0, 9,14,  0, 9,14,  0, 9,13,
+       0, 9,12,  0, 8,14,  0, 8,14,  0, 8,13,  0, 8,12,  0, 8,12,  0, 7,14,  0, 7,14,
+       0, 7,13,  0, 7,12,  0, 7,12,  0, 7,11,  0, 7,11,  0, 6,14,  0, 6,13,  0, 6,12,
+       0, 6,12,  0, 6,11,  0, 6,11,  0, 6,11,  0, 5,14,  0, 5,14,  0, 5,13,  0, 5,12,
+       0, 5,12,  0, 5,11,  0, 5,11,  0, 5,10,  0, 5,10,  0, 5,10,  0, 4,14,  0, 4,14,
+       0, 4,13,  0, 4,12,  0, 4,12,  0, 4,11,  0, 4,11,  0, 4,10,  0, 4,10,  0, 4,10,
+       0, 4, 9,  0, 4, 9,  0, 4, 9,  0, 3,14,  0, 3,13,  0, 3,13,  0, 3,12,  0, 3,11,
+       0, 3,11,  0, 3,11,  0, 3,10,  0, 3,10,  0, 3,10,  0, 3, 9,  0, 3, 9,  0, 3, 9,
+       0, 3, 8,  0, 3, 8,  0, 3, 8,  0, 2,13,  0, 2,13,  0, 2,12,  0, 2,12,  0, 2,11,
+       0, 2,11,  0, 2,10,  0, 2,10,  0, 2,10,  0, 2, 9,  0, 2, 9,  0, 2, 9,  0, 2, 9,
+       0, 1,15,  0, 1,15,  0, 1,15,  0, 1,15,  0, 1,15,  0, 1,14,  0, 1,14,  0, 1,14,
+       0, 1,13,  0, 1,12,  0, 1,12,  0, 1,11,  0, 1,11,  0, 1,10,  0, 1,10,  0, 1,10,
+       0, 1, 9,  0, 1, 9,  0, 1, 9,  0, 1, 9,  0, 1, 8,  0, 1, 8,  0, 1, 8,  0, 1, 8,
+       0, 1, 7,  0, 1, 7,  0, 1, 7,  0, 1, 7,  0, 1, 7,  0, 0,14,  0, 0,14,  0, 0,14,
+       0, 0,14,  0, 0,13,  0, 0,12,  0, 0,12,  0, 0,11,  0, 0,11,  0, 0,10,  0, 0,10
+    ]);
+    this.beeb_trio_odo111 = new Uint8Array([
+      15,15,15, 15,15,15, 15,15,15, 14,15,15, 14,15,15, 14,15,15, 13,15,15, 12,15,15,
+      12,15,15, 11,15,15, 14,14,15, 13,14,15, 13,13,15, 14,12,15, 13,12,15, 12,12,15,
+      13,11,15, 14,10,15, 13,10,15, 11,14,14, 11,13,14, 11,14,13, 11,12,14, 10,14,13,
+      10,13,13, 10,14,12, 10,12,13, 10,11,14,  9,14,12,  9,12,13,  9,11,14,  8,13,13,
+       8,14,12,  8,12,13,  8,11,14,  7,14,13,  7,13,13,  7,14,12,  7,12,13,  7,11,14,
+       7,11,13,  7,10,14,  7,10,14,  6,14,12,  6,13,12,  6,14,11,  6,13,11,  6,13,11,
+       6,11,12,  6,10,13,  6, 9,14,  6, 9,14,  5,14,11,  5,14,11,  5,13,11,  5,11,12,
+       5,11,12,  5,10,13,  5, 9,14,  5, 9,14,  4,15,10,  4,15,10,  4,14,11,  4,14,11,
+       4,13,11,  4,12,11,  4,14,10,  4,13,10,  4,12,10,  4,12,10,  4,10,11,  4, 9,12,
+       4, 9,12,  4, 8,13,  4, 8,13,  3,15, 9,  3,15, 9,  3,14,10,  3,14,10,  3,13,10,
+       3,12,10,  3,12,10,  3,10,11,  3,10,11,  3, 9,12,  3, 8,14,  3, 8,13,  3, 8,12,
+       3, 8,12,  3, 7,14,  3, 7,14,  2,15, 9,  2,15, 9,  2,14,10,  2,14,10,  2,13,10,
+       2,12,10,  2,12,10,  2,10,11,  2, 9,12,  2, 9,12,  2, 8,13,  2, 9,11,  2, 8,12,
+       2, 8,12,  2, 7,14,  2, 7,14,  2, 6,15,  2, 6,15,  2, 6,15,  1,14,11,  1,14,11,
+       1,13,11,  1,12,11,  1,14,10,  1,13,10,  1,12,10,  1,12,10,  1,10,11,  1, 9,12,
+       1, 9,12,  1, 8,13,  1, 9,11,  1, 8,12,  1, 8,12,  1, 7,14,  1, 7,14,  1, 7,13,
+       1, 7,12,  1, 7,12,  1, 7,12,  1, 6,14,  1, 6,14,  1, 6,14,  1, 5,15,  1, 5,15,
+       0,15, 9,  0,15, 9,  0,14,10,  0,14,10,  0,13,10,  0,12,10,  0,12,10,  0,10,11,
+       0, 9,12,  0, 9,12,  0, 8,13,  0, 9,11,  0, 8,12,  0, 8,12,  0, 7,14,  0, 7,14,
+       0, 7,13,  0, 7,12,  0, 7,12,  0, 7,11,  0, 7,11,  0, 6,13,  0, 6,13,  0, 6,12,
+       0, 6,12,  0, 6,11,  0, 6,11,  0, 6,11,  0, 5,14,  0, 5,14,  0, 5,13,  0, 5,12,
+       0, 5,12,  0, 5,11,  0, 5,11,  0, 5,10,  0, 5,10,  0, 5,10,  0, 4,14,  0, 4,14,
+       0, 4,13,  0, 4,12,  0, 4,12,  0, 4,11,  0, 4,11,  0, 4,10,  0, 4,10,  0, 4,10,
+       0, 4,10,  0, 3,14,  0, 3,14,  0, 3,14,  0, 3,13,  0, 3,13,  0, 3,12,  0, 3,11,
+       0, 3,11,  0, 3,11,  0, 3,10,  0, 3,10,  0, 3,10,  0, 3, 9,  0, 3, 9,  0, 3, 9,
+       0, 3, 9,  0, 2,14,  0, 2,14,  0, 2,14,  0, 2,13,  0, 2,12,  0, 2,12,  0, 2,11,
+       0, 2,11,  0, 2,10,  0, 2,10,  0, 2,10,  0, 2, 9,  0, 2, 9,  0, 2, 9,  0, 2, 9,
+       0, 2, 8,  0, 2, 8,  0, 2, 8,  0, 2, 8,  0, 2, 8,  0, 1,14,  0, 1,14,  0, 1,14,
+       0, 1,13,  0, 1,12,  0, 1,12,  0, 1,11,  0, 1,11,  0, 1,10,  0, 1,10,  0, 1,10,
+       0, 1, 9,  0, 1, 9,  0, 1, 9,  0, 1, 9,  0, 1, 8,  0, 1, 8,  0, 1, 8,  0, 1, 8,
+       0, 0,15,  0, 0,15,  0, 0,15,  0, 0,15,  0, 0,15,  0, 0,15,  0, 0,14,  0, 0,14,
+       0, 0,14,  0, 0,13,  0, 0,12,  0, 0,12,  0, 0,11,  0, 0,11,  0, 0,10,  0, 0,10
+    ]);
   }
 
   process(inputs, outputs, parameters) {
@@ -1028,6 +1107,21 @@ console.log("unique values: " + unique_values);
       this.beeb_num_sn_write_slots = 8;
       this.beeb_period_advances = this.beeb_period_advances_15k;
       this.beeb_output_divider = 3.0;
+    } else if (name == "MERGED3_TABLE") {
+      const table_name = data_array[1];
+      if (table_name == "within1") {
+        this.setupBeebTrioWithin(1);
+      } else if (table_name == "within2") {
+        this.setupBeebTrioWithin(2);
+      } else if (table_name == "within3") {
+        this.setupBeebTrioWithin(3);
+      } else if (table_name == "naive") {
+        this.setupBeebTrioWithin(15);
+      } else if (table_name == "odo222") {
+        this.setupBeebTrioFromTable(this.beeb_trio_odo222);
+      } else if (table_name == "odo111") {
+        this.setupBeebTrioFromTable(this.beeb_trio_odo111);
+      }
     } else if (name == "BEEB_MERGED_GAIN") {
       const gain = data_array[1];
       this.beeb_merged_gain = gain;
