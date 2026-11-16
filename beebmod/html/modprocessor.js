@@ -38,6 +38,8 @@ class MODProcessor extends AudioWorkletProcessor {
     this.do_vibrato = false;
     this.do_slides = false;
     this.do_cuts = false;
+    // Matches the "Apply gains" checkbox's initial state in the HTML.
+    this.do_gains = true;
 
     // Play state.
     this.is_amiga = true;
@@ -560,7 +562,9 @@ console.log("unique values: " + unique_values);
       s8_output = effect_table[u8_index];
     }
 
-    s8_output *= this.mod_gain[channel];
+    if (this.do_gains) {
+      s8_output *= this.mod_gain[channel];
+    }
 
     // No volume, rounding or clipping here: each mode does its own.
     this.s8_outputs[channel] = s8_output;
@@ -1094,6 +1098,9 @@ console.log("unique values: " + unique_values);
     } else if (name == "CUTS") {
       const do_cuts = data_array[1];
       this.do_cuts = do_cuts;
+    } else if (name == "GAINS") {
+      const do_gains = data_array[1];
+      this.do_gains = do_gains;
     } else {
       console.log("unknown command: " + name);
       console.log("samples: ",

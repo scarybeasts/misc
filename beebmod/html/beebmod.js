@@ -77,6 +77,8 @@ function beebmod_setup_listeners() {
   checkbox_slides.addEventListener("change", beebmod_checkbox_slides);
   const checkbox_cuts = document.getElementById("checkbox_cuts");
   checkbox_cuts.addEventListener("change", beebmod_checkbox_cuts);
+  const checkbox_gains = document.getElementById("checkbox_gains");
+  checkbox_gains.addEventListener("change", beebmod_checkbox_gains);
   const number_beeb_merged_gain =
       document.getElementById("number_beeb_merged_gain");
   number_beeb_merged_gain.addEventListener("change",
@@ -396,6 +398,11 @@ function beebmod_checkbox_slides(event) {
 function beebmod_checkbox_cuts(event) {
   const checked = event.target.checked;
   window.beebmod_port.postMessage(["CUTS", checked]);
+}
+
+function beebmod_checkbox_gains(event) {
+  const checked = event.target.checked;
+  window.beebmod_port.postMessage(["GAINS", checked]);
 }
 
 function beebmod_number_beeb_merged_gain(event) {
