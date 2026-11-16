@@ -1022,6 +1022,12 @@ console.log("unique values: " + unique_values);
       this.beeb_num_sn_write_slots = 12;
       this.beeb_period_advances = this.beeb_period_advances_10k;
       this.beeb_output_divider = 3.0;
+    } else if (name == "BEEB_MERGED3_15K") {
+      this.is_amiga = false;
+      this.beeb_channels = 3;
+      this.beeb_num_sn_write_slots = 8;
+      this.beeb_period_advances = this.beeb_period_advances_15k;
+      this.beeb_output_divider = 3.0;
     } else if (name == "BEEB_MERGED_GAIN") {
       const gain = data_array[1];
       this.beeb_merged_gain = gain;
