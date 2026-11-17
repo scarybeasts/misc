@@ -1580,9 +1580,10 @@ console.log("unique values: " + unique_values);
   getVolumeSlide(minor_command) {
     const slide_down = (minor_command & 0xF);
     const slide_up = (minor_command >> 4);
-    if ((slide_up > 0) && (slide_down > 0)) {
-      alert("volume slide up and down!");
-    }
+    // If both are set, e.g. A28, the slide up wins and the slide down is
+    // ignored. This is what ProTracker does: it only looks at the low nibble
+    // if the high nibble is zero. OpenMPT does the same for MOD files.
+    // Example: mod.ice02225 (positions 18 to 21, channel 3)
     if (slide_up > 0) {
       return slide_up;
     } else {
