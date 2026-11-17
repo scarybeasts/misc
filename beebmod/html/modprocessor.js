@@ -208,6 +208,7 @@ class MODProcessor extends AudioWorkletProcessor {
     this.beeb_period_advances_7k = new Uint16Array(1024);
     this.beeb_period_advances_10k = new Uint16Array(1024);
     this.beeb_period_advances_12k = new Uint16Array(1024);
+    this.beeb_period_advances_13k = new Uint16Array(1024);
     this.beeb_period_advances_15k = new Uint16Array(1024);
     this.beeb_period_advances_20k = new Uint16Array(1024);
     this.beeb_sn_vol_to_output = new Float64Array(16);
@@ -320,6 +321,7 @@ console.log("unique values: " + unique_values);
     this.setupBeebAdvances(this.beeb_period_advances_7k, 256);
     this.setupBeebAdvances(this.beeb_period_advances_10k, 192);
     this.setupBeebAdvances(this.beeb_period_advances_12k, 160);
+    this.setupBeebAdvances(this.beeb_period_advances_13k, 144);
     this.setupBeebAdvances(this.beeb_period_advances_15k, 128);
     this.setupBeebAdvances(this.beeb_period_advances_20k, 96);
 
@@ -952,6 +954,7 @@ console.log("unique values: " + unique_values);
       //  7.8kHz: 16 write slots.
       // 10.4kHz: 12 write slots.
       // 12.5kHz: 10 write slots.
+      // 13.9kHz: 9 write slots.
       // 15.6kHz: 8 write slots.
       // 20.8kHz: 6 write slots.
       this.beeb_sn_write_slot++;
@@ -1108,6 +1111,19 @@ console.log("unique values: " + unique_values);
       this.beeb_channels = 3;
       this.beeb_num_sn_write_slots = 12;
       this.beeb_period_advances = this.beeb_period_advances_10k;
+      this.beeb_output_divider = 3.0;
+    } else if (name == "BEEB_MERGED3_12K") {
+      this.is_amiga = false;
+      this.beeb_channels = 3;
+      this.beeb_num_sn_write_slots = 10;
+      this.beeb_period_advances = this.beeb_period_advances_12k;
+      this.beeb_output_divider = 3.0;
+    } else if (name == "BEEB_MERGED3_13K") {
+      // A 72us loop only fits whole carrier cycles for SN periods 1 and 3.
+      this.is_amiga = false;
+      this.beeb_channels = 3;
+      this.beeb_num_sn_write_slots = 9;
+      this.beeb_period_advances = this.beeb_period_advances_13k;
       this.beeb_output_divider = 3.0;
     } else if (name == "BEEB_MERGED3_15K") {
       this.is_amiga = false;
