@@ -49,6 +49,9 @@ class MODProcessor extends AudioWorkletProcessor {
     this.beeb_num_sn_write_slots = 0;
     this.beeb_output_divider = 0.0;
     this.beeb_sn_period = new Uint16Array(4);
+    // How many 4us SN ticks each SN channel's carrier is delayed by at the
+    // start of play. 0 for all channels is the original alignment.
+    this.beeb_sn_carrier_start = new Uint16Array(4);
 
     this.is_playing = false;
     this.rate = sampleRate;
@@ -1041,6 +1044,11 @@ console.log("unique values: " + unique_values);
     } else if (name == "PLAY") {
       const position = data_array[1];
       const speed = data_array[2];
+      // Start the SN carriers and write slots afresh, so that every play
+      // has the same alignment relative to the song.
+      // This is before handleStop() because handleStop() sets up the
+      // advances for the silent sample.
+      this.resetBeeb();
       this.handleStop();
       this.handlePlay(position, speed);
     } else if (name == "STOP") {
@@ -1149,6 +1157,11 @@ console.log("unique values: " + unique_values);
       const channel = data_array[1];
       const period = data_array[2];
       this.beeb_sn_period[channel] = period;
+    } else if (name == "SN_CARRIER_START") {
+      // Takes effect at the next play.
+      const channel = data_array[1];
+      const carrier_start = data_array[2];
+      this.beeb_sn_carrier_start[channel] = carrier_start;
     } else if (name == "PLAY_SAMPLE") {
       const channel = data_array[1];
       const sample_index = data_array[2];
@@ -1651,13 +1664,19 @@ console.log("unique values: " + unique_values);
     this.beeb_sn_write_slot = 0;
 
     for (let i = 0; i < 4; ++i) {
+      // Each carrier starts low, and goes high after (1 + carrier start)
+      // ticks of 4us. With a carrier start of 0, all the carriers go high
+      // together at the end of the first tick, which is the tick of the
+      // first write.
       this.beeb_sn_is_highs[i] = 0;
       // Silent.
       this.beeb_sn_vols[i] = 0xF;
-      this.beeb_sn_counters[i] = 1;
+      this.beeb_sn_counters[i] = (1 + this.beeb_sn_carrier_start[i]);
       this.beeb_mod_sample_subindexes[i] = 0;
       this.beeb_channel_advances_lo[i] = 0;
       this.beeb_channel_advances_hi[i] = 0;
+      // Don't start with a sample value left over from the last play.
+      this.s8_outputs[i] = 0;
     }
   }
 }

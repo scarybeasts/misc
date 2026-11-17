@@ -83,6 +83,10 @@ function beebmod_setup_listeners() {
     const input_period = document.getElementById("number_period" + i);
     input_period.addEventListener("change", beebmod_number_period);
   }
+  for (let i = 1; i <= 4; ++i) {
+    const input_carrier = document.getElementById("number_carrier" + i);
+    input_carrier.addEventListener("change", beebmod_number_carrier);
+  }
   const checkbox_filter = document.getElementById("checkbox_filter");
   checkbox_filter.addEventListener("change", beebmod_checkbox_filter);
   const checkbox_volumes = document.getElementById("checkbox_volumes");
@@ -156,6 +160,10 @@ function beebmod_set_default_config() {
   beebmod_load_number_config("number_period2", 2);
   beebmod_load_number_config("number_period3", 2);
   beebmod_load_number_config("number_period4", 2);
+  beebmod_load_number_config("number_carrier1", 0);
+  beebmod_load_number_config("number_carrier2", 0);
+  beebmod_load_number_config("number_carrier3", 0);
+  beebmod_load_number_config("number_carrier4", 0);
 }
 
 function beebmod_load_number_config(name, value) {
@@ -497,6 +505,14 @@ function beebmod_number_period(event) {
   channel--;
   const period = event.target.value;
   window.beebmod_port.postMessage(["SN_PERIOD", channel, period]);
+}
+
+function beebmod_number_carrier(event) {
+  const id = event.target.id;
+  let channel = Number(id.slice(-1));
+  channel--;
+  const carrier_start = event.target.value;
+  window.beebmod_port.postMessage(["SN_CARRIER_START", channel, carrier_start]);
 }
 
 function beebmod_play_sample(event) {
