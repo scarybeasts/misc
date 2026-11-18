@@ -10,7 +10,9 @@ static int s_is_verbose;
 static int s_is_no_check_beeb_crc;
 static int s_is_double_step;
 
-static const uint32_t k_max_num_tracks = 82;
+enum {
+  k_max_num_tracks = 82,
+};
 /* Each block is 512 bytes, 256 per side. */
 static const uint32_t k_default_hfe_blocks_per_track = 50;
 
